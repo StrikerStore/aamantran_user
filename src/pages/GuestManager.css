@@ -1,0 +1,18 @@
+.rsvp-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rsvp-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.rsvp-chip.yes     { background: rgba(42,158,104,0.12); color: var(--green); }
+.rsvp-chip.no      { background: rgba(201,64,48,0.12);  color: var(--red); }
+.rsvp-chip.pending { background: rgba(154,155,173,0.12); color: var(--text-muted); }

@@ -1,0 +1,63 @@
+.wish-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.wish-list {
+  display: grid;
+  gap: 12px;
+}
+
+.wish-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.wish-item.hidden {
+  background: #fbfbfc;
+}
+
+.wish-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wish-author {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.wish-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wish-time {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.wish-message {
+  color: var(--text);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.wish-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.wish-delete-btn {
+  color: var(--red);
+}

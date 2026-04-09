@@ -1,0 +1,43 @@
+.review-card { max-width: 600px; }
+
+.review-template-info {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.review-template-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+.review-template-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 500; color: var(--text-primary); }
+
+.star-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.star-btn {
+  font-size: 2.2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--bg-overlay);
+  line-height: 1;
+  padding: 2px;
+  transition: color var(--t-fast), transform var(--t-fast);
+}
+.star-btn.active { color: var(--gold); }
+.star-btn:hover  { transform: scale(1.15); }
+
+.rating-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gold);
+  margin-left: 8px;
+}
+
+.review-submitted {
+  text-align: center;
+  padding: 60px 24px;
+}
+.review-submitted-icon { font-size: 4rem; margin-bottom: 16px; }
+.review-submitted h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; }
+.review-submitted p { color: var(--text-muted); font-size: 0.9rem; }

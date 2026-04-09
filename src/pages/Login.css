@@ -1,0 +1,67 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+  padding: 20px;
+}
+
+.login-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-xl);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-gold);
+  animation: slideUp 0.3s ease-out;
+}
+
+.login-logo { text-align: center; margin-bottom: 32px; }
+.login-logo-img { width: 56px; height: 56px; object-fit: contain; display: block; margin: 0 auto 12px; }
+.login-logotype { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 600; color: var(--gold); letter-spacing: 0.02em; }
+.login-tagline { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+
+.login-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 500; color: var(--text-primary); margin-bottom: 6px; }
+.login-sub { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 28px; }
+
+.login-form { display: flex; flex-direction: column; gap: 4px; }
+.login-error { background: rgba(201,64,48,0.08); border: 1px solid rgba(201,64,48,0.25); border-radius: var(--r-sm); padding: 10px 14px; font-size: 0.85rem; color: var(--red); margin-bottom: 4px; }
+.login-btn { width: 100%; justify-content: center; padding: 11px; font-size: 0.95rem; margin-top: 8px; }
+.login-footer { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 20px; }
+
+.login-link {
+  border: none;
+  background: transparent;
+  color: var(--gold);
+  font-size: 0.82rem;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.recovery-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.recovery-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-xl);
+  padding: 24px;
+}
+
+.recovery-card h2 {
+  margin: 0 0 16px;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.35rem;
+}

@@ -1,0 +1,58 @@
+.tickets-list { display: flex; flex-direction: column; }
+
+.ticket-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background var(--t-fast);
+  border-radius: var(--r-sm);
+  padding-left: 8px;
+}
+.ticket-row:last-child { border-bottom: none; }
+.ticket-row:hover { background: var(--bg-elevated); }
+
+.ticket-info { flex: 1; }
+.ticket-subject { font-weight: 600; color: var(--text-primary); font-size: 0.9rem; }
+.ticket-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
+
+.ticket-event-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-top: 8px;
+}
+.ticket-event-check input { accent-color: var(--gold); }
+
+/* Thread */
+.ticket-thread { display: flex; flex-direction: column; gap: 14px; }
+
+.thread-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  max-width: 90%;
+}
+
+.thread-msg.user {
+  background: rgba(184,145,46,0.10);
+  align-self: flex-end;
+  border: 1px solid var(--border-gold);
+}
+
+.thread-msg.admin, .thread-msg.support {
+  background: var(--bg-elevated);
+  align-self: flex-start;
+  border: 1px solid var(--border-subtle);
+}
+
+.thread-role { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.thread-body { font-size: 0.875rem; color: var(--text-primary); white-space: pre-wrap; line-height: 1.5; }
+.thread-time { font-size: 0.72rem; color: var(--text-muted); }
