@@ -132,7 +132,9 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
             <div key={m.id} className="item-row">
               <div className="item-info">
                 <span className="item-label">{m.type}{m.caption ? ` — ${m.caption}` : ''}</span>
-                <span className="item-meta" style={{ wordBreak: 'break-all' }}>{m.url}</span>
+                {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
+                {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
+                {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent, #8b3a3a)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
               </div>
               <div className="item-actions">
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemoveRequest(m)}>Remove</button>
@@ -185,6 +187,20 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
     </div>
   );
 }
+
+/** Demo placeholder names keyed by common role values from template schemas */
+const DEMO_NAMES = {
+  bride:          'e.g. Priya Sharma',
+  groom:          'e.g. Rahul Verma',
+  bride_father:   'e.g. Rajesh Sharma',
+  bride_mother:   'e.g. Sunita Sharma',
+  groom_father:   'e.g. Suresh Verma',
+  groom_mother:   'e.g. Kavita Verma',
+  father_bride:   'e.g. Rajesh Sharma',
+  mother_bride:   'e.g. Sunita Sharma',
+  father_groom:   'e.g. Suresh Verma',
+  mother_groom:   'e.g. Kavita Verma',
+};
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -443,6 +459,14 @@ export default function GenerateInvitation() {
       if (fn._isNew) {
         const r = await api.functions.add(id, payload);
         setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
+        // Transition partial selection from _cid to real id
+        setPartialFnIds(prev => {
+          if (!prev.has(fn._cid)) return prev;
+          const next = new Set(prev);
+          next.delete(fn._cid);
+          if (r.function.id) next.add(r.function.id);
+          return next;
+        });
       } else {
         const r = await api.functions.update(id, fn.id, payload);
         setFunctions(prev => prev.map(f => f.id === fn.id ? r.function : f));
@@ -675,7 +699,7 @@ export default function GenerateInvitation() {
         slugFull: slugFull || undefined,
         createPartial: partialEnabled && !event.invitePairId,
         partialSlug: partialEnabled ? partialSlug : undefined,
-        partialFunctionIds: partialEnabled ? [...partialFnIds] : undefined,
+        partialFunctionIds: partialEnabled ? [...partialFnIds].filter(k => !String(k).startsWith('new-')) : undefined,
       };
       await api.events.publish(id, body);
       // Reload event to get updated slug, inviteScope, pairedEvent
@@ -785,7 +809,7 @@ export default function GenerateInvitation() {
                     <label className="form-label">Role <span className="form-hint-inline">(fallback mode)</span></label>
                     <input
                       className="form-input"
-                      placeholder="Bride"
+                      placeholder="e.g. Bride, Groom, Father of Bride"
                       value={personForm.role}
                       onChange={e => setPersonForm(f => ({ ...f, role: e.target.value }))}
                     />
@@ -794,7 +818,7 @@ export default function GenerateInvitation() {
                     <label className="form-label">Full Name</label>
                     <input
                       className="form-input"
-                      placeholder="Priya Sharma"
+                      placeholder="e.g. Priya Sharma"
                       value={personForm.name}
                       onChange={e => setPersonForm(f => ({ ...f, name: e.target.value }))}
                     />
@@ -822,35 +846,42 @@ export default function GenerateInvitation() {
               </div>
             )}
 
-            {!frozen && hasSchemaPeopleRoles && (
+            {hasSchemaPeopleRoles && (
               <div className="inline-form">
                 <div className="form-hint" style={{ marginBottom: 10 }}>
-                  Roles are fixed by template schema. Fill names only.
+                  {frozen
+                    ? 'Required names are locked after confirmation. You can still edit optional names below.'
+                    : 'Roles are fixed by template schema. Fill names only.'}
                 </div>
                 <div className="form-row" style={{ marginBottom: 8 }}>
                   <div className="form-label">Role</div>
                   <div className="form-label">Full Name</div>
                 </div>
-                {schemaPeopleRoles.map((roleDef) => (
-                  <div className="form-row" key={roleDef.role}>
-                    <div className="form-group">
-                      <div className="item-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {roleDef.label}
-                        <span className={`badge ${roleDef.required ? 'badge-published' : 'badge-draft'}`}>
-                          {roleDef.required ? 'Required' : 'Optional'}
-                        </span>
+                {schemaPeopleRoles.map((roleDef) => {
+                  const isLocked = frozen && roleDef.required;
+                  return (
+                    <div className="form-row" key={roleDef.role}>
+                      <div className="form-group">
+                        <div className="item-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {roleDef.label}
+                          <span className={`badge ${roleDef.required ? 'badge-published' : 'badge-draft'}`}>
+                            {roleDef.required ? 'Required' : 'Optional'}
+                          </span>
+                          {isLocked && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒</span>}
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <input
+                          className="form-input"
+                          placeholder={DEMO_NAMES[roleDef.role] || `e.g. ${roleDef.label} Name`}
+                          value={peopleInputs[roleDef.role] || ''}
+                          onChange={(e) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: e.target.value }))}
+                          disabled={isLocked}
+                        />
                       </div>
                     </div>
-                    <div className="form-group">
-                      <input
-                        className="form-input"
-                        placeholder={`Enter ${roleDef.label}`}
-                        value={peopleInputs[roleDef.role] || ''}
-                        onChange={(e) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <div className="inline-form-actions">
                   <button className="btn btn-primary btn-sm" disabled={savingPerson} onClick={savePeopleBySchema}>
                     {savingPerson ? <span className="btn-spinner" /> : null}
@@ -943,7 +974,7 @@ export default function GenerateInvitation() {
                       <div className="form-row">
                         <div className="form-group">
                           <label className="form-label">Function Name <span className="req">*</span></label>
-                          <input className="form-input" placeholder="e.g. Wedding Ceremony"
+                          <input className="form-input" placeholder="e.g. Wedding Ceremony, Mehendi, Sangeet"
                             value={fn.name}
                             onChange={e => updateFnField(key, 'name', e.target.value)}
                           />
@@ -1005,33 +1036,35 @@ export default function GenerateInvitation() {
                       <div className="form-row">
                         <div className="form-group">
                           <label className="form-label">Start Time</label>
-                          <input className="form-input" placeholder="7:00 PM"
+                          <input className="form-input" placeholder="e.g. 7:00 PM"
                             value={fn.startTime || ''}
                             onChange={e => updateFnField(key, 'startTime', e.target.value)}
                           />
                         </div>
                         <div className="form-group">
                           <label className="form-label">Dress Code</label>
-                          <input className="form-input" placeholder="Traditional"
+                          <input className="form-input" placeholder="e.g. Traditional / Ethnic / Formal"
                             value={fn.dressCode || ''}
                             onChange={e => updateFnField(key, 'dressCode', e.target.value)}
                           />
                         </div>
                       </div>
 
-                      {/* Partial invite checkbox — enabled in both generate and edit modes */}
-                      {functions.length > 1 && !fn._isNew && (
+                      {/* Partial invite checkbox — shown for all functions including unsaved */}
+                      {functions.length > 1 && (
                         <label className="fn-partial-label">
                           <input
                             type="checkbox"
-                            checked={partialFnIds.has(fn.id)}
+                            checked={partialFnIds.has(fn.id || fn._cid)}
                             onChange={e => setPartialFnIds(prev => {
                               const next = new Set(prev);
-                              e.target.checked ? next.add(fn.id) : next.delete(fn.id);
+                              const k = fn.id || fn._cid;
+                              e.target.checked ? next.add(k) : next.delete(k);
                               return next;
                             })}
                           />
                           Include in <strong>partial invite</strong>
+                          {fn._isNew && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 6 }}>(save first to apply)</span>}
                         </label>
                       )}
 
@@ -1058,7 +1091,7 @@ export default function GenerateInvitation() {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Venue Name</label>
-                  <input className="form-input" placeholder="Palace Hotel"
+                  <input className="form-input" placeholder="e.g. Raj Palace Banquet Hall"
                     value={editingVenue ? editingVenue.name : venueForm.name}
                     onChange={e => editingVenue ? setEditingVenue(v => ({ ...v, name: e.target.value })) : setVenueForm(f => ({ ...f, name: e.target.value }))}
                   />
@@ -1073,7 +1106,7 @@ export default function GenerateInvitation() {
               </div>
               <div className="form-group">
                 <label className="form-label">Full Address</label>
-                <input className="form-input" placeholder="123 Marine Drive, Mumbai 400001"
+                <input className="form-input" placeholder="e.g. 14 MG Road, Bandra West, Mumbai 400050"
                   value={editingVenue ? editingVenue.address || '' : venueForm.address}
                   onChange={e => editingVenue ? setEditingVenue(v => ({ ...v, address: e.target.value })) : setVenueForm(f => ({ ...f, address: e.target.value }))}
                 />
@@ -1163,7 +1196,9 @@ export default function GenerateInvitation() {
                         <div key={m.id} className="item-row">
                           <div className="item-info">
                             <span className="item-label">{m.type}</span>
-                            <span className="item-meta" style={{ wordBreak: 'break-all' }}>{m.url}</span>
+                            {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
+                            {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
+                            {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent, #8b3a3a)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
                           </div>
                           <div className="item-actions">
                             <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeletingMedia(m)}>Remove</button>
@@ -1226,7 +1261,9 @@ export default function GenerateInvitation() {
                       <div key={m.id} className="item-row">
                         <div className="item-info">
                           <span className="item-label">{m.type}{m.slotKey ? ` (${m.slotKey})` : ''}</span>
-                          <span className="item-meta" style={{ wordBreak: 'break-all' }}>{m.url}</span>
+                          {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
+                          {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
+                          {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent, #8b3a3a)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
                           {m.caption && <span className="item-meta">{m.caption}</span>}
                         </div>
                         <div className="item-actions">
@@ -1307,7 +1344,7 @@ export default function GenerateInvitation() {
               <input
                 className="form-input"
                 type="url"
-                placeholder="https://instagram.com/yourhandle"
+                placeholder="e.g. https://instagram.com/priya_rahul_2025"
                 value={instagramUrl}
                 onChange={(e) => setInstagramUrl(e.target.value)}
               />
@@ -1387,24 +1424,6 @@ export default function GenerateInvitation() {
                 <PreflyItem ok={frozen} label="Names confirmed" />
                 <PreflyItem ok={functions.length > 0} label="At least one ceremony added" />
                 <PreflyItem ok={event.isPublished} label="Invitation published" />
-              </div>
-
-              <div className="publish-actions" style={{ marginBottom: 12 }}>
-                {!event.isPublished ? (
-                  <button
-                    className="btn btn-primary"
-                    disabled={!frozen || publishing}
-                    onClick={handlePublish}
-                    title={!frozen ? 'Confirm your names first (Section A)' : ''}
-                  >
-                    {publishing ? <span className="btn-spinner" /> : '🚀'}
-                    Publish Invitation
-                  </button>
-                ) : (
-                  <button className="btn btn-danger btn-sm" onClick={() => setConfirmUnpublish(true)}>
-                    Unpublish Invitation
-                  </button>
-                )}
               </div>
 
               <hr className="divider" />
@@ -1565,15 +1584,42 @@ export default function GenerateInvitation() {
                   ⚠️ Confirm your names (Section A) before publishing.
                 </div>
               )}
+
+              {/* Big publish / unpublish button — below invite columns, above WhatsApp */}
+              <div style={{ marginTop: 24 }}>
+                {!event.isPublished ? (
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', padding: '14px 20px', fontSize: '1.1rem', fontWeight: 700, borderRadius: 10 }}
+                    disabled={!frozen || publishing}
+                    onClick={handlePublish}
+                    title={!frozen ? 'Confirm your names first (Section A)' : ''}
+                  >
+                    {publishing ? <span className="btn-spinner" /> : '🚀'}
+                    {publishing ? ' Publishing…' : ' Publish Invitation'}
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-danger btn-sm"
+                    style={{ float: 'right' }}
+                    onClick={() => setConfirmUnpublish(true)}
+                  >
+                    Unpublish Invitation
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* WhatsApp Share — same rich composer as before */}
+            {/* WhatsApp Share — shown after publish */}
             {event.isPublished && (
               <WhatsAppShare
                 event={event}
                 people={people}
                 functions={functions}
+                venues={venues}
                 partialUrl={partialUrl}
+                eventId={id}
+                schemaPeopleRoles={schemaPeopleRoles}
               />
             )}
           </div>
