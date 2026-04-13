@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
@@ -11,6 +11,24 @@ export default function Review() {
   const [hover, setHover] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileInputRef = useRef(null);
+
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setPhotoPreview(reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  function removePhoto() {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -18,13 +36,27 @@ export default function Review() {
     if (!form.rating) { toast('Please select a rating', 'error'); return; }
     setSubmitting(true);
     try {
-      await api.review.submit({
-        templateId: activeEvent.template.id,
-        rating: form.rating,
-        reviewText: form.reviewText,
-        coupleNames: form.coupleNames,
-        location: form.location,
-      });
+      let payload;
+      if (photoFile) {
+        // Send as multipart so the photo gets to the server
+        const fd = new FormData();
+        fd.append('templateId',  activeEvent.template.id);
+        fd.append('rating',      String(form.rating));
+        if (form.reviewText)  fd.append('reviewText',  form.reviewText);
+        if (form.coupleNames) fd.append('coupleNames', form.coupleNames);
+        if (form.location)    fd.append('location',    form.location);
+        fd.append('couplePhoto', photoFile);
+        payload = fd;
+      } else {
+        payload = {
+          templateId:  activeEvent.template.id,
+          rating:      form.rating,
+          reviewText:  form.reviewText,
+          coupleNames: form.coupleNames,
+          location:    form.location,
+        };
+      }
+      await api.review.submit(payload);
       setSubmitted(true);
       toast('Review submitted! Thank you 🎉', 'success');
     } catch (err) {
@@ -117,6 +149,60 @@ export default function Review() {
                 value={form.reviewText}
                 onChange={e => setForm(f => ({ ...f, reviewText: e.target.value }))}
               />
+            </div>
+
+            {/* Couple photo upload — optional */}
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label">
+                📸 Couple Photo with Invite in Hand
+                <span className="form-hint-inline" style={{ marginLeft: 6 }}>(optional)</span>
+              </label>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+                Upload a photo of you holding the invite on your device — it'll appear on our website as a real-couple card flip! Max 5 MB.
+              </p>
+
+              {photoPreview ? (
+                <div style={{ position: 'relative', display: 'inline-block', marginBottom: 12 }}>
+                  <img
+                    src={photoPreview}
+                    alt="Preview"
+                    style={{ width: 180, height: 180, objectFit: 'cover', borderRadius: 12, border: '2px solid var(--border-subtle)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={removePhoto}
+                    style={{
+                      position: 'absolute', top: -8, right: -8,
+                      background: 'var(--red, #c0392b)', color: '#fff',
+                      border: 'none', borderRadius: '50%', width: 24, height: 24,
+                      cursor: 'pointer', fontSize: '0.75rem', lineHeight: '24px', textAlign: 'center',
+                    }}
+                    title="Remove photo"
+                  >✕</button>
+                </div>
+              ) : (
+                <label
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    border: '2px dashed var(--border-subtle)', borderRadius: 10,
+                    padding: '14px 18px', cursor: 'pointer',
+                    background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+                    fontSize: '0.85rem', transition: 'border-color 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
+                >
+                  <span style={{ fontSize: '1.4rem' }}>🖼️</span>
+                  <span>Click to upload a photo (JPG, PNG, WebP — max 5 MB)</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    style={{ display: 'none' }}
+                    onChange={handlePhotoChange}
+                  />
+                </label>
+              )}
             </div>
 
             <button type="submit" className="btn btn-primary" disabled={submitting || !form.rating}>

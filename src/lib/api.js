@@ -142,7 +142,10 @@ export const api = {
   },
 
   review: {
-    submit: (body) => request('POST', '/api/user/review', { body }),
+    submit: (body) => {
+      const isFormData = body instanceof FormData;
+      return request('POST', '/api/user/review', { body, multipart: isFormData });
+    },
   },
 };
 
