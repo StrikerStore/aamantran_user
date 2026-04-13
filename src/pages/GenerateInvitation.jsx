@@ -1294,50 +1294,13 @@ export default function GenerateInvitation() {
                           onChange={e => setFieldValue(field.key, e.target.value)}
                         />
                       ) : (
-                        <>
-                          <input
-                            className="form-input"
-                            type={field.type || 'text'}
-                            list={suggestions.length ? listId : undefined}
-                            placeholder={field.placeholder || (suggestions[0] ? `e.g. ${suggestions[0]}` : '')}
-                            value={saved?.fieldValue || ''}
-                            onChange={e => setFieldValue(field.key, e.target.value)}
-                          />
-                          {suggestions.length > 0 && (
-                            <datalist id={listId}>
-                              {suggestions.map(s => <option key={s} value={s} />)}
-                            </datalist>
-                          )}
-                        </>
-                      )}
-                      {/* Suggestion chips */}
-                      {suggestions.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                            {CUSTOM_FIELD_HINT_LABEL[field.key] || 'Suggestions:'}
-                          </span>
-                          {suggestions.map(s => (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => setFieldValue(field.key, s)}
-                              style={{
-                                fontSize: '0.72rem',
-                                padding: '2px 10px',
-                                borderRadius: 20,
-                                border: '1px solid var(--border-subtle)',
-                                background: 'var(--bg-elevated)',
-                                color: 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s',
-                              }}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft,#f5ece8)'; e.currentTarget.style.borderColor = 'var(--accent,#8b3a3a)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--border-subtle)'; }}
-                            >
-                              {s}
-                            </button>
-                          ))}
-                        </div>
+                        <input
+                          className="form-input"
+                          type={field.type || 'text'}
+                          placeholder={field.placeholder || (suggestions[0] ? `e.g. ${suggestions[0]}` : '')}
+                          value={saved?.fieldValue || ''}
+                          onChange={e => setFieldValue(field.key, e.target.value)}
+                        />
                       )}
                       {field.hint && <div className="form-hint">{field.hint}</div>}
                     </div>
