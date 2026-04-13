@@ -44,9 +44,31 @@ function normalizeMediaSlots(fullSchema) {
     }));
 }
 
-function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest, toast }) {
+function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest, toast, globalAssets = [] }) {
   const [caption, setCaption] = useState('');
   const [busy, setBusy] = useState(false);
+  const [selectedAssetId, setSelectedAssetId] = useState('');
+
+  async function selectGlobalAsset() {
+    const asset = globalAssets.find(a => a.id === selectedAssetId);
+    if (!asset) return;
+    setBusy(true);
+    try {
+      await api.media.upload(eventId, {
+        slotKey: slot.key,
+        type: slot.type,
+        url: asset.url,
+        caption: asset.name
+      });
+      await refreshMedia();
+      toast('Added!', 'success');
+      setSelectedAssetId('');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function uploadFile(file, cap) {
     const fd = new FormData();
@@ -135,6 +157,33 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
           onChange={onPickFiles}
         />
       </div>
+
+      {slot.key === 'background_music' && globalAssets.filter(a => a.type === 'bg_music').length > 0 && (
+        <div className="form-group" style={{ marginBottom: 12, marginTop: 12 }}>
+          <label className="form-label">Or choose pre-added music</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select
+              className="form-select"
+              style={{ flex: 1 }}
+              value={selectedAssetId}
+              onChange={e => setSelectedAssetId(e.target.value)}
+              disabled={busy || slotItems.length >= slot.max}
+            >
+              <option value="">— Select a track —</option>
+              {globalAssets.filter(a => a.type === 'bg_music').map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <button
+              className="btn btn-secondary"
+              onClick={selectGlobalAsset}
+              disabled={!selectedAssetId || busy || slotItems.length >= slot.max}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      )}
       <div className="form-group" style={{ marginBottom: 8 }}>
         <label className="form-label">Caption (optional)</label>
         <input
@@ -246,6 +295,7 @@ export default function GenerateInvitation() {
   const [templateSchema, setTemplateSchema] = useState(null);
   const [templateDemoData, setTemplateDemoData] = useState(null);
   const [templateLanguages, setTemplateLanguages] = useState(null); // null = all supported
+  const [globalAssets, setGlobalAssets] = useState([]);
 
   // Language
   const [language, setLanguage] = useState('en');
@@ -339,6 +389,11 @@ export default function GenerateInvitation() {
       toast('Failed to load event', 'error');
       setLoading(false);
     });
+
+    // Also load global assets (music, etc)
+    api.assets.list().then(res => {
+      setGlobalAssets(res.assets || []);
+    }).catch(() => {});
   }, [id]);
 
   const schemaPeopleRoles = useMemo(() => {
@@ -1187,6 +1242,7 @@ export default function GenerateInvitation() {
                     refreshMedia={refreshMedia}
                     onRemoveRequest={(m) => setDeletingMedia(m)}
                     toast={toast}
+                    globalAssets={globalAssets}
                   />
                 ))}
                 {media.some((m) => !m.slotKey) && (

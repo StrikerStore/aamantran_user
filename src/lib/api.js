@@ -147,6 +147,10 @@ export const api = {
       return request('POST', '/api/user/review', { body, multipart: isFormData });
     },
   },
+
+  assets: {
+    list: () => request('GET', '/api/assets'),
+  },
 };
 
 export { ApiError };
