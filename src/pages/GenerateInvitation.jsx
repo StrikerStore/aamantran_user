@@ -406,7 +406,8 @@ export default function GenerateInvitation() {
 
         if (existing) {
           if (String(existing.name || '').trim() !== nextName) {
-            const r = await api.people.update(id, existing.id, { role, name: nextName });
+            // Pass required flag so backend allows optional-name edits after freeze
+            const r = await api.people.update(id, existing.id, { role, name: nextName, required: roleDef.required });
             nextPeople = nextPeople.map((p) => (p.id === existing.id ? r.person : p));
           }
         } else {
@@ -1600,11 +1601,11 @@ export default function GenerateInvitation() {
                   </button>
                 ) : (
                   <button
-                    className="btn btn-danger btn-sm"
-                    style={{ float: 'right' }}
+                    className="btn btn-danger"
+                    style={{ width: '100%', padding: '14px 20px', fontSize: '1.1rem', fontWeight: 700, borderRadius: 10 }}
                     onClick={() => setConfirmUnpublish(true)}
                   >
-                    Unpublish Invitation
+                    🔕 Unpublish Invitation
                   </button>
                 )}
               </div>
