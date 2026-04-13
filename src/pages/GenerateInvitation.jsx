@@ -40,12 +40,11 @@ function normalizeMediaSlots(fullSchema) {
             : s.type === 'video'
               ? 'video/*'
               : 'image/*',
-      allowUrl: s.allowUrl !== false,
+      allowUrl: false,
     }));
 }
 
 function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest, toast }) {
-  const [url, setUrl] = useState('');
   const [caption, setCaption] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -83,34 +82,6 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
     }
   }
 
-  async function addUrl() {
-    if (!url.trim()) {
-      toast('Enter a URL or upload a file', 'error');
-      return;
-    }
-    if (slotItems.length >= slot.max) {
-      toast('This section is full — remove an item first', 'error');
-      return;
-    }
-    setBusy(true);
-    try {
-      await api.media.upload(eventId, {
-        slotKey: slot.key,
-        type: slot.type,
-        url: url.trim(),
-        caption: caption.trim() || undefined,
-      });
-      setUrl('');
-      setCaption('');
-      await refreshMedia();
-      toast('Saved!', 'success');
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div
       className="card"
@@ -124,7 +95,6 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
       <div className="section-title" style={{ fontSize: '1rem', marginBottom: 4 }}>{slot.label}</div>
       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10 }}>
         {slot.multiple ? `Up to ${slot.max} files — select multiple on desktop or mobile where supported.` : 'Single file — a new upload replaces the previous one.'}
-        {slot.type === 'video' && ' Short video files or hosted links (e.g. YouTube) if the template supports them.'}
       </p>
       {slotItems.length > 0 && (
         <div className="items-list" style={{ marginBottom: 12 }}>
@@ -133,7 +103,18 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
               <div className="item-info">
                 <span className="item-label">{m.type}{m.caption ? ` — ${m.caption}` : ''}</span>
                 {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
-                {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
+                {m.type === 'music' && (
+                  <div style={{ marginTop: 8, background: 'var(--bg-card,#fff)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>🎵 Background Music</div>
+                    <audio
+                      controls
+                      src={m.url}
+                      style={{ width: '100%', maxWidth: '100%', display: 'block', minWidth: 0, height: 40 }}
+                      controlsList="nodownload"
+                      preload="metadata"
+                    />
+                  </div>
+                )}
                 {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent, #8b3a3a)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
               </div>
               <div className="item-actions">
@@ -154,11 +135,6 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
           onChange={onPickFiles}
         />
       </div>
-      {slot.allowUrl && (
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Or paste URL {slot.type === 'video' ? '(e.g. video file or YouTube)' : ''}</label>
-            <input
               className="form-input"
               placeholder="https://..."
               value={url}
@@ -200,6 +176,35 @@ const DEMO_NAMES = {
   mother_bride:   'e.g. Sunita Sharma',
   father_groom:   'e.g. Suresh Verma',
   mother_groom:   'e.g. Kavita Verma',
+};
+
+/** Suggestions for common custom field keys — shown as datalist options */
+const CUSTOM_FIELD_SUGGESTIONS = {
+  hashtag:            ['#PriyaRahulForever', '#SnehaWedsSohan', '#LoveStory2025'],
+  couple_hashtag:     ['#PriyaRahulForever', '#SnehaWedsSohan', '#LoveStory2025'],
+  wedding_hashtag:    ['#PriyaRahulWedding2025', '#TheBigDay'],
+  venue_note:         ['Valet parking available', 'Guests to arrive 30 minutes early', 'Traditional attire preferred'],
+  dress_code:         ['Ethnic wear', 'Formal attire', 'Pastel shades only', 'No black please', 'Saree / Sherwani', 'Traditional Indian'],
+  rsvp_note:          ['Please RSVP by 15th January', 'Kindly confirm by the end of this month'],
+  special_note:       ['No gifts please, your blessings are enough', 'Only family and close friends'],
+  tagline:            ['Two hearts, one journey', 'A love story worth celebrating', 'Forever starts today'],
+  footer_note:        ['Please carry this invite on your phone', 'Show this invite at the entrance'],
+  couple_story:       ['We met at college and the rest is history', 'A chance meeting turned into a lifetime'],
+  contact_name:       ['Rahul Sharma', 'Priya Patel'],
+  contact_phone:      ['+91 98765 43210'],
+  bride_side_contact: ['e.g. +91 98765 43210'],
+  groom_side_contact: ['e.g. +91 98765 43210'],
+  invitation_note:    ['Dinner will be served', 'Cocktails at 7 PM', 'Ceremony starts promptly at 11 AM'],
+};
+
+/** Map common field keys to human-readable suggestion labels shown below the input */
+const CUSTOM_FIELD_HINT_LABEL = {
+  hashtag:         'e.g.',
+  couple_hashtag:  'e.g.',
+  dress_code:      'Popular choices:',
+  rsvp_note:       'e.g.',
+  special_note:    'e.g.',
+  tagline:         'Inspiration:',
 };
 
 const LANGUAGES = [
@@ -1222,7 +1227,7 @@ export default function GenerateInvitation() {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Upload file</label>
+                      <label className="form-label">Upload from device</label>
                       <input
                         type="file"
                         className="form-input"
@@ -1230,15 +1235,6 @@ export default function GenerateInvitation() {
                         onChange={(e) => setMediaForm((f) => ({ ...f, file: e.target.files?.[0] || null }))}
                       />
                     </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Or URL</label>
-                    <input
-                      className="form-input"
-                      placeholder="https://..."
-                      value={mediaForm.url}
-                      onChange={(e) => setMediaForm((f) => ({ ...f, url: e.target.value }))}
-                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Caption (optional)</label>
@@ -1301,21 +1297,62 @@ export default function GenerateInvitation() {
               <>
                 {fieldSchema.map(field => {
                   const saved = customFields.find(f => f.fieldKey === field.key);
+                  const suggestions = CUSTOM_FIELD_SUGGESTIONS[field.key] || [];
+                  const listId = `cf-list-${field.key}`;
                   return (
                     <div key={field.key} className="form-group">
                       <label className="form-label">{field.label || field.key}</label>
                       {field.type === 'textarea' ? (
                         <textarea className="form-textarea"
-                          placeholder={field.placeholder || ''}
+                          placeholder={field.placeholder || (suggestions[0] ? `e.g. ${suggestions[0]}` : '')}
                           value={saved?.fieldValue || ''}
                           onChange={e => setFieldValue(field.key, e.target.value)}
                         />
                       ) : (
-                        <input className="form-input" type={field.type || 'text'}
-                          placeholder={field.placeholder || ''}
-                          value={saved?.fieldValue || ''}
-                          onChange={e => setFieldValue(field.key, e.target.value)}
-                        />
+                        <>
+                          <input
+                            className="form-input"
+                            type={field.type || 'text'}
+                            list={suggestions.length ? listId : undefined}
+                            placeholder={field.placeholder || (suggestions[0] ? `e.g. ${suggestions[0]}` : '')}
+                            value={saved?.fieldValue || ''}
+                            onChange={e => setFieldValue(field.key, e.target.value)}
+                          />
+                          {suggestions.length > 0 && (
+                            <datalist id={listId}>
+                              {suggestions.map(s => <option key={s} value={s} />)}
+                            </datalist>
+                          )}
+                        </>
+                      )}
+                      {/* Suggestion chips */}
+                      {suggestions.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                            {CUSTOM_FIELD_HINT_LABEL[field.key] || 'Suggestions:'}
+                          </span>
+                          {suggestions.map(s => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setFieldValue(field.key, s)}
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '2px 10px',
+                                borderRadius: 20,
+                                border: '1px solid var(--border-subtle)',
+                                background: 'var(--bg-elevated)',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft,#f5ece8)'; e.currentTarget.style.borderColor = 'var(--accent,#8b3a3a)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--border-subtle)'; }}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
                       )}
                       {field.hint && <div className="form-hint">{field.hint}</div>}
                     </div>
