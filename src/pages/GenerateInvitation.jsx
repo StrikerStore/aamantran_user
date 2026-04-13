@@ -135,15 +135,6 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
           onChange={onPickFiles}
         />
       </div>
-              className="form-input"
-              placeholder="https://..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={busy || slotItems.length >= slot.max}
-            />
-          </div>
-        </div>
-      )}
       <div className="form-group" style={{ marginBottom: 8 }}>
         <label className="form-label">Caption (optional)</label>
         <input
@@ -154,12 +145,6 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
           disabled={busy}
         />
       </div>
-      {slot.allowUrl && (
-        <button type="button" className="btn btn-primary btn-sm" disabled={busy || slotItems.length >= slot.max} onClick={addUrl}>
-          {busy ? <span className="btn-spinner" /> : null}
-          Add from URL
-        </button>
-      )}
     </div>
   );
 }
