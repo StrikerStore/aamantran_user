@@ -10,14 +10,14 @@ import { ConfirmModal } from '../components/ui/Modal';
 import './InvitationForm.css';
 
 const SECTIONS = [
-  { id: 'people',   label: 'A. People & Names' },
-  { id: 'venues',   label: 'B. Venues' },
-  { id: 'functions',label: 'C. Functions' },
-  { id: 'media',    label: 'D. Photos & Music' },
-  { id: 'custom',   label: 'E. Custom Fields' },
-  { id: 'social',   label: 'F. Links & guest features' },
+  { id: 'people', label: 'A. People & Names' },
+  { id: 'venues', label: 'B. Venues' },
+  { id: 'functions', label: 'C. Functions' },
+  { id: 'media', label: 'D. Photos & Music' },
+  { id: 'custom', label: 'E. Custom Fields' },
+  { id: 'social', label: 'F. Links & guest features' },
   { id: 'language', label: 'G. Language' },
-  { id: 'publish',  label: 'H. Preview & Publish' },
+  { id: 'publish', label: 'H. Preview & Publish' },
 ];
 
 /** @returns {null | { key: string, label: string, type: string, multiple: boolean, max: number, accept: string, allowUrl: boolean }[]} */
@@ -200,45 +200,45 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
 
 /** Demo placeholder names keyed by common role values from template schemas */
 const DEMO_NAMES = {
-  bride:          'e.g. Priya Sharma',
-  groom:          'e.g. Rahul Verma',
-  bride_father:   'e.g. Rajesh Sharma',
-  bride_mother:   'e.g. Sunita Sharma',
-  groom_father:   'e.g. Suresh Verma',
-  groom_mother:   'e.g. Kavita Verma',
-  father_bride:   'e.g. Rajesh Sharma',
-  mother_bride:   'e.g. Sunita Sharma',
-  father_groom:   'e.g. Suresh Verma',
-  mother_groom:   'e.g. Kavita Verma',
+  bride: 'e.g. Priya Sharma',
+  groom: 'e.g. Rahul Verma',
+  bride_father: 'e.g. Rajesh Sharma',
+  bride_mother: 'e.g. Sunita Sharma',
+  groom_father: 'e.g. Suresh Verma',
+  groom_mother: 'e.g. Kavita Verma',
+  father_bride: 'e.g. Rajesh Sharma',
+  mother_bride: 'e.g. Sunita Sharma',
+  father_groom: 'e.g. Suresh Verma',
+  mother_groom: 'e.g. Kavita Verma',
 };
 
 /** Suggestions for common custom field keys — shown as datalist options */
 const CUSTOM_FIELD_SUGGESTIONS = {
-  hashtag:            ['#PriyaRahulForever', '#SnehaWedsSohan', '#LoveStory2025'],
-  couple_hashtag:     ['#PriyaRahulForever', '#SnehaWedsSohan', '#LoveStory2025'],
-  wedding_hashtag:    ['#PriyaRahulWedding2025', '#TheBigDay'],
-  venue_note:         ['Valet parking available', 'Guests to arrive 30 minutes early', 'Traditional attire preferred'],
-  dress_code:         ['Ethnic wear', 'Formal attire', 'Pastel shades only', 'No black please', 'Saree / Sherwani', 'Traditional Indian'],
-  rsvp_note:          ['Please RSVP by 15th January', 'Kindly confirm by the end of this month'],
-  special_note:       ['No gifts please, your blessings are enough', 'Only family and close friends'],
-  tagline:            ['Two hearts, one journey', 'A love story worth celebrating', 'Forever starts today'],
-  footer_note:        ['Please carry this invite on your phone', 'Show this invite at the entrance'],
-  couple_story:       ['We met at college and the rest is history', 'A chance meeting turned into a lifetime'],
-  contact_name:       ['Rahul Sharma', 'Priya Patel'],
-  contact_phone:      ['+91 98765 43210'],
+  hashtag: ['#PriyaRahulForever', '#SnehaWedsSohan', '#LoveStory2025'],
+  couple_hashtag: ['#PriyaRahulForever', '#SnehaWedsSohan', '#LoveStory2025'],
+  wedding_hashtag: ['#PriyaRahulWedding2025', '#TheBigDay'],
+  venue_note: ['Valet parking available', 'Guests to arrive 30 minutes early', 'Traditional attire preferred'],
+  dress_code: ['Ethnic wear', 'Formal attire', 'Pastel shades only', 'No black please', 'Saree / Sherwani', 'Traditional Indian'],
+  rsvp_note: ['Please RSVP by 15th January', 'Kindly confirm by the end of this month'],
+  special_note: ['No gifts please, your blessings are enough', 'Only family and close friends'],
+  tagline: ['Two hearts, one journey', 'A love story worth celebrating', 'Forever starts today'],
+  footer_note: ['Please carry this invite on your phone', 'Show this invite at the entrance'],
+  couple_story: ['We met at college and the rest is history', 'A chance meeting turned into a lifetime'],
+  contact_name: ['Rahul Sharma', 'Priya Patel'],
+  contact_phone: ['+91 98765 43210'],
   bride_side_contact: ['e.g. +91 98765 43210'],
   groom_side_contact: ['e.g. +91 98765 43210'],
-  invitation_note:    ['Dinner will be served', 'Cocktails at 7 PM', 'Ceremony starts promptly at 11 AM'],
+  invitation_note: ['Dinner will be served', 'Cocktails at 7 PM', 'Ceremony starts promptly at 11 AM'],
 };
 
 /** Map common field keys to human-readable suggestion labels shown below the input */
 const CUSTOM_FIELD_HINT_LABEL = {
-  hashtag:         'e.g.',
-  couple_hashtag:  'e.g.',
-  dress_code:      'Popular choices:',
-  rsvp_note:       'e.g.',
-  special_note:    'e.g.',
-  tagline:         'Inspiration:',
+  hashtag: 'e.g.',
+  couple_hashtag: 'e.g.',
+  dress_code: 'Popular choices:',
+  rsvp_note: 'e.g.',
+  special_note: 'e.g.',
+  tagline: 'Inspiration:',
 };
 
 const LANGUAGES = [
@@ -265,7 +265,7 @@ export default function GenerateInvitation() {
   const [activeSection, setActiveSection] = useState('people');
 
   // People
-  const [people, setPeople]   = useState([]);
+  const [people, setPeople] = useState([]);
   const [personForm, setPersonForm] = useState({ role: '', name: '' }); // fallback mode only
   const [savingPerson, setSavingPerson] = useState(false);
   const [peopleInputs, setPeopleInputs] = useState({});
@@ -393,7 +393,7 @@ export default function GenerateInvitation() {
     // Also load global assets (music, etc)
     api.assets.list().then(res => {
       setGlobalAssets(res.assets || []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [id]);
 
   const schemaPeopleRoles = useMemo(() => {
@@ -811,13 +811,13 @@ export default function GenerateInvitation() {
     }
   }
 
-  const inviteBase  = getInviteBaseUrl();
-  const inviteUrl   = `${inviteBase}/i/${event.slug}`;
+  const inviteBase = getInviteBaseUrl();
+  const inviteUrl = `${inviteBase}/i/${event.slug}`;
   const pairedEvent = event.pairedEvent;
-  const partialUrl  = pairedEvent ? `${inviteBase}/i/${pairedEvent.slug}` : null;
+  const partialUrl = pairedEvent ? `${inviteBase}/i/${pairedEvent.slug}` : null;
   const partialInviteSlug = pairedEvent?.slug || partialSlug;
   const partialPreviewUrl = partialInviteSlug ? `${inviteBase}/i/${partialInviteSlug}` : null;
-  const isEditMode  = event.isPublished; // page title changes after publish
+  const isEditMode = event.isPublished; // page title changes after publish
 
   return (
     <div className="invite-form-page page-fade">
@@ -921,9 +921,6 @@ export default function GenerateInvitation() {
                       <div className="form-group">
                         <div className="item-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {roleDef.label}
-                          <span className={`badge ${roleDef.required ? 'badge-published' : 'badge-draft'}`}>
-                            {roleDef.required ? 'Required' : 'Optional'}
-                          </span>
                           {isLocked && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒</span>}
                         </div>
                       </div>
@@ -1350,16 +1347,16 @@ export default function GenerateInvitation() {
                 {fieldSchema.map(field => {
                   const saved = customFields.find(f => f.fieldKey === field.key);
                   const listId = `cf-list-${field.key}`;
-                  
+
                   let demoPlaceholder = '';
                   if (templateDemoData?.customFields) {
                     const demoCf = templateDemoData.customFields.find(cf => cf.key === field.key);
                     if (demoCf && demoCf.value) demoPlaceholder = demoCf.value;
                   }
                   const fallbackSuggestions = CUSTOM_FIELD_SUGGESTIONS[field.key] || [];
-                  const finalPlaceholder = field.placeholder || 
-                    (demoPlaceholder ? `e.g. ${demoPlaceholder}` : 
-                    (fallbackSuggestions[0] ? `e.g. ${fallbackSuggestions[0]}` : ''));
+                  const finalPlaceholder = field.placeholder ||
+                    (demoPlaceholder ? `e.g. ${demoPlaceholder}` :
+                      (fallbackSuggestions[0] ? `e.g. ${fallbackSuggestions[0]}` : ''));
 
                   return (
                     <div key={field.key} className="form-group">
@@ -1613,18 +1610,18 @@ export default function GenerateInvitation() {
                     <div className="qr-code-label">QR</div>
                     {partialPreviewUrl && event.isPublished ? (
                       <>
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(partialPreviewUrl)}`}
-                        alt="Partial Invite QR Code"
-                        className="qr-preview"
-                      />
-                      <button className="btn btn-secondary btn-sm" onClick={() => {
-                        const a = document.createElement('a');
-                        a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(partialPreviewUrl)}`;
-                        a.download = `qr-${partialInviteSlug || 'partial'}.png`;
-                        a.target = '_blank';
-                        a.click();
-                      }}>⬇ Download QR</button>
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(partialPreviewUrl)}`}
+                          alt="Partial Invite QR Code"
+                          className="qr-preview"
+                        />
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                          const a = document.createElement('a');
+                          a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(partialPreviewUrl)}`;
+                          a.download = `qr-${partialInviteSlug || 'partial'}.png`;
+                          a.target = '_blank';
+                          a.click();
+                        }}>⬇ Download QR</button>
                       </>
                     ) : (
                       <div className="item-meta">QR will be generated after publish</div>

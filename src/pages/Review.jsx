@@ -40,20 +40,20 @@ export default function Review() {
       if (photoFile) {
         // Send as multipart so the photo gets to the server
         const fd = new FormData();
-        fd.append('templateId',  activeEvent.template.id);
-        fd.append('rating',      String(form.rating));
-        if (form.reviewText)  fd.append('reviewText',  form.reviewText);
+        fd.append('templateId', activeEvent.template.id);
+        fd.append('rating', String(form.rating));
+        if (form.reviewText) fd.append('reviewText', form.reviewText);
         if (form.coupleNames) fd.append('coupleNames', form.coupleNames);
-        if (form.location)    fd.append('location',    form.location);
+        if (form.location) fd.append('location', form.location);
         fd.append('couplePhoto', photoFile);
         payload = fd;
       } else {
         payload = {
-          templateId:  activeEvent.template.id,
-          rating:      form.rating,
-          reviewText:  form.reviewText,
+          templateId: activeEvent.template.id,
+          rating: form.rating,
+          reviewText: form.reviewText,
           coupleNames: form.coupleNames,
-          location:    form.location,
+          location: form.location,
         };
       }
       await api.review.submit(payload);

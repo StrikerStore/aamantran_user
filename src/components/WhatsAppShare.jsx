@@ -19,16 +19,16 @@ import './WhatsAppShare.css';
  */
 export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], functions = [], venues = [], partialUrl = null, eventId }) {
   const toast = useToast();
-  const [imageFile, setImageFile]         = useState(null);   // local File (before upload)
-  const [imagePreview, setImagePreview]   = useState(null);   // URL for display
-  const [savedMediaId, setSavedMediaId]   = useState(null);   // persisted media record id
-  const [uploading, setUploading]         = useState(false);
-  const [linkType, setLinkType]           = useState('full');
-  const [messageText, setMessageText]     = useState('');
+  const [imageFile, setImageFile] = useState(null);   // local File (before upload)
+  const [imagePreview, setImagePreview] = useState(null);   // URL for display
+  const [savedMediaId, setSavedMediaId] = useState(null);   // persisted media record id
+  const [uploading, setUploading] = useState(false);
+  const [linkType, setLinkType] = useState('full');
+  const [messageText, setMessageText] = useState('');
   const fileRef = useRef(null);
 
   const inviteBase = getInviteBaseUrl();
-  const fullLink   = `${inviteBase}/i/${event?.slug || ''}`;
+  const fullLink = `${inviteBase}/i/${event?.slug || ''}`;
   const hasPartial = !!partialUrl;
 
   // ── Load persisted share image on mount ─────────────────────────────────────
@@ -40,7 +40,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
         setImagePreview(shareMedia.url);
         setSavedMediaId(shareMedia.id);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, [eventId]);
 
   // ── Build default message whenever key data changes ──────────────────────────
@@ -57,7 +57,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
     const names = namesForMsg || 'the couple';
 
     // Date — first function
-    const mainFn  = functions[0];
+    const mainFn = functions[0];
     const dateLine = mainFn?.date
       ? `\n📅 ${new Date(mainFn.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`
       : '';
@@ -89,7 +89,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
     try {
       // Remove previous persisted image
       if (savedMediaId) {
-        await api.media.remove(eventId, savedMediaId).catch(() => {});
+        await api.media.remove(eventId, savedMediaId).catch(() => { });
         setSavedMediaId(null);
       }
       const fd = new FormData();
@@ -112,7 +112,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
 
   async function removeImage() {
     if (savedMediaId && eventId) {
-      await api.media.remove(eventId, savedMediaId).catch(() => {});
+      await api.media.remove(eventId, savedMediaId).catch(() => { });
       setSavedMediaId(null);
     }
     if (imageFile && imagePreview) URL.revokeObjectURL(imagePreview);
@@ -173,7 +173,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
       {/* Share image — persisted for future use */}
       <div className="wa-section">
         <div className="wa-section-label">
-          Share Image <span className="wa-optional">(optional — saved for future sharing)</span>
+          Share Image
         </div>
         {imagePreview ? (
           <div className="wa-image-preview-wrap">
