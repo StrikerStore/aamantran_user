@@ -244,6 +244,7 @@ export default function GenerateInvitation() {
 
   // Template schema (full object) — used to filter languages etc.
   const [templateSchema, setTemplateSchema] = useState(null);
+  const [templateDemoData, setTemplateDemoData] = useState(null);
   const [templateLanguages, setTemplateLanguages] = useState(null); // null = all supported
 
   // Language
@@ -298,6 +299,16 @@ export default function GenerateInvitation() {
         } catch { fullSchema = null; }
       }
       setTemplateSchema(fullSchema);
+
+      let demoData = null;
+      if (ev.template?.demoData) {
+        try {
+          demoData = typeof ev.template.demoData === 'string'
+            ? JSON.parse(ev.template.demoData)
+            : ev.template.demoData;
+        } catch { demoData = null; }
+      }
+      setTemplateDemoData(demoData);
 
       // Custom fields schema can live at:
       // 1) fullSchema.customFields (preferred)
@@ -1282,14 +1293,24 @@ export default function GenerateInvitation() {
               <>
                 {fieldSchema.map(field => {
                   const saved = customFields.find(f => f.fieldKey === field.key);
-                  const suggestions = CUSTOM_FIELD_SUGGESTIONS[field.key] || [];
                   const listId = `cf-list-${field.key}`;
+                  
+                  let demoPlaceholder = '';
+                  if (templateDemoData?.customFields) {
+                    const demoCf = templateDemoData.customFields.find(cf => cf.key === field.key);
+                    if (demoCf && demoCf.value) demoPlaceholder = demoCf.value;
+                  }
+                  const fallbackSuggestions = CUSTOM_FIELD_SUGGESTIONS[field.key] || [];
+                  const finalPlaceholder = field.placeholder || 
+                    (demoPlaceholder ? `e.g. ${demoPlaceholder}` : 
+                    (fallbackSuggestions[0] ? `e.g. ${fallbackSuggestions[0]}` : ''));
+
                   return (
                     <div key={field.key} className="form-group">
                       <label className="form-label">{field.label || field.key}</label>
                       {field.type === 'textarea' ? (
                         <textarea className="form-textarea"
-                          placeholder={field.placeholder || (suggestions[0] ? `e.g. ${suggestions[0]}` : '')}
+                          placeholder={finalPlaceholder}
                           value={saved?.fieldValue || ''}
                           onChange={e => setFieldValue(field.key, e.target.value)}
                         />
@@ -1297,7 +1318,7 @@ export default function GenerateInvitation() {
                         <input
                           className="form-input"
                           type={field.type || 'text'}
-                          placeholder={field.placeholder || (suggestions[0] ? `e.g. ${suggestions[0]}` : '')}
+                          placeholder={finalPlaceholder}
                           value={saved?.fieldValue || ''}
                           onChange={e => setFieldValue(field.key, e.target.value)}
                         />
