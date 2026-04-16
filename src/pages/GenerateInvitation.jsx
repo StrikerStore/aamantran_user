@@ -182,6 +182,16 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
               Add
             </button>
           </div>
+          {selectedAssetId && (() => {
+            const selected = globalAssets.find(a => a.id === selectedAssetId);
+            if (!selected) return null;
+            return (
+              <div style={{ marginTop: 8, background: 'var(--bg-card,#fff)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview: {selected.name}</div>
+                <audio controls src={selected.url} style={{ width: '100%', height: 40 }} preload="metadata" controlsList="nodownload" />
+              </div>
+            );
+          })()}
         </div>
       )}
       <div className="form-group" style={{ marginBottom: 8 }}>
@@ -312,6 +322,7 @@ export default function GenerateInvitation() {
   // Publish + partial invite
   const [publishing, setPublishing] = useState(false);
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [slugFull, setSlugFull] = useState('');
   const [partialEnabled, setPartialEnabled] = useState(false);
   const [partialSlug, setPartialSlug] = useState('');
@@ -772,6 +783,18 @@ export default function GenerateInvitation() {
       toast(err.message, 'error');
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function openPreview() {
+    setLoadingPreview(true);
+    try {
+      const r = await api.events.previewToken(id);
+      window.open(r.previewUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast(err.message || 'Could not open preview', 'error');
+    } finally {
+      setLoadingPreview(false);
     }
   }
 
@@ -1544,7 +1567,9 @@ export default function GenerateInvitation() {
                   </div>
 
                   <div className="publish-actions-column">
-                    <a href={inviteUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">👁 Preview</a>
+                    <button className="btn btn-secondary btn-sm" onClick={openPreview} disabled={loadingPreview}>
+                      {loadingPreview ? 'Opening…' : '👁 Preview'}
+                    </button>
                     <button className="btn btn-secondary btn-sm" onClick={refreshEvent}>🔄 Refresh</button>
                   </div>
                 </div>
@@ -1629,11 +1654,24 @@ export default function GenerateInvitation() {
                   </div>
 
                   <div className="publish-actions-column">
-                    {partialPreviewUrl ? (
-                      <a href={partialPreviewUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">👁 Preview</a>
-                    ) : (
-                      <button className="btn btn-secondary btn-sm" disabled>👁 Preview</button>
-                    )}
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={loadingPreview || !pairedEvent?.id}
+                      onClick={async () => {
+                        if (!pairedEvent?.id) return;
+                        setLoadingPreview(true);
+                        try {
+                          const r = await api.events.previewToken(pairedEvent.id);
+                          window.open(r.previewUrl, '_blank', 'noopener,noreferrer');
+                        } catch (err) {
+                          toast(err.message || 'Could not open preview', 'error');
+                        } finally {
+                          setLoadingPreview(false);
+                        }
+                      }}
+                    >
+                      {loadingPreview ? 'Opening…' : '👁 Preview'}
+                    </button>
                     <button className="btn btn-secondary btn-sm" onClick={refreshEvent}>🔄 Refresh</button>
                   </div>
                 </div>
