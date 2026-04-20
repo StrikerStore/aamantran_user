@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useOutletContext, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { parseGoogleMapsUrl, formatDate } from '../lib/utils';
+import { toHtmlDateInputValue } from '../utils/dateNormalize';
 import { getInviteBaseUrl } from '../lib/config';
 import { NameConfirmBar } from '../components/NameConfirmBar';
 import { WhatsAppShare } from '../components/WhatsAppShare';
@@ -686,17 +687,38 @@ export default function GenerateInvitation() {
 
   // ── CUSTOM FIELDS ────────────────────────────────────────
   function setFieldValue(key, val) {
+    const schemaRow = Array.isArray(fieldSchema) ? fieldSchema.find((r) => r.key === key) : null;
+    const ft = schemaRow?.type || 'text';
     setCustomFields(f => {
       const existing = f.find(x => x.fieldKey === key);
-      if (existing) return f.map(x => x.fieldKey === key ? { ...x, fieldValue: val } : x);
-      return [...f, { fieldKey: key, fieldValue: val, fieldType: 'text' }];
+      if (existing) return f.map(x => x.fieldKey === key ? { ...x, fieldValue: val, fieldType: ft } : x);
+      return [...f, { fieldKey: key, fieldValue: val, fieldType: ft }];
     });
   }
 
   async function saveCustomFields() {
     setSavingFields(true);
     try {
-      await api.customFields.upsert(id, { fields: customFields });
+      const rows = (Array.isArray(fieldSchema) ? fieldSchema : []).map((field) => {
+        const saved = customFields.find((x) => x.fieldKey === field.key);
+        return {
+          fieldKey: field.key,
+          fieldValue: saved?.fieldValue ?? '',
+          fieldType: field.type || 'text',
+        };
+      });
+      if (!rows.length) {
+        toast('No custom fields on this template.', 'success');
+        return;
+      }
+      const r = await api.customFields.upsert(id, { fields: rows });
+      if (Array.isArray(r.fields)) {
+        setCustomFields(r.fields.map((f) => ({
+          fieldKey: f.fieldKey,
+          fieldValue: String(f.fieldValue ?? ''),
+          fieldType: f.fieldType || 'text',
+        })));
+      }
       toast('Custom fields saved!', 'success');
     } catch (err) {
       toast(err.message, 'error');
@@ -1389,6 +1411,13 @@ export default function GenerateInvitation() {
                           placeholder={finalPlaceholder}
                           value={saved?.fieldValue || ''}
                           onChange={e => setFieldValue(field.key, e.target.value)}
+                        />
+                      ) : field.type === 'date' ? (
+                        <input
+                          className="form-input"
+                          type="date"
+                          value={toHtmlDateInputValue(saved?.fieldValue || '')}
+                          onChange={(e) => setFieldValue(field.key, e.target.value)}
                         />
                       ) : (
                         <input
