@@ -91,7 +91,20 @@
 
 /* ── Sidebar Nav ── */
 .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
-.nav-section-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); padding: 16px 12px 8px; }
+.nav-group { margin-bottom: 4px; }
+.nav-section-label {
+  font-size: 0.65rem; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-muted); padding: 16px 12px 8px;
+}
+.nav-group-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; background: none; border: none; cursor: pointer;
+  font-size: 0.65rem; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-muted); padding: 12px 12px 6px;
+  transition: color var(--t-fast);
+}
+.nav-group-toggle:hover { color: var(--text-secondary); }
+.nav-group-chevron { font-size: 0.85rem; font-weight: 400; }
 .nav-item {
   display: flex; align-items: center; gap: 12px;
   padding: 8px 12px; border-radius: var(--r-sm);
@@ -128,11 +141,67 @@
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 .page-content { flex: 1; padding: 28px 32px; }
 
+/* ── Bottom nav (mobile) ── */
+.bottom-nav { display: none; }
+
+/* ── Bottom sheet (More) ── */
+.bottom-sheet-overlay { display: none; }
+.bottom-sheet         { display: none; }
+
 /* ── Mobile ── */
 @media (max-width: 900px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .main { margin-left: 0; }
   .sidebar-toggle { display: flex; }
-  .page-content { padding: 20px 16px; }
+  .page-content { padding: 20px 16px 90px; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0; height: 62px;
+    background: var(--bg-surface); border-top: 1px solid var(--border-subtle);
+    z-index: 100;
+  }
+  .bottom-nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; font-size: 0.62rem; font-weight: 600;
+    color: var(--text-muted); cursor: pointer; background: none; border: none;
+    transition: color var(--t-fast);
+  }
+  .bottom-nav-item:disabled { opacity: 0.4; }
+  .bottom-nav-item.active { color: var(--gold); }
+  .bottom-nav-icon { font-size: 1.25rem; line-height: 1; }
+
+  /* Bottom sheet */
+  .bottom-sheet-overlay {
+    display: block;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 110;
+    animation: fadeIn 0.15s ease;
+  }
+  .bottom-sheet {
+    display: block;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 111;
+    background: var(--bg-surface); border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding: 12px 20px 32px; animation: slideUp 0.2s ease;
+    max-height: 60vh; overflow-y: auto;
+  }
+  .bottom-sheet-handle {
+    width: 40px; height: 4px; background: var(--border-default);
+    border-radius: 99px; margin: 0 auto 20px;
+  }
+  .bottom-sheet-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .bottom-sheet-item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--r-md); padding: 14px 8px;
+    font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);
+    cursor: pointer; transition: all var(--t-fast);
+  }
+  .bottom-sheet-item:disabled { opacity: 0.4; }
+  .bottom-sheet-item:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+  .bottom-sheet-icon { font-size: 1.4rem; line-height: 1; }
+  .bottom-sheet-label { text-align: center; }
 }

@@ -1,19 +1,36 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { clearToken, getUserInfo } from '../lib/auth';
 import { api } from '../lib/api';
 import './Layout.css';
 
-// NAV is built dynamically in the component based on activeEvent.isPublished
+const NAV_STATE_KEY = 'aam_nav_state';
 
 export function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
   const [activeEvent, setActiveEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const switcherRef = useRef(null);
+
+  // Collapsible sidebar group state — persisted to localStorage
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(NAV_STATE_KEY) || '{}');
+    } catch { return {}; }
+  });
+
+  function toggleGroup(section) {
+    setCollapsed(prev => {
+      const next = { ...prev, [section]: !prev[section] };
+      localStorage.setItem(NAV_STATE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
 
   useEffect(() => {
     api.events.list()
@@ -21,7 +38,6 @@ export function Layout() {
         const all = r.events || [];
         setEvents(all);
         if (all.length && !activeEvent) {
-          // Default to the first non-subset event (representative of each invitation)
           const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
           setActiveEvent(first);
         }
@@ -29,7 +45,6 @@ export function Layout() {
       .catch(() => {});
   }, []);
 
-  // Close switcher on outside click
   useEffect(() => {
     function handler(e) {
       if (switcherRef.current && !switcherRef.current.contains(e.target)) {
@@ -53,39 +68,68 @@ export function Layout() {
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
   const username = info?.username || 'User';
   const published = activeEvent?.isPublished ?? false;
+  const eid = activeEvent?.id;
 
-  // Build nav dynamically: Generate only before publish, Edit only after publish
+  function ePath(sub) { return eid ? `/events/${eid}/${sub}` : '#'; }
+
   const NAV = [
     {
       section: 'Overview',
-      items: [{ label: 'Dashboard', to: '/dashboard', icon: IconGrid, scope: 'account' }],
+      items: [{ label: 'Dashboard', to: '/dashboard', icon: IconGrid }],
     },
     {
       section: 'Invitation',
       items: [
         ...(!published
-          ? [{ label: 'Generate', icon: IconSparkle, scope: 'event', subPath: 'generate' }]
-          : [{ label: 'Edit',     icon: IconEdit,    scope: 'event', subPath: 'edit' }]
+          ? [{ label: 'Build', icon: IconSparkle, to: ePath('generate'), disabled: !eid }]
+          : [{ label: 'Edit',  icon: IconEdit,    to: ePath('edit'),     disabled: !eid }]
         ),
-        { label: 'Guests', icon: IconUsers, scope: 'event', subPath: 'guests' },
-        { label: 'Wishes', icon: IconMessage, scope: 'event', subPath: 'wishes' },
+        { label: 'Guests', icon: IconUsers,   to: ePath('guests'),  disabled: !eid },
+        { label: 'Wishes', icon: IconMessage, to: ePath('wishes'),  disabled: !eid },
+      ],
+    },
+    {
+      section: 'Planning',
+      items: [
+        { label: 'Tasks',     icon: IconCheckSquare, to: ePath('tasks'),     disabled: !eid },
+        { label: 'Vendors',   icon: IconBriefcase,   to: ePath('vendors'),   disabled: !eid },
+        { label: 'Timeline',  icon: IconClock,       to: ePath('timeline'),  disabled: !eid },
+      ],
+    },
+    {
+      section: 'Finance & Inventory',
+      items: [
+        { label: 'Inventory', icon: IconBox,       to: ePath('inventory'), disabled: !eid },
+        { label: 'Budget',    icon: IconDollarSign, to: ePath('budget'),   disabled: !eid },
+        { label: 'Gifts',     icon: IconGift,       to: ePath('gifts'),    disabled: !eid },
+      ],
+    },
+    {
+      section: 'Memories',
+      items: [
+        { label: 'Mood Board',  icon: IconHeart,  to: ePath('moodboard'), disabled: !eid },
+        { label: 'Photo Wall',  icon: IconCamera, to: ePath('photos'),    disabled: !eid },
       ],
     },
     {
       section: 'Account',
       items: [
-        { label: 'Settings', to: '/settings', icon: IconSettings, scope: 'account' },
-        { label: 'Support',  to: '/support',  icon: IconMail,     scope: 'account' },
-        { label: 'Review',   to: '/review',   icon: IconStar,     scope: 'account' },
+        { label: 'Settings', to: '/settings', icon: IconSettings },
+        { label: 'Support',  to: '/support',  icon: IconMail },
+        { label: 'Review',   to: '/review',   icon: IconStar },
       ],
     },
   ];
 
-  function getNavTo(item) {
-    if (item.scope === 'account') return item.to;
-    if (!activeEvent) return '#';
-    return `/events/${activeEvent.id}/${item.subPath}`;
-  }
+  // Determine which bottom tab is active
+  const path = location.pathname;
+  const bottomActive = {
+    home:   path === '/dashboard',
+    invite: eid && (path.includes('/generate') || path.includes('/edit') || path.includes('/guests') || path.includes('/wishes')),
+    plan:   eid && (path.includes('/tasks') || path.includes('/vendors') || path.includes('/timeline')),
+    items:  eid && (path.includes('/inventory') || path.includes('/budget') || path.includes('/gifts')),
+    more:   eid && (path.includes('/moodboard') || path.includes('/photos') || path.includes('/settings') || path.includes('/support') || path.includes('/review')),
+  };
 
   return (
     <div className="app-shell">
@@ -142,11 +186,17 @@ export function Layout() {
 
         <nav className="sidebar-nav">
           {NAV.map(group => (
-            <div key={group.section}>
-              <div className="nav-section-label">{group.section}</div>
-              {group.items.map(item => {
-                const to = getNavTo(item);
-                const disabled = item.scope === 'event' && !activeEvent;
+            <div key={group.section} className="nav-group">
+              <button
+                className="nav-section-label nav-group-toggle"
+                onClick={() => toggleGroup(group.section)}
+              >
+                {group.section}
+                <span className="nav-group-chevron">{collapsed[group.section] ? '›' : '⌄'}</span>
+              </button>
+              {!collapsed[group.section] && group.items.map(item => {
+                const to = item.to;
+                const disabled = item.disabled;
                 return (
                   <NavLink
                     key={item.label}
@@ -194,6 +244,63 @@ export function Layout() {
           <Outlet context={{ activeEvent, setActiveEvent, events, setEvents }} />
         </main>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="bottom-nav">
+        <button className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`} onClick={() => navigate('/dashboard')}>
+          <span className="bottom-nav-icon">🏠</span>
+          <span>Home</span>
+        </button>
+        <button className={`bottom-nav-item ${bottomActive.invite ? 'active' : ''}`} onClick={() => navigate(ePath(published ? 'edit' : 'generate'))} disabled={!eid}>
+          <span className="bottom-nav-icon">💌</span>
+          <span>Invite</span>
+        </button>
+        <button className={`bottom-nav-item ${bottomActive.plan ? 'active' : ''}`} onClick={() => navigate(ePath('tasks'))} disabled={!eid}>
+          <span className="bottom-nav-icon">📋</span>
+          <span>Plan</span>
+        </button>
+        <button className={`bottom-nav-item ${bottomActive.items ? 'active' : ''}`} onClick={() => navigate(ePath('inventory'))} disabled={!eid}>
+          <span className="bottom-nav-icon">📦</span>
+          <span>Items</span>
+        </button>
+        <button className={`bottom-nav-item ${bottomActive.more ? 'active' : ''}`} onClick={() => setMoreOpen(o => !o)}>
+          <span className="bottom-nav-icon">⋯</span>
+          <span>More</span>
+        </button>
+      </nav>
+
+      {/* More bottom sheet */}
+      {moreOpen && (
+        <>
+          <div className="bottom-sheet-overlay" onClick={() => setMoreOpen(false)} />
+          <div className="bottom-sheet">
+            <div className="bottom-sheet-handle" />
+            <div className="bottom-sheet-grid">
+              {[
+                { label: 'Mood Board', icon: '🎨', to: ePath('moodboard') },
+                { label: 'Photo Wall', icon: '📸', to: ePath('photos') },
+                { label: 'Budget',     icon: '💰', to: ePath('budget') },
+                { label: 'Gifts',      icon: '🎁', to: ePath('gifts') },
+                { label: 'Vendors',    icon: '🤝', to: ePath('vendors') },
+                { label: 'Timeline',   icon: '🕐', to: ePath('timeline') },
+                { label: 'Settings',   icon: '⚙️', to: '/settings' },
+                { label: 'Support',    icon: '💬', to: '/support' },
+                { label: 'Review',     icon: '⭐', to: '/review' },
+              ].map(item => (
+                <button
+                  key={item.label}
+                  className="bottom-sheet-item"
+                  onClick={() => { setMoreOpen(false); navigate(item.to); }}
+                  disabled={!eid && item.to !== '/settings' && item.to !== '/support' && item.to !== '/review'}
+                >
+                  <span className="bottom-sheet-icon">{item.icon}</span>
+                  <span className="bottom-sheet-label">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -228,4 +335,28 @@ function IconMenu() {
 }
 function IconLogout() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>;
+}
+function IconCheckSquare() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>;
+}
+function IconBriefcase() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>;
+}
+function IconClock() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+}
+function IconBox() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
+}
+function IconDollarSign() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>;
+}
+function IconGift() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>;
+}
+function IconHeart() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>;
+}
+function IconCamera() {
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>;
 }

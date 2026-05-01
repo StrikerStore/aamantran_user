@@ -109,7 +109,7 @@ export default function Dashboard() {
           <div className="stat-value">{loadingStats ? '—' : (stats?.guestCount ?? 0)}</div>
           <div className="stat-sub">in guest list</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card stat-card-countdown">
           {cd ? (
             <>
               <div className="stat-label">Countdown</div>
@@ -127,6 +127,70 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* What's Next — for unpublished events */}
+      {!activeEvent.isPublished && eventDetail && (
+        <div className="card mb-24 whats-next-card">
+          <div className="card-title">What's Next</div>
+          <div className="whats-next-steps">
+            <div className={`whats-next-step ${true ? 'done' : ''}`}>
+              <span className="wn-icon">✓</span>
+              <span className="wn-label">Event created</span>
+            </div>
+            <div className={`whats-next-step ${(eventDetail.people?.length > 0) ? 'done' : ''}`}>
+              <span className="wn-icon">{eventDetail.people?.length > 0 ? '✓' : '○'}</span>
+              <span className="wn-label">People & names added</span>
+              {!(eventDetail.people?.length > 0) && (
+                <Link to={`/events/${activeEvent.id}/generate`} className="wn-cta">Do it →</Link>
+              )}
+            </div>
+            <div className={`whats-next-step ${activeEvent.namesAreFrozen ? 'done' : ''}`}>
+              <span className="wn-icon">{activeEvent.namesAreFrozen ? '✓' : '○'}</span>
+              <span className="wn-label">Names confirmed</span>
+              {!activeEvent.namesAreFrozen && (
+                <Link to={`/events/${activeEvent.id}/generate`} className="wn-cta">Do it →</Link>
+              )}
+            </div>
+            <div className="whats-next-step">
+              <span className="wn-icon">○</span>
+              <span className="wn-label">Publish invitation</span>
+              <Link to={`/events/${activeEvent.id}/generate`} className="wn-cta">Do it →</Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RSVP donut — for published events with RSVPs */}
+      {activeEvent.isPublished && stats && (stats.rsvpCount ?? 0) > 0 && (() => {
+        const attending = stats.perFunction?.reduce((s, f) => s + (f.attending || 0), 0) ?? 0;
+        const declined  = stats.perFunction?.reduce((s, f) => s + (f.notAttending || 0), 0) ?? 0;
+        const pending   = Math.max(0, (stats.rsvpCount ?? 0) - attending - declined);
+        const total     = attending + declined + pending || 1;
+        const attPct    = Math.round((attending / total) * 100);
+        const decPct    = Math.round((declined  / total) * 100);
+        return (
+          <div className="card mb-24">
+            <div className="card-title">RSVP Summary</div>
+            <div className="rsvp-donut-row">
+              <div
+                className="rsvp-donut"
+                style={{
+                  background: `conic-gradient(
+                    var(--green) 0% ${attPct}%,
+                    var(--red)   ${attPct}% ${attPct + decPct}%,
+                    var(--bg-overlay) ${attPct + decPct}% 100%
+                  )`,
+                }}
+              />
+              <div className="rsvp-legend">
+                <div className="rsvp-legend-item"><span style={{ color: 'var(--green)' }}>●</span> Attending ({attending})</div>
+                <div className="rsvp-legend-item"><span style={{ color: 'var(--red)' }}>●</span> Not attending ({declined})</div>
+                <div className="rsvp-legend-item"><span style={{ color: 'var(--text-muted)' }}>●</span> Pending ({pending})</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Per-function headcount */}
       {stats?.perFunction?.length > 0 && (

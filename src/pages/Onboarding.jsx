@@ -94,22 +94,10 @@ export default function Onboarding() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Payment / Order ID</label>
-            <input
-              className="form-input"
-              placeholder="e.g. pay_PNnvGxxxxxxxx"
-              value={form.paymentId}
-              onChange={e => set('paymentId', e.target.value)}
-              autoFocus
-            />
-            <div className="form-hint">Find this in your purchase confirmation email or Razorpay receipt.</div>
-          </div>
-
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Community / Religion</label>
-              <select className="form-select" value={form.community} onChange={e => set('community', e.target.value)}>
+              <select className="form-select" value={form.community} onChange={e => set('community', e.target.value)} autoFocus>
                 <option value="">Select...</option>
                 {COMMUNITIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -135,6 +123,17 @@ export default function Onboarding() {
               />
             </div>
             <div className="form-hint">This will be your invitation link. Only lowercase letters, numbers, and hyphens.</div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Order Activation Code</label>
+            <input
+              className="form-input"
+              placeholder="e.g. pay_PNnvGxxxxxxxx"
+              value={form.paymentId}
+              onChange={e => set('paymentId', e.target.value)}
+            />
+            <div className="form-hint">Find this in your purchase confirmation email or Razorpay receipt.</div>
           </div>
 
           {error && <div className="onboarding-error">{error}</div>}

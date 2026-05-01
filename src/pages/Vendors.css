@@ -1,0 +1,31 @@
+.vendor-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+
+.vendor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.vendor-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 16px;
+}
+
+.vendor-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px;
+}
+.vendor-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.vendor-type { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.vendor-status { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+.vendor-contact-name { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 10px; }
+
+.vendor-actions-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+
+.vendor-payment { margin-top: 4px; }
+.vendor-payment-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+.vendor-pay-bar-wrap { height: 5px; background: var(--bg-overlay); border-radius: 99px; overflow: hidden; }
+.vendor-pay-bar { height: 100%; background: var(--green); border-radius: 99px; transition: width 0.4s ease; }
+
+@media (max-width: 700px) { .vendor-grid { grid-template-columns: 1fr; } }

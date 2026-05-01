@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { saveToken } from '../lib/auth';
+import { saveToken, hadSession, clearToken } from '../lib/auth';
 import { useToast } from '../components/ui/Toast';
 import './Login.css';
 
@@ -9,6 +9,7 @@ export default function Login() {
   const navigate = useNavigate();
   const toast = useToast();
   const [form, setForm] = useState({ username: '', password: '' });
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [recoveryStep, setRecoveryStep] = useState('request');
@@ -22,6 +23,13 @@ export default function Login() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  useEffect(() => {
+    if (hadSession()) {
+      clearToken();
+      toast('Your session expired. Please sign in again.', 'info');
+    }
+  }, []);
 
   function set(field, val) {
     setForm(f => ({ ...f, [field]: val }));
@@ -37,8 +45,8 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.auth.login(form.username.trim(), form.password);
-      saveToken(res.token);
+      const res = await api.auth.login(form.username.trim(), form.password, keepSignedIn);
+      saveToken(res.token, keepSignedIn);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Login failed');
@@ -50,22 +58,12 @@ export default function Login() {
   function openRecovery() {
     setRecoveryOpen(true);
     setRecoveryStep('request');
-    setRecoveryData({
-      email: '',
-      code: '',
-      username: '',
-      resetToken: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
+    setRecoveryData({ email: '', code: '', username: '', resetToken: '', newPassword: '', confirmPassword: '' });
   }
 
   async function requestCode(e) {
     e.preventDefault();
-    if (!recoveryData.email.trim()) {
-      toast('Please enter your email address', 'error');
-      return;
-    }
+    if (!recoveryData.email.trim()) { toast('Please enter your email address', 'error'); return; }
     setRecoveryLoading(true);
     try {
       await api.auth.requestRecoveryCode(recoveryData.email.trim());
@@ -80,21 +78,11 @@ export default function Login() {
 
   async function verifyCode(e) {
     e.preventDefault();
-    if (!recoveryData.code.trim()) {
-      toast('Please enter the recovery code', 'error');
-      return;
-    }
+    if (!recoveryData.code.trim()) { toast('Please enter the recovery code', 'error'); return; }
     setRecoveryLoading(true);
     try {
-      const res = await api.auth.verifyRecoveryCode(
-        recoveryData.email.trim(),
-        recoveryData.code.trim(),
-      );
-      setRecoveryData((prev) => ({
-        ...prev,
-        username: res.username || '',
-        resetToken: res.resetToken || '',
-      }));
+      const res = await api.auth.verifyRecoveryCode(recoveryData.email.trim(), recoveryData.code.trim());
+      setRecoveryData(prev => ({ ...prev, username: res.username || '', resetToken: res.resetToken || '' }));
       setRecoveryStep('reset');
       toast('Code verified. You can reset your password now.', 'success');
     } catch (err) {
@@ -106,24 +94,14 @@ export default function Login() {
 
   async function resetPassword(e) {
     e.preventDefault();
-    if (recoveryData.newPassword.length < 8) {
-      toast('Password must be at least 8 characters.', 'error');
-      return;
-    }
-    if (recoveryData.newPassword !== recoveryData.confirmPassword) {
-      toast('Passwords do not match.', 'error');
-      return;
-    }
+    if (recoveryData.newPassword.length < 8) { toast('Password must be at least 8 characters.', 'error'); return; }
+    if (recoveryData.newPassword !== recoveryData.confirmPassword) { toast('Passwords do not match.', 'error'); return; }
     setRecoveryLoading(true);
     try {
-      await api.auth.resetPasswordWithCode(
-        recoveryData.email.trim(),
-        recoveryData.resetToken,
-        recoveryData.newPassword,
-      );
+      await api.auth.resetPasswordWithCode(recoveryData.email.trim(), recoveryData.resetToken, recoveryData.newPassword);
       toast('Password reset successful. Please sign in.', 'success');
       setRecoveryOpen(false);
-      setForm((f) => ({ ...f, username: recoveryData.username, password: '' }));
+      setForm(f => ({ ...f, username: recoveryData.username, password: '' }));
     } catch (err) {
       toast(err.message || 'Password reset failed', 'error');
     } finally {
@@ -141,7 +119,7 @@ export default function Login() {
         </div>
 
         <h1 className="login-title">Welcome back</h1>
-        <p className="login-sub">Sign in to manage your wedding invitation</p>
+        <p className="login-sub">Sign in to build your wedding invitation</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -169,6 +147,15 @@ export default function Login() {
             />
           </div>
 
+          <label className="keep-signed-in-label">
+            <input
+              type="checkbox"
+              checked={keepSignedIn}
+              onChange={e => setKeepSignedIn(e.target.checked)}
+            />
+            Keep me signed in
+          </label>
+
           {error && <div className="login-error">{error}</div>}
 
           <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
@@ -189,7 +176,16 @@ export default function Login() {
       {recoveryOpen && (
         <div className="recovery-overlay" onClick={() => !recoveryLoading && setRecoveryOpen(false)}>
           <div className="recovery-card" onClick={e => e.stopPropagation()}>
-            <h2>Recover Account</h2>
+            <div className="recovery-card-header">
+              <h2>Recover Account</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => !recoveryLoading && setRecoveryOpen(false)}
+                disabled={recoveryLoading}
+              >✕</button>
+            </div>
+
             {recoveryStep === 'request' && (
               <form onSubmit={requestCode} className="login-form">
                 <div className="form-group">
@@ -198,7 +194,7 @@ export default function Login() {
                     className="form-input"
                     type="email"
                     value={recoveryData.email}
-                    onChange={(e) => setRecoveryData((d) => ({ ...d, email: e.target.value }))}
+                    onChange={e => setRecoveryData(d => ({ ...d, email: e.target.value }))}
                     placeholder="you@example.com"
                     autoFocus
                   />
@@ -218,7 +214,7 @@ export default function Login() {
                     className="form-input"
                     type="text"
                     value={recoveryData.code}
-                    onChange={(e) => setRecoveryData((d) => ({ ...d, code: e.target.value }))}
+                    onChange={e => setRecoveryData(d => ({ ...d, code: e.target.value }))}
                     placeholder="6-digit code"
                     autoFocus
                   />
@@ -241,7 +237,7 @@ export default function Login() {
                     className="form-input"
                     type="password"
                     value={recoveryData.newPassword}
-                    onChange={(e) => setRecoveryData((d) => ({ ...d, newPassword: e.target.value }))}
+                    onChange={e => setRecoveryData(d => ({ ...d, newPassword: e.target.value }))}
                     placeholder="Minimum 8 characters"
                     autoFocus
                   />
@@ -252,7 +248,7 @@ export default function Login() {
                     className="form-input"
                     type="password"
                     value={recoveryData.confirmPassword}
-                    onChange={(e) => setRecoveryData((d) => ({ ...d, confirmPassword: e.target.value }))}
+                    onChange={e => setRecoveryData(d => ({ ...d, confirmPassword: e.target.value }))}
                     placeholder="Re-enter password"
                   />
                 </div>

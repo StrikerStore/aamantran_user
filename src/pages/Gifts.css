@@ -1,0 +1,12 @@
+.gifts-summary {
+  display: flex; gap: 16px; margin-bottom: 20px;
+}
+.gifts-stat {
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md); padding: 12px 20px;
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 0.78rem; color: var(--text-muted);
+}
+.gifts-stat-val { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+
+tr.gift-done td { opacity: 0.55; }

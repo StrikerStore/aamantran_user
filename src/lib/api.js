@@ -53,8 +53,8 @@ async function request(method, path, { body, multipart = false, params } = {}) {
 
 export const api = {
   auth: {
-    login: (username, password) =>
-      request('POST', '/api/user/auth/login', { body: { username, password } }),
+    login: (username, password, rememberMe = true) =>
+      request('POST', '/api/user/auth/login', { body: { username, password, rememberMe } }),
     me: () =>
       request('GET', '/api/user/auth/me'),
     requestRecoveryCode: (email) =>
@@ -150,6 +150,62 @@ export const api = {
 
   assets: {
     list: () => request('GET', '/api/assets'),
+  },
+
+  tasks: {
+    list:   (eid)         => request('GET',    `/api/user/events/${eid}/tasks`),
+    create: (eid, body)   => request('POST',   `/api/user/events/${eid}/tasks`, { body }),
+    update: (eid, tid, b) => request('PATCH',  `/api/user/events/${eid}/tasks/${tid}`, { body: b }),
+    remove: (eid, tid)    => request('DELETE', `/api/user/events/${eid}/tasks/${tid}`),
+  },
+
+  inventory: {
+    list:   (eid)          => request('GET',    `/api/user/events/${eid}/inventory`),
+    create: (eid, body)    => request('POST',   `/api/user/events/${eid}/inventory`, { body }),
+    update: (eid, iid, b)  => request('PATCH',  `/api/user/events/${eid}/inventory/${iid}`, { body: b }),
+    remove: (eid, iid)     => request('DELETE', `/api/user/events/${eid}/inventory/${iid}`),
+  },
+
+  budget: {
+    get:           (eid)         => request('GET',    `/api/user/events/${eid}/budget`),
+    setTotal:      (eid, body)   => request('PUT',    `/api/user/events/${eid}/budget`, { body }),
+    listExpenses:  (eid)         => request('GET',    `/api/user/events/${eid}/budget/expenses`),
+    addExpense:    (eid, body)   => request('POST',   `/api/user/events/${eid}/budget/expenses`, { body }),
+    updateExpense: (eid, xid, b) => request('PATCH',  `/api/user/events/${eid}/budget/expenses/${xid}`, { body: b }),
+    removeExpense: (eid, xid)    => request('DELETE', `/api/user/events/${eid}/budget/expenses/${xid}`),
+  },
+
+  vendors: {
+    list:   (eid)          => request('GET',    `/api/user/events/${eid}/vendors`),
+    create: (eid, body)    => request('POST',   `/api/user/events/${eid}/vendors`, { body }),
+    update: (eid, vid, b)  => request('PATCH',  `/api/user/events/${eid}/vendors/${vid}`, { body: b }),
+    remove: (eid, vid)     => request('DELETE', `/api/user/events/${eid}/vendors/${vid}`),
+  },
+
+  timeline: {
+    list:   (eid)          => request('GET',    `/api/user/events/${eid}/timeline`),
+    create: (eid, body)    => request('POST',   `/api/user/events/${eid}/timeline`, { body }),
+    update: (eid, tid, b)  => request('PATCH',  `/api/user/events/${eid}/timeline/${tid}`, { body: b }),
+    remove: (eid, tid)     => request('DELETE', `/api/user/events/${eid}/timeline/${tid}`),
+  },
+
+  moodboard: {
+    list:   (eid)         => request('GET',    `/api/user/events/${eid}/moodboard`),
+    create: (eid, body)   => request('POST',   `/api/user/events/${eid}/moodboard`, { body, multipart: body instanceof FormData }),
+    remove: (eid, mid)    => request('DELETE', `/api/user/events/${eid}/moodboard/${mid}`),
+  },
+
+  gifts: {
+    list:   (eid)          => request('GET',    `/api/user/events/${eid}/gifts`),
+    create: (eid, body)    => request('POST',   `/api/user/events/${eid}/gifts`, { body }),
+    update: (eid, gid, b)  => request('PATCH',  `/api/user/events/${eid}/gifts/${gid}`, { body: b }),
+    remove: (eid, gid)     => request('DELETE', `/api/user/events/${eid}/gifts/${gid}`),
+  },
+
+  photos: {
+    list:   (eid)         => request('GET',    `/api/user/events/${eid}/photos`),
+    upload: (eid, body)   => request('POST',   `/api/user/events/${eid}/photos`, { body, multipart: body instanceof FormData }),
+    remove: (eid, pid)    => request('DELETE', `/api/user/events/${eid}/photos/${pid}`),
   },
 };
 

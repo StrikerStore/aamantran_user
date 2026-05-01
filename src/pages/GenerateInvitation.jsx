@@ -11,14 +11,14 @@ import { ConfirmModal } from '../components/ui/Modal';
 import './InvitationForm.css';
 
 const SECTIONS = [
-  { id: 'people', label: 'A. People & Names' },
-  { id: 'venues', label: 'B. Venues' },
-  { id: 'functions', label: 'C. Functions' },
-  { id: 'media', label: 'D. Photos & Music' },
-  { id: 'custom', label: 'E. Custom Fields' },
-  { id: 'social', label: 'F. Links & guest features' },
-  { id: 'language', label: 'G. Language' },
-  { id: 'publish', label: 'H. Preview & Publish' },
+  { id: 'people',    label: 'People & Names',   short: 'People'     },
+  { id: 'venues',    label: 'Venues',            short: 'Venues'     },
+  { id: 'functions', label: 'Ceremonies',        short: 'Ceremonies' },
+  { id: 'media',     label: 'Photos & Music',    short: 'Media'      },
+  { id: 'custom',    label: 'Special Details',   short: 'Details'    },
+  { id: 'social',    label: 'Guest Options',     short: 'Options'    },
+  { id: 'language',  label: 'Language',          short: 'Language'   },
+  { id: 'publish',   label: 'Preview & Publish', short: 'Publish'    },
 ];
 
 /** @returns {null | { key: string, label: string, type: string, multiple: boolean, max: number, accept: string, allowUrl: boolean }[]} */
@@ -328,6 +328,9 @@ export default function GenerateInvitation() {
   const [partialEnabled, setPartialEnabled] = useState(false);
   const [partialSlug, setPartialSlug] = useState('');
   const [partialFnIds, setPartialFnIds] = useState(new Set()); // function IDs included in partial
+
+  // Celebration
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Delete confirms
   const [deletingPerson, setDeletingPerson] = useState(null);
@@ -800,7 +803,7 @@ export default function GenerateInvitation() {
         setPartialSlug(r.event.pairedEvent.slug);
         setPartialFnIds(new Set((r.event.pairedEvent.functions || []).map(f => f.id)));
       }
-      toast('Invitation published!', 'success');
+      setShowCelebration(true);
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -862,17 +865,56 @@ export default function GenerateInvitation() {
   const partialUrl = pairedEvent ? `${inviteBase}/i/${pairedEvent.slug}` : null;
   const partialInviteSlug = pairedEvent?.slug || partialSlug;
   const partialPreviewUrl = partialInviteSlug ? `${inviteBase}/i/${partialInviteSlug}` : null;
-  const isEditMode = event.isPublished; // page title changes after publish
+  const isEditMode = event.isPublished;
+
+  // Progress bar computation
+  const sectionComplete = {
+    people:    people.length > 0,
+    venues:    venues.length > 0,
+    functions: functions.length > 0 && functions.every(f => f.name && f.date && !f._isNew),
+    media:     media.length > 0,
+    custom:    fieldSchema.length === 0 || customFields.some(f => f.fieldValue),
+    social:    true,
+    language:  true,
+    publish:   event.isPublished,
+  };
+  const totalDone = Object.values(sectionComplete).filter(Boolean).length;
+  const pct = Math.round((totalDone / 8) * 100);
+  const requiredDone = ['people', 'functions', 'publish'].filter(k => sectionComplete[k]).length;
 
   return (
     <div className="invite-form-page page-fade">
       <div className="page-header">
         <div>
-          <h1 className="page-title">{isEditMode ? 'Edit Invitation' : 'Generate Invitation'}</h1>
+          <h1 className="page-title">{isEditMode ? 'Edit Invitation' : 'Build Invitation'}</h1>
           <p className="page-subtitle">{event.slug} · {event.community} {event.eventType}</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <a href={inviteUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">Preview</a>
+          <button className="btn btn-secondary btn-sm" onClick={openPreview} disabled={loadingPreview}>
+            {loadingPreview ? 'Opening…' : '👁 Preview'}
+          </button>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="invite-progress-wrap">
+        <div className="invite-progress-header">
+          <span className="invite-progress-label">
+            {event.isPublished ? '✓ Published' : `${pct}% complete`}
+          </span>
+          <span className="invite-progress-sub">
+            {event.isPublished
+              ? 'Your invitation is live!'
+              : requiredDone < 3
+                ? `${3 - requiredDone} required step(s) left`
+                : 'All required steps done — ready to publish!'}
+          </span>
+        </div>
+        <div className="invite-progress-bar">
+          <div
+            className="invite-progress-fill"
+            style={{ width: `${pct}%`, background: event.isPublished ? 'var(--green)' : 'var(--gold)' }}
+          />
         </div>
       </div>
 
@@ -881,17 +923,21 @@ export default function GenerateInvitation() {
         {SECTIONS.map(s => (
           <button
             key={s.id}
-            className={`section-tab ${activeSection === s.id ? 'active' : ''}`}
+            className={`section-tab ${activeSection === s.id ? 'active' : ''} ${sectionComplete[s.id] ? 'done' : ''}`}
             onClick={() => setActiveSection(s.id)}
           >
             {s.label}
+            {sectionComplete[s.id] && <span className="tab-check">✓</span>}
+            {!sectionComplete[s.id] && (s.id === 'people' || s.id === 'functions') && (
+              <span className="tab-required">Required</span>
+            )}
           </button>
         ))}
       </div>
 
       <div className="invite-form-body">
 
-        {/* ── A. PEOPLE ── */}
+        {/* ── PEOPLE ── */}
         {activeSection === 'people' && (
           <div className="card">
             <NameConfirmBar
@@ -991,7 +1037,7 @@ export default function GenerateInvitation() {
             )}
 
             {people.length > 0 ? (
-              <div className="items-list">
+              <div className="items-list" style={{ marginTop: 8 }}>
                 {people.map(p => (
                   <div key={p.id} className="item-row">
                     <div className="item-info">
@@ -1015,15 +1061,21 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add the bride, groom, and family members.</div>
               </div>
             )}
+          <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
           </div>
         )}
 
-        {/* ── B. FUNCTIONS ── */}
+        {/* ── FUNCTIONS ── */}
         {activeSection === 'functions' && (
           <div className="card">
+            {functions.length >= 2 && (
+              <div className="info-callout">
+                <strong>Tip — Partial Invite:</strong> With 2+ ceremonies you can create a separate invite link for guests attending only some functions. Enable it in Preview &amp; Publish.
+              </div>
+            )}
             <div className="section-header">
               <div>
-                <div className="section-title">Ceremonies & Functions</div>
+                <div className="section-title">Ceremonies</div>
                 {functions.length > 1 && (
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
                     Tick ✓ to include in partial invite
@@ -1176,6 +1228,7 @@ export default function GenerateInvitation() {
                 })}
               </div>
             )}
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
           </div>
         )}
 
@@ -1256,6 +1309,7 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add venue(s) for your ceremonies.</div>
               </div>
             )}
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
           </div>
         )}
 
@@ -1372,6 +1426,7 @@ export default function GenerateInvitation() {
                 )}
               </>
             )}
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
           </div>
         )}
 
@@ -1438,6 +1493,7 @@ export default function GenerateInvitation() {
                 </button>
               </>
             )}
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
           </div>
         )}
 
@@ -1497,6 +1553,7 @@ export default function GenerateInvitation() {
               {savingGuestFeatures ? <span className="btn-spinner" /> : null}
               Save links & options
             </button>
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
           </div>
         )}
 
@@ -1521,6 +1578,7 @@ export default function GenerateInvitation() {
               {savingLang ? <span className="btn-spinner" /> : null}
               Save Language
             </button>
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
           </div>
         )}
 
@@ -1532,9 +1590,9 @@ export default function GenerateInvitation() {
 
               {/* Pre-flight checklist */}
               <div className="preflight-list">
-                <PreflyItem ok={people.length > 0} label="At least one person added" />
-                <PreflyItem ok={frozen} label="Names confirmed" />
-                <PreflyItem ok={functions.length > 0} label="At least one ceremony added" />
+                <PreflyItem ok={people.length > 0} label="At least one person added" onClick={!people.length ? () => setActiveSection('people') : null} />
+                <PreflyItem ok={frozen} label="Names confirmed" onClick={!frozen ? () => setActiveSection('people') : null} />
+                <PreflyItem ok={functions.length > 0} label="At least one ceremony added" onClick={!functions.length ? () => setActiveSection('functions') : null} />
                 <PreflyItem ok={event.isPublished} label="Invitation published" />
               </div>
 
@@ -1708,7 +1766,7 @@ export default function GenerateInvitation() {
 
               {!frozen && (
                 <div className="publish-note">
-                  ⚠️ Confirm your names (Section A) before publishing.
+                  ⚠️ Confirm your names in <button className="btn-link" onClick={() => setActiveSection('people')}>People & Names</button> before publishing.
                 </div>
               )}
 
@@ -1799,15 +1857,79 @@ export default function GenerateInvitation() {
           onCancel={() => setConfirmUnpublish(false)}
         />
       )}
+
+      {/* Celebration modal */}
+      {showCelebration && (
+        <div className="celebration-overlay" onClick={() => setShowCelebration(false)}>
+          <div className="celebration-modal" onClick={e => e.stopPropagation()}>
+            <div className="celebration-icon">🎉</div>
+            <div className="celebration-title">Your invitation is live!</div>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
+              Share it with your guests and celebrate!
+            </p>
+            {event.slug && (
+              <div className="celebration-link">
+                <span className="celebration-link-text">{`${getInviteBaseUrl()}/i/${event.slug}`}</span>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${getInviteBaseUrl()}/i/${event.slug}`);
+                    toast('Link copied!', 'success');
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+            <div className="celebration-actions">
+              {event.slug && (
+                <a
+                  className="btn btn-primary"
+                  href={`https://wa.me/?text=${encodeURIComponent(`You're invited! View our wedding invitation: ${getInviteBaseUrl()}/i/${event.slug}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Share on WhatsApp
+                </a>
+              )}
+              <button className="btn btn-ghost" onClick={() => setShowCelebration(false)}>
+                Continue editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function PreflyItem({ ok, label }) {
+function PreflyItem({ ok, label, onClick }) {
   return (
-    <div className={`preflight-item ${ok ? 'ok' : 'nok'}`}>
+    <div
+      className={`preflight-item ${ok ? 'ok' : 'nok'}${!ok && onClick ? ' clickable' : ''}`}
+      onClick={!ok && onClick ? onClick : undefined}
+    >
       <span className="preflight-icon">{ok ? '✓' : '○'}</span>
       <span>{label}</span>
+      {!ok && onClick && <span style={{ marginLeft: 'auto', color: 'var(--gold)', fontSize: '0.85rem' }}>→</span>}
+    </div>
+  );
+}
+
+function SectionNav({ sections, activeSection, onNavigate }) {
+  const idx = sections.findIndex(s => s.id === activeSection);
+  const prev = sections[idx - 1];
+  const next = sections[idx + 1];
+  return (
+    <div className="section-nav-footer">
+      {prev
+        ? <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(prev.id)}>← {prev.short}</button>
+        : <span />}
+      {next && (
+        <button className="btn btn-primary btn-sm" onClick={() => onNavigate(next.id)}>
+          Next: {next.short} →
+        </button>
+      )}
     </div>
   );
 }

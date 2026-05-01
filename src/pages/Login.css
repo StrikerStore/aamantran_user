@@ -60,8 +60,35 @@
   padding: 24px;
 }
 
-.recovery-card h2 {
-  margin: 0 0 16px;
+.recovery-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.recovery-card-header h2 {
+  margin: 0;
   font-family: 'Playfair Display', serif;
   font-size: 1.35rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.keep-signed-in-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin: 4px 0 8px;
+  user-select: none;
+}
+
+.keep-signed-in-label input[type="checkbox"] {
+  accent-color: var(--gold);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
 }
