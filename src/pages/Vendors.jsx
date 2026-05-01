@@ -38,18 +38,28 @@ export default function Vendors() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  function openNew()  { setForm(BLANK); setEditing(null); setShowModal(true); }
-  function openEdit(v) { setForm({ ...v }); setEditing(v.id); setShowModal(true); }
+  function openNew()  { setForm({ ...BLANK, customType: '' }); setEditing(null); setShowModal(true); }
+  function openEdit(v) {
+    const isKnown = VENDOR_TYPES.includes(v.type);
+    setForm({ ...v, type: isKnown ? v.type : 'Other', customType: isKnown ? '' : v.type });
+    setEditing(v.id);
+    setShowModal(true);
+  }
 
   async function save() {
     if (!form.name.trim()) { toast('Vendor name is required', 'error'); return; }
     setSaving(true);
     try {
+      const payload = { ...form };
+      if (payload.type === 'Other' && payload.customType?.trim()) {
+        payload.type = payload.customType.trim();
+      }
+
       if (editing) {
-        const r = await api.vendors.update(id, editing, form);
+        const r = await api.vendors.update(id, editing, payload);
         setVendors(prev => prev.map(v => v.id === editing ? r.vendor : v));
       } else {
-        const r = await api.vendors.create(id, form);
+        const r = await api.vendors.create(id, payload);
         setVendors(prev => [...prev, r.vendor]);
       }
       setShowModal(false);
@@ -161,6 +171,9 @@ export default function Vendors() {
                 <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                   {VENDOR_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
+                {form.type === 'Other' && (
+                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Type name" value={form.customType || ''} onChange={e => setForm(f => ({ ...f, customType: e.target.value }))} />
+                )}
               </div>
             </div>
             <div className="form-row">

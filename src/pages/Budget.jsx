@@ -50,18 +50,28 @@ export default function Budget() {
     }
   }
 
-  function openNew()  { setForm(BLANK_EXPENSE); setEditing(null); setShowModal(true); }
-  function openEdit(e) { setForm({ ...e }); setEditing(e.id); setShowModal(true); }
+  function openNew()  { setForm({ ...BLANK_EXPENSE, customCategory: '' }); setEditing(null); setShowModal(true); }
+  function openEdit(e) {
+    const isKnown = EXPENSE_CATS.includes(e.category);
+    setForm({ ...e, category: isKnown ? e.category : 'Other', customCategory: isKnown ? '' : e.category });
+    setEditing(e.id);
+    setShowModal(true);
+  }
 
   async function save() {
     if (!form.description || !form.amount) { toast('Description and amount are required', 'error'); return; }
     setSaving(true);
     try {
+      const payload = { ...form };
+      if (payload.category === 'Other' && payload.customCategory?.trim()) {
+        payload.category = payload.customCategory.trim();
+      }
+
       if (editing) {
-        const r = await api.budget.updateExpense(id, editing, form);
+        const r = await api.budget.updateExpense(id, editing, payload);
         setExpenses(prev => prev.map(x => x.id === editing ? r.expense : x));
       } else {
-        const r = await api.budget.addExpense(id, form);
+        const r = await api.budget.addExpense(id, payload);
         setExpenses(prev => [...prev, r.expense]);
       }
       setShowModal(false);
@@ -260,6 +270,9 @@ export default function Budget() {
                 <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                   {EXPENSE_CATS.map(c => <option key={c}>{c}</option>)}
                 </select>
+                {form.category === 'Other' && (
+                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Amount (₹) <span className="req">*</span></label>

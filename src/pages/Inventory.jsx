@@ -49,8 +49,13 @@ export default function Inventory() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  function openNew() { setForm(BLANK); setEditing(null); setShowModal(true); }
-  function openEdit(item) { setForm({ ...item }); setEditing(item.id); setShowModal(true); }
+  function openNew() { setForm({ ...BLANK, customCategory: '' }); setEditing(null); setShowModal(true); }
+  function openEdit(item) {
+    const isKnown = CATEGORIES.some(c => c.label === item.category);
+    setForm({ ...item, category: isKnown ? item.category : 'Other', customCategory: isKnown ? '' : item.category });
+    setEditing(item.id);
+    setShowModal(true);
+  }
 
   const selectedCat = CATEGORIES.find(c => c.label === form.category);
   const subOptions  = selectedCat?.subs || [];
@@ -59,11 +64,16 @@ export default function Inventory() {
     if (!form.name.trim()) { toast('Name is required', 'error'); return; }
     setSaving(true);
     try {
+      const payload = { ...form };
+      if (payload.category === 'Other' && payload.customCategory?.trim()) {
+        payload.category = payload.customCategory.trim();
+      }
+      
       if (editing) {
-        const r = await api.inventory.update(id, editing, form);
-        setItems(prev => prev.map(x => x.id === editing ? r.item : x));
+        const r = await api.inventory.update(id, editing, payload);
+        setItems(prev => prev.map(t => t.id === editing ? r.item : t));
       } else {
-        const r = await api.inventory.create(id, form);
+        const r = await api.inventory.create(id, payload);
         setItems(prev => [...prev, r.item]);
       }
       setShowModal(false);
@@ -210,6 +220,9 @@ export default function Inventory() {
                 <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))}>
                   {CATEGORIES.map(c => <option key={c.label} value={c.label}>{c.icon} {c.label}</option>)}
                 </select>
+                {form.category === 'Other' && (
+                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
+                )}
               </div>
               {subOptions.length > 0 && (
                 <div className="form-group">

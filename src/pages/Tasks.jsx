@@ -44,18 +44,28 @@ export default function Tasks() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  function openNew() { setForm(BLANK); setEditing(null); setShowModal(true); }
-  function openEdit(t) { setForm({ ...t }); setEditing(t.id); setShowModal(true); }
+  function openNew() { setForm({ ...BLANK, customCategory: '' }); setEditing(null); setShowModal(true); }
+  function openEdit(t) {
+    const isKnown = CATEGORIES.includes(t.category);
+    setForm({ ...t, category: isKnown ? t.category : 'Other', customCategory: isKnown ? '' : t.category });
+    setEditing(t.id);
+    setShowModal(true);
+  }
 
   async function save() {
     if (!form.title.trim()) { toast('Title is required', 'error'); return; }
     setSaving(true);
     try {
+      const payload = { ...form };
+      if (payload.category === 'Other' && payload.customCategory?.trim()) {
+        payload.category = payload.customCategory.trim();
+      }
+      
       if (editing) {
-        const r = await api.tasks.update(id, editing, form);
+        const r = await api.tasks.update(id, editing, payload);
         setTasks(prev => prev.map(t => t.id === editing ? r.task : t));
       } else {
-        const r = await api.tasks.create(id, form);
+        const r = await api.tasks.create(id, payload);
         setTasks(prev => [...prev, r.task]);
       }
       setShowModal(false);
@@ -206,6 +216,9 @@ export default function Tasks() {
                 <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                   {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                 </select>
+                {form.category === 'Other' && (
+                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Due Date</label>
