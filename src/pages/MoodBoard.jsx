@@ -60,6 +60,7 @@ export default function MoodBoard() {
   }, [id]);
 
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setFile(null); setShowModal(true); }
+  function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
 
   async function save() {
     if (!file && !form.imageUrl.trim()) { toast('Upload an image or enter a URL', 'error'); return; }
@@ -114,7 +115,10 @@ export default function MoodBoard() {
           <h1 className="page-title">Mood Board</h1>
           <p className="page-subtitle">Collect inspiration for your dream wedding</p>
         </div>
-        <button className="btn btn-primary" onClick={openNew}>+ Add Pin</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-ghost" style={{ border: '1px solid var(--gold)', color: 'var(--gold)' }} onClick={openNewPinterest}>+ Add Pinterest Board</button>
+          <button className="btn btn-primary" onClick={openNew}>+ Add Pin</button>
+        </div>
       </div>
 
       {/* Category filter */}
