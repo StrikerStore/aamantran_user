@@ -190,7 +190,8 @@ export const api = {
   },
 
   moodboard: {
-    list:   (eid)         => request('GET',    `/api/user/events/${eid}/moodboard`),
+    list:             (eid)       => request('GET',    `/api/user/events/${eid}/moodboard`),
+    pinterestOembed:  (eid, url)  => request('GET',    `/api/user/events/${eid}/pinterest-oembed`, { params: { url } }),
     create: (eid, body)   => request('POST',   `/api/user/events/${eid}/moodboard`, { body, multipart: body instanceof FormData }),
     remove: (eid, mid)    => request('DELETE', `/api/user/events/${eid}/moodboard/${mid}`),
   },

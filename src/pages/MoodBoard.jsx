@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { API_BASE } from '../lib/config';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import './MoodBoard.css';
@@ -9,36 +10,152 @@ const CATEGORIES = ['Color Palette', 'Outfits', 'Decor', 'Flowers', 'Food', 'Jew
 
 const BLANK = { caption: '', category: 'Other', imageUrl: '' };
 
-const PinterestWidget = ({ boardUrl }) => {
-  useEffect(() => {
-    if (!window.PinUtils) {
-      const script = document.createElement('script');
-      script.src = 'https://assets.pinterest.com/js/pinit.js';
-      script.async = true;
-      script.dataset.pinBuild = 'doBuild';
-      document.body.appendChild(script);
-      script.onload = () => {
-        if (window.doBuild) window.doBuild();
-      };
-    } else {
-      if (window.doBuild) window.doBuild();
+let pinitLoadPromise = null;
+function loadPinterestScript() {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (typeof window.parsePins === 'function' || (window.PinUtils && typeof window.PinUtils.build === 'function')) {
+    return Promise.resolve();
+  }
+  if (pinitLoadPromise) return pinitLoadPromise;
+  pinitLoadPromise = new Promise((resolve, reject) => {
+    const prev = document.querySelector('script[src*="assets.pinterest.com/js/pinit.js"]');
+    if (prev) {
+      prev.addEventListener('load', () => resolve(), { once: true });
+      prev.addEventListener('error', () => reject(new Error('pinit')), { once: true });
+      return;
     }
-  }, [boardUrl]);
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://assets.pinterest.com/js/pinit.js';
+    s.dataset.pinBuild = 'parsePins';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('pinit'));
+    document.body.appendChild(s);
+  });
+  return pinitLoadPromise;
+}
+
+function pinDoForUrl(url) {
+  return String(url).toLowerCase().includes('/pin/') ? 'embedPin' : 'embedBoard';
+}
+
+/** Image / upload URLs may be relative to the API origin */
+function resolvePinHref(imageUrl) {
+  if (!imageUrl) return '#';
+  const u = String(imageUrl).trim();
+  if (/^https?:\/\//i.test(u)) return u;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const base = API_BASE ? new URL(API_BASE, origin).origin : origin;
+  const path = u.startsWith('/') ? u : `/${u}`;
+  return `${base}${path}`;
+}
+
+function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
+  const [loading, setLoading] = useState(true);
+  const [embedHtml, setEmbedHtml] = useState(null);
+  const widgetHostRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setEmbedHtml(null);
+
+    api.moodboard
+      .pinterestOembed(eventId, boardUrl)
+      .then((r) => {
+        if (cancelled) return;
+        setEmbedHtml(r.html || null);
+      })
+      .catch(() => {
+        if (!cancelled) setEmbedHtml(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, boardUrl]);
+
+  useEffect(() => {
+    if (loading || embedHtml) return;
+    const root = widgetHostRef.current;
+    if (!root) return;
+
+    root.innerHTML = '';
+    const a = document.createElement('a');
+    a.href = boardUrl;
+    a.dataset.pinDo = pinDoForUrl(boardUrl);
+    if (a.dataset.pinDo === 'embedBoard') {
+      a.dataset.pinBoardWidth = '100%';
+      a.dataset.pinScaleHeight = '520';
+      a.dataset.pinScaleWidth = '120';
+    }
+
+    root.appendChild(a);
+
+    let cancelled = false;
+    loadPinterestScript().then(() => {
+      if (cancelled || !widgetHostRef.current) return;
+      requestAnimationFrame(() => {
+        try {
+          if (typeof window.parsePins === 'function') window.parsePins(widgetHostRef.current);
+          else if (window.PinUtils && typeof window.PinUtils.build === 'function') {
+            window.PinUtils.build(widgetHostRef.current);
+          }
+        } catch {
+          /* Pinterest script API varies by region/version */
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, embedHtml, boardUrl]);
 
   return (
-    <div style={{ overflow: 'hidden', borderRadius: 'var(--r-md)' }}>
-      <a
-        data-pin-do="embedBoard"
-        data-pin-board-width="400"
-        data-pin-scale-height="240"
-        data-pin-scale-width="80"
-        href={boardUrl}
+    <div className="mb-pinterest-card">
+      <button
+        type="button"
+        className="masonry-delete mb-pinterest-delete"
+        aria-label="Remove Pinterest board"
+        onClick={onDelete}
       >
-        Pinterest Board
-      </a>
+        ✕
+      </button>
+
+      <div className="mb-pinterest-body">
+        {loading && (
+          <div className="mb-pinterest-loading">
+            <div className="spinner spinner-lg" />
+            <p className="mb-pinterest-loading-text">Loading Pinterest preview…</p>
+          </div>
+        )}
+        {!loading && embedHtml && (
+          <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+        )}
+        {!loading && !embedHtml && <div ref={widgetHostRef} className="mb-pinterest-widget-host" />}
+      </div>
+
+      <div className="mb-pinterest-footer">
+        <div className="mb-pinterest-footer-text">
+          {caption ? <p className="mb-pinterest-caption">{caption}</p> : null}
+          <p className="mb-pinterest-hint">Pins load inside the preview when Pinterest allows embedding.</p>
+        </div>
+        <a
+          className="btn btn-secondary btn-sm mb-pinterest-open"
+          href={boardUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open on Pinterest ↗
+        </a>
+      </div>
     </div>
   );
-};
+}
 
 export default function MoodBoard() {
   const { id } = useParams();
@@ -138,12 +255,15 @@ export default function MoodBoard() {
       ) : (
         <>
           {pinterestBoards.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, marginBottom: 24, justifyContent: 'center' }}>
+            <div className="mb-pinterest-stack">
               {pinterestBoards.map(pb => (
-                <div key={pb.id} style={{ position: 'relative', background: 'var(--bg-surface)', padding: '36px 16px 16px', borderRadius: 'var(--r-lg)', border: '1px solid var(--border-default)' }}>
-                  <button className="masonry-delete" style={{ top: 6, right: 6, background: 'var(--red)', zIndex: 10 }} onClick={() => setDeleting(pb)}>✕</button>
-                  <PinterestWidget boardUrl={pb.imageUrl} />
-                </div>
+                <PinterestBoardCard
+                  key={pb.id}
+                  eventId={id}
+                  boardUrl={pb.imageUrl}
+                  caption={pb.caption}
+                  onDelete={() => setDeleting(pb)}
+                />
               ))}
             </div>
           )}
@@ -151,14 +271,32 @@ export default function MoodBoard() {
           {regularPins.length > 0 && (
             <div className="masonry-grid">
               {regularPins.map(pin => (
-                <div key={pin.id} className="masonry-pin">
-                  <img src={pin.imageUrl} alt={pin.caption || 'pin'} className="masonry-img" loading="lazy" />
-                  <div className="masonry-overlay">
-                    {pin.category && <span className="masonry-cat">{pin.category}</span>}
-                    {pin.caption && <p className="masonry-caption">{pin.caption}</p>}
-                    <button className="masonry-delete" onClick={() => setDeleting(pin)}>✕</button>
+                <a
+                  key={pin.id}
+                  className="masonry-pin-link"
+                  href={resolvePinHref(pin.imageUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <div className="masonry-pin">
+                    <img src={resolvePinHref(pin.imageUrl)} alt={pin.caption || 'pin'} className="masonry-img" loading="lazy" />
+                    <div className="masonry-overlay">
+                      {pin.category && <span className="masonry-cat">{pin.category}</span>}
+                      {pin.caption && <p className="masonry-caption">{pin.caption}</p>}
+                      <button
+                        type="button"
+                        className="masonry-delete"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeleting(pin);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           )}
@@ -170,7 +308,7 @@ export default function MoodBoard() {
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Add Pin</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+              <button type="button" className="modal-close" onClick={() => setShowModal(false)}>✕</button>
             </div>
             {form.category !== 'Pinterest' && (
               <div className="form-group">
@@ -180,7 +318,7 @@ export default function MoodBoard() {
             )}
             {!file && (
               <div className="form-group">
-                <label className="form-label">{form.category === 'Pinterest' ? 'Pinterest Board URL' : 'Or Image URL'}</label>
+                <label className="form-label">{form.category === 'Pinterest' ? 'Pinterest board or pin URL' : 'Or Image URL'}</label>
                 <input className="form-input" placeholder="https://…" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} />
               </div>
             )}
@@ -198,8 +336,8 @@ export default function MoodBoard() {
               <input className="form-input" value={form.caption} onChange={e => setForm(f => ({ ...f, caption: e.target.value }))} />
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={save} disabled={saving}>
+              <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
                 {saving ? <span className="btn-spinner" /> : 'Add Pin'}
               </button>
             </div>
