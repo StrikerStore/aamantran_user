@@ -236,8 +236,14 @@ export function Layout() {
           <button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle sidebar">
             <IconMenu />
           </button>
+          <div className="topbar-mobile-brand">
+            <img src="/logo.png" alt="" className="topbar-logo-img" />
+            <span className="topbar-logotype">Aamantran</span>
+          </div>
           <div className="topbar-title" />
-          <div className="topbar-actions" />
+          <div className="topbar-actions">
+            <div className="topbar-mobile-avatar">{initial}</div>
+          </div>
         </header>
 
         <main className="page-content page-fade">

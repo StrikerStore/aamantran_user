@@ -139,6 +139,10 @@
 .sidebar-toggle:hover { background: var(--bg-elevated); }
 .topbar-title { flex: 1; font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); }
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
+.topbar-mobile-brand { display: none; align-items: center; gap: 8px; flex: 1; }
+.topbar-logo-img { width: 28px; height: 28px; object-fit: contain; }
+.topbar-logotype { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600; color: var(--gold); }
+.topbar-mobile-avatar { display: none; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #8b6e2a); color: var(--bg-base); font-size: 0.72rem; font-weight: 700; align-items: center; justify-content: center; flex-shrink: 0; }
 .page-content { flex: 1; padding: 28px 32px; }
 
 /* ── Bottom nav (mobile) ── */
@@ -153,7 +157,9 @@
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .main { margin-left: 0; }
-  .sidebar-toggle { display: flex; }
+  .sidebar-toggle { display: none; }
+  .topbar-mobile-brand { display: flex; }
+  .topbar-mobile-avatar { display: flex; }
   .page-content { padding: 20px 16px 90px; }
 
   /* Bottom nav */
