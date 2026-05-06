@@ -1,0 +1,14 @@
+{
+  "name": "Aamantran Dashboard",
+  "short_name": "Aamantran",
+  "description": "Build and manage your wedding invitation",
+  "theme_color": "#c9900a",
+  "background_color": "#faf6ef",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

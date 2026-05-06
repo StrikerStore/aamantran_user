@@ -1,47 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
 
+// No service worker. The dashboard is a normal SPA — every refresh fetches
+// index.html from the server, which references hashed asset paths so the
+// browser pulls the latest JS/CSS automatically.
+//
+// A small cleanup script in index.html unregisters any service worker that
+// might be lingering from a previous deploy, so existing users don't have to
+// do anything to pick up new changes.
 export default defineConfig({
-  plugins: [
-    react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'favicon.ico'],
-      manifest: {
-        name: 'Aamantran Dashboard',
-        short_name: 'Aamantran',
-        description: 'Build and manage your wedding invitation',
-        theme_color: '#c9900a',
-        background_color: '#faf6ef',
-        display: 'standalone',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          { src: '/logo.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/logo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        skipWaiting: true,
-        clientsClaim: true,
-        cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-stylesheets' },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
-            handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-webfonts' },
-          },
-        ],
-      },
-    }),
-  ],
+  plugins: [react()],
   server: {
     port: 3001,
     proxy: {

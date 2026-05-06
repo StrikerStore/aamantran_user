@@ -13,7 +13,28 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Aamantran" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>Aamantran — Dashboard</title>
+    <script>
+      // Permanent cache-busting: guarantee that every refresh shows the
+      // latest deploy. We don't use a service worker — but if a previous
+      // build registered one, unregister it here and clear its caches so
+      // existing users pick up the new SPA on their very next refresh.
+      (function () {
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              regs.forEach(function (r) { r.unregister(); });
+            });
+          }
+          if (typeof caches !== 'undefined' && caches.keys) {
+            caches.keys().then(function (keys) {
+              keys.forEach(function (k) { caches.delete(k); });
+            });
+          }
+        } catch (e) { /* nothing to clean up */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
