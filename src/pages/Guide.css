@@ -1,0 +1,116 @@
+.guide-page { max-width: 760px; }
+
+.guide-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.guide-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  transition: border-color var(--t-fast);
+}
+
+.guide-section.open { border-color: var(--border-gold); }
+
+.guide-section-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--t-fast);
+}
+
+.guide-section-head:hover { background: var(--bg-elevated); }
+
+.guide-section-icon {
+  font-size: 1.3rem;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.guide-section-title {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.guide-section-chevron {
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+}
+
+.guide-section.open .guide-section-chevron {
+  background: rgba(184,145,46,0.12);
+  color: var(--gold);
+}
+
+.guide-section-body {
+  padding: 4px 18px 18px 58px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: guideFade 0.15s ease;
+}
+
+@keyframes guideFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.guide-item-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.guide-item-body {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.guide-cta-card {
+  background: rgba(184,145,46,0.06);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--r-md);
+  padding: 20px 22px;
+  text-align: center;
+}
+
+.guide-cta-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.guide-cta-body {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+}
+
+@media (max-width: 600px) {
+  .guide-section-body { padding-left: 18px; }
+}

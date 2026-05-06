@@ -11,6 +11,7 @@ import WishManager from './pages/WishManager';
 import Settings from './pages/Settings';
 import Support from './pages/Support';
 import Review from './pages/Review';
+import Guide from './pages/Guide';
 import Tasks from './pages/Tasks';
 import Inventory from './pages/Inventory';
 import Budget from './pages/Budget';
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/support"  element={<Support />} />
           <Route path="/review"   element={<Review />} />
+          <Route path="/guide"    element={<Guide />} />
         </Route>
 
         {/* Fallback */}

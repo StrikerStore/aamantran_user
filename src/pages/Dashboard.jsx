@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useOutletContext, useNavigate, Link } from 'react-router-dom';
+import { useOutletContext, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatDate, countdown } from '../lib/utils';
 import { getInviteBaseUrl } from '../lib/config';
@@ -10,6 +10,7 @@ import './Dashboard.css';
 export default function Dashboard() {
   const navigate = useNavigate();
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeEvent, events = [], setActiveEvent } = useOutletContext() || {};
 
   const [stats, setStats] = useState(null);
@@ -30,6 +31,23 @@ export default function Dashboard() {
       setEventDetail(er.event);
     }).catch(() => {}).finally(() => setLoadingStats(false));
   }, [activeEvent?.id]);
+
+  // Open share dialog when navigated with ?share=1 (from bottom nav)
+  useEffect(() => {
+    if (searchParams.get('share') === '1' && activeEvent?.isPublished) {
+      setShowShare(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('share');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, activeEvent?.isPublished]);
+
+  // Listen for share trigger from bottom nav while already on dashboard
+  useEffect(() => {
+    const open = () => activeEvent?.isPublished && setShowShare(true);
+    window.addEventListener('aam:open-share', open);
+    return () => window.removeEventListener('aam:open-share', open);
+  }, [activeEvent?.isPublished]);
 
   if (!activeEvent) {
     return (
@@ -59,31 +77,40 @@ export default function Dashboard() {
   const pairedEvent = eventDetail?.pairedEvent;
   const partialUrl = pairedEvent ? `${inviteBase}/i/${pairedEvent.slug}` : null;
 
-  // Derive couple names from people or slug
-  const people = eventDetail?.people;
-  let coupleNames = activeEvent.slug
-    ?.split('-')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ') || 'Your Event';
-  if (people?.length) {
+  // Display title — only show couple names when names are frozen.
+  // Otherwise show a neutral placeholder so we don't surface unconfirmed names.
+  const people = eventDetail?.people || [];
+  let displayTitle;
+  if (activeEvent.namesAreFrozen && people.length) {
     const names = people
       .slice(0, 2)
-      .map(p => p.displayName || p.name || [p.firstName, p.lastName].filter(Boolean).join(' '))
+      .map(p => p.name || p.displayName || [p.firstName, p.lastName].filter(Boolean).join(' '))
       .filter(Boolean);
-    if (names.length) coupleNames = names.join(' & ');
+    displayTitle = names.length ? names.join(' & ') : 'Your Wedding';
+  } else {
+    displayTitle = activeEvent.community
+      ? `${activeEvent.community} ${activeEvent.eventType || 'Wedding'}`
+      : 'Your Wedding';
   }
 
-  // RSVP breakdown
-  const attending  = stats?.perFunction?.reduce((s, f) => s + (f.attending || 0), 0) ?? 0;
-  const declined   = stats?.perFunction?.reduce((s, f) => s + (f.notAttending || 0), 0) ?? 0;
-  const rsvpTotal  = stats?.rsvpCount ?? 0;
-  const pending    = Math.max(0, rsvpTotal - attending - declined);
-  const guestCount = stats?.guestCount ?? 0;
-  const attPct     = guestCount > 0 ? Math.round((attending / guestCount) * 100) : 0;
-  const pendingPct = guestCount > 0 ? Math.round((pending  / guestCount) * 100) : 0;
-  const donutTotal = attending + declined + pending || 1;
-  const donutAttPct = Math.round((attending / donutTotal) * 100);
-  const donutDecPct = Math.round((declined  / donutTotal) * 100);
+  // RSVP breakdown — counts must reflect *unique guests*, not function×guest pairs.
+  // A single guest replying yes to N functions shows up N times in perFunction sums.
+  // Approximation: max across functions ≈ unique respondents (accurate when guests
+  // respond to all functions, which is the dominant case).
+  const fnAttending     = stats?.perFunction?.map(f => f.attending    || 0) ?? [];
+  const fnNotAttending  = stats?.perFunction?.map(f => f.notAttending || 0) ?? [];
+  const fnResponded     = stats?.perFunction?.map((f, i) => (fnAttending[i] || 0) + (fnNotAttending[i] || 0)) ?? [];
+  const attending       = fnAttending.length    ? Math.max(...fnAttending)    : 0;
+  const declined        = fnNotAttending.length ? Math.max(...fnNotAttending) : 0;
+  const responded       = fnResponded.length    ? Math.max(...fnResponded)    : 0;
+  const guestCount      = stats?.guestCount ?? 0;
+  const pending         = Math.max(0, guestCount - responded);
+  const rsvpTotal       = responded;
+  const attPct          = guestCount > 0 ? Math.round((attending / guestCount) * 100) : 0;
+  const pendingPct      = guestCount > 0 ? Math.round((pending   / guestCount) * 100) : 0;
+  const donutTotal      = attending + declined + pending || 1;
+  const donutAttPct     = Math.round((attending / donutTotal) * 100);
+  const donutDecPct     = Math.round((declined  / donutTotal) * 100);
 
   return (
     <div className="page-fade">
@@ -104,11 +131,11 @@ export default function Dashboard() {
             )}
           </div>
 
-          <h1 className="dash-couple-name">{coupleNames}</h1>
+          <h1 className="dash-couple-name">{displayTitle}</h1>
 
-          {(firstFn?.date || firstFn?.venue) && (
+          {(firstFn?.date || firstFn?.venueName) && (
             <p className="dash-event-meta">
-              {[firstFn.date && formatDate(firstFn.date), firstFn.venue].filter(Boolean).join(' · ')}
+              {[firstFn.date && formatDate(firstFn.date), firstFn.venueName].filter(Boolean).join(' · ')}
             </p>
           )}
 
@@ -182,7 +209,7 @@ export default function Dashboard() {
             <span className="glance-dot">·</span>
             <span className="glance-chip chip-red"><strong>{declined}</strong> sends apologies</span>
             <span className="glance-dot">·</span>
-            <span className="glance-chip chip-muted"><strong>{stats.opens ?? 0}</strong> yet to open</span>
+            <span className="glance-chip chip-muted"><strong>{stats.opens ?? 0}</strong> total opens</span>
           </div>
         </div>
       )}
