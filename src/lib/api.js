@@ -32,7 +32,7 @@ async function request(method, path, { body, multipart = false, params } = {}) {
 
   let res;
   try {
-    res = await fetch(url.toString(), { method, headers, body: fetchBody });
+    res = await fetch(url.toString(), { method, headers, body: fetchBody, cache: 'no-store' });
   } catch {
     throw new ApiError('Network error — is the backend running?', 0, null);
   }

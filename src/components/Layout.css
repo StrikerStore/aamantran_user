@@ -284,40 +284,59 @@
   .bottom-nav-item.active .bnav-icon { stroke-width: 2; }
 
   /* ── Premium gold FAB for Share ── */
-  .bottom-nav-share .bnav-icon {
-    width: 56px; height: 56px;
-    padding: 16px;
+  .bottom-nav-share {
+    font-weight: 700;
+    color: var(--gold);
+    /* Let the FAB+label pair sit naturally; pull just enough to pop above bar */
+    justify-content: flex-end;
+    padding-bottom: 4px;
+  }
+
+  /* Opaque solid ring around the FAB — fully covers the glass bar beneath. */
+  .bnav-fab {
+    width: 52px; height: 52px;
     border-radius: 50%;
-    color: #fffaef;
-    stroke-width: 2;
-    background:
-      radial-gradient(circle at 32% 28%, rgba(255, 235, 190, 0.55), transparent 55%),
-      linear-gradient(140deg, #d9ad48 0%, #c9900a 48%, #8b6e2a 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: content-box;
+    flex-shrink: 0;
+    margin-top: -26px;
+    margin-bottom: 1px;
+    color: #ffffff;
+    background: linear-gradient(140deg, #d9ad48 0%, #c9900a 50%, #8b6e2a 100%);
+    border: 4px solid #ffffff;
     box-shadow:
-      0 0 0 5px rgba(252, 248, 240, 0.92),                 /* halo cuts through bar */
-      0 10px 22px -3px rgba(184, 145, 46, 0.55),           /* outer glow */
-      0 3px 8px rgba(184, 145, 46, 0.32),                  /* contact shadow */
-      inset 0 1px 0 rgba(255, 255, 255, 0.5),              /* glossy top edge */
-      inset 0 -1px 2px rgba(70, 50, 10, 0.22);             /* inner depth */
-    margin-top: -34px;
-    margin-bottom: -2px;
+      0 0 0 1.5px rgba(184, 145, 46, 0.25),
+      0 8px 18px -2px rgba(184, 145, 46, 0.45),
+      0 3px 8px  rgba(184, 145, 46, 0.30),
+      inset 0 1px 1px rgba(255, 255, 255, 0.35),
+      inset 0 -1px 2px rgba(70, 50, 10, 0.18);
     transition: transform 0.18s ease, box-shadow 0.18s ease;
   }
-  .bottom-nav-share:active:not(:disabled) .bnav-icon {
+  .bnav-fab .bnav-icon {
+    width: 22px;
+    height: 22px;
+    stroke-width: 2.2;
+    color: #ffffff;
+    /* Reset any inherited sizing from non-FAB rules */
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    margin: 0;
+  }
+  .bottom-nav-share:active:not(:disabled) .bnav-fab {
     transform: scale(0.93);
     box-shadow:
-      0 0 0 5px rgba(252, 248, 240, 0.92),
-      0 5px 12px -2px rgba(184, 145, 46, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4),
-      inset 0 -1px 2px rgba(70, 50, 10, 0.28);
+      0 4px 10px -2px rgba(184, 145, 46, 0.45),
+      inset 0 1px 1px rgba(255, 255, 255, 0.30),
+      inset 0 -1px 2px rgba(70, 50, 10, 0.22);
   }
-  .bottom-nav-share { font-weight: 700; color: var(--gold); }
-  .bottom-nav-share:disabled .bnav-icon {
+  .bottom-nav-share:disabled .bnav-fab {
     background: linear-gradient(140deg, #d6d2cb, #b6b1a8);
-    color: rgba(255, 255, 255, 0.78);
-    box-shadow:
-      0 0 0 5px rgba(252, 248, 240, 0.92),
-      0 4px 10px -2px rgba(0, 0, 0, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.08);
   }
 
   /* ── Bottom sheet (vertical sectioned list) ── */

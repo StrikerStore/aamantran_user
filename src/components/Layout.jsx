@@ -365,7 +365,7 @@ export function Layout() {
           disabled={!eid || !published}
           aria-label="Share invitation"
         >
-          <BNavIconShare />
+          <span className="bnav-fab"><BNavIconShare /></span>
           <span>Share</span>
         </button>
         <button
