@@ -56,8 +56,16 @@
 
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 15px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+html {
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Stop mobile browsers from boosting text size (reads as a “zoomed” layout). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body { font-family: 'DM Sans', sans-serif; background: var(--bg-base); color: var(--text-primary); line-height: 1.6; min-height: 100vh; }
+#root { min-height: 100vh; width: 100%; }
 a { color: var(--gold); text-decoration: none; }
 img { display: block; max-width: 100%; }
 button { font-family: inherit; }
@@ -211,14 +219,19 @@ input, select, textarea { font-family: inherit; }
 @media (max-width: 900px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
+
+  /*
+    iOS Safari zooms the viewport when focusing inputs with computed font-size < 16px,
+    and that zoom often survives a full refresh — the whole app looks “zoomed in”.
+    Apply under the same breakpoint as the mobile shell (900px), not only narrow phones.
+  */
+  input, select, textarea { font-size: 16px !important; }
+  /* Reduce double-tap zoom delay on interactive UI (does not replace 16px inputs on iOS). */
+  body { touch-action: manipulation; }
 }
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .card { padding: 16px; }
-
-  /* Prevent iOS Safari auto-zoom on input focus (triggered when font-size < 16px).
-     The zoom persists across page refreshes, causing the "zoomed-in" appearance. */
-  input, select, textarea { font-size: 16px !important; }
 }
 
 /* ── Pill / filter button (shared across feature pages) ── */
