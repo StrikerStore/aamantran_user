@@ -8,6 +8,7 @@
   padding: 22px 24px;
   margin-bottom: 16px;
   box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  min-width: 0;
 }
 
 .dash-status-pills {
@@ -137,7 +138,11 @@
   gap: 10px;
   flex-wrap: wrap;
 }
-.dash-hero-actions .btn { min-height: 44px; flex: 1; }
+.dash-hero-actions .btn {
+  min-height: 44px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
 /* ── Glance row — guest summary as compact stat chips ── */
 .dash-glance {
@@ -157,7 +162,7 @@
 }
 .dash-glance-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 .glance-stat {
@@ -168,6 +173,7 @@
   padding: 8px 4px;
   border-left: 2px solid var(--border-subtle);
   padding-left: 10px;
+  min-width: 0;
 }
 .glance-stat:first-child { border-left: 2px solid var(--border-subtle); }
 .glance-stat strong {
@@ -183,6 +189,7 @@
   font-size: 0.7rem;
   color: var(--text-muted);
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 /* ── Stat cards — only the meaningful ones (RSVPs + Attending donut) ── */
@@ -190,7 +197,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .stat-tag {
@@ -208,8 +217,10 @@
 .stat-rsvp-main {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
+  min-width: 0;
 }
 
 .stat-rsvp-of {
@@ -230,7 +241,14 @@
 .fill-attending { background: #16a34a; }
 .fill-pending   { background: var(--gold); opacity: 0.55; }
 
-.stat-donut-row { display: flex; align-items: center; gap: 16px; margin-top: 4px; }
+.stat-donut-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+  min-width: 0;
+}
+.stat-donut-row > div:last-child { min-width: 0; }
 
 .stat-donut-sm {
   width: 60px; height: 60px; flex-shrink: 0;
@@ -262,8 +280,20 @@
 @media (max-width: 900px) {
   .dash-hero { padding: 18px 16px; border-radius: var(--r-lg, 14px); }
   .dash-couple-name { font-size: 1.5rem; }
-  .dash-glance { padding: 14px 14px; }
-  .dash-glance-row { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .dash-glance { padding: 14px 14px; min-width: 0; }
+  .dash-glance-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  /* Side-by-side .btn uses white-space:nowrap globally — stack so row width never exceeds the screen */
+  .dash-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .dash-hero-actions .btn {
+    flex: none;
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
   .glance-stat { padding-left: 8px; }
   .glance-stat strong { font-size: 1.05rem; }
   .glance-stat span { font-size: 0.66rem; }
@@ -275,6 +305,6 @@
   .dash-cd-inline { padding: 6px 10px; }
   .dash-cd-tail { display: none; }
   .dash-hero-actions .btn { font-size: 0.92rem; }
-  .dash-glance-row { grid-template-columns: repeat(2, 1fr); gap: 8px 12px; }
+  .dash-glance-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
   .glance-stat { padding-left: 8px; }
 }

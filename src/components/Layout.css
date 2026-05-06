@@ -1,5 +1,5 @@
 /* ── App Shell ── */
-.app-shell { display: flex; min-height: 100vh; }
+.app-shell { display: flex; min-height: 100vh; min-width: 0; }
 
 /* ── Sidebar ── */
 .sidebar {
@@ -133,8 +133,22 @@
 .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 99; animation: fadeIn 0.15s ease; }
 
 /* ── Main content ── */
-.main { flex: 1; margin-left: var(--sidebar-w); display: flex; flex-direction: column; min-height: 100vh; }
-.topbar { height: 56px; background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 16px; padding: 0 24px; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+/* min-width: 0 — flex item default is min-width:auto; wide dashboard content must not blow past the viewport */
+.main { flex: 1; margin-left: var(--sidebar-w); display: flex; flex-direction: column; min-height: 100vh; min-width: 0; }
+.topbar {
+  height: 56px;
+  min-width: 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
 .sidebar-toggle { width: 32px; height: 32px; background: none; border: none; color: var(--text-secondary); cursor: pointer; display: none; align-items: center; justify-content: center; border-radius: var(--r-sm); transition: background var(--t-fast); }
 .sidebar-toggle:hover { background: var(--bg-elevated); }
 .topbar-title { flex: 1; font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); }
@@ -162,7 +176,7 @@
 .topbar-mobile-switcher { display: none; flex: 1; min-width: 0; position: relative; }
 .topbar-event-chip {
   display: flex; align-items: center; gap: 6px;
-  width: 100%; max-width: 220px;
+  width: 100%; max-width: min(220px, 100%);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 99px;
@@ -187,7 +201,7 @@
   overflow: hidden;
   animation: slideUp 0.15s ease;
 }
-.page-content { flex: 1; padding: 28px 32px; }
+.page-content { flex: 1; min-width: 0; padding: 28px 32px; }
 
 /* ── Bottom nav (mobile) ── */
 .bottom-nav { display: none; }
@@ -203,7 +217,7 @@
   .main { margin-left: 0; }
   .sidebar-toggle { display: none; }
   .topbar {
-    padding: 0 14px;
+    padding: 0 max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px));
     gap: 10px;
     height: 60px;
     background: var(--bg-surface);
@@ -214,7 +228,13 @@
   .topbar-mobile-switcher { display: flex; }
   .topbar-mobile-avatar { display: flex; }
   .topbar-title { display: none; }
-  .page-content { padding: 16px 14px calc(110px + env(safe-area-inset-bottom)); }
+  .page-content {
+    padding:
+      16px
+      max(14px, env(safe-area-inset-right, 0px))
+      calc(110px + env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left, 0px));
+  }
 }
 
 /* On phones, drop the wordmark to give the event switcher room */
@@ -224,29 +244,27 @@
 
 @media (max-width: 900px) {
 
-  /* ── Bottom nav — floating glass pill ── */
+  /* ── Bottom nav — solid floating pill ── */
   .bottom-nav {
     display: flex;
     position: fixed;
-    left: 12px; right: 12px;
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
     bottom: max(12px, env(safe-area-inset-bottom));
     height: 64px;
     padding: 4px 6px;
-    background: rgba(252, 248, 240, 0.78);
-    backdrop-filter: saturate(180%) blur(22px);
-    -webkit-backdrop-filter: saturate(180%) blur(22px);
-    border: 1px solid rgba(184, 145, 46, 0.14);
+    background: var(--bg-base);
+    border: 1px solid rgba(184, 145, 46, 0.22);
     border-radius: 24px;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      0 1px 0 rgba(255, 255, 255, 0.4),
-      0 14px 32px -6px rgba(20, 14, 4, 0.14),
+      0 14px 32px -6px rgba(20, 14, 4, 0.12),
       0 4px 10px -2px rgba(20, 14, 4, 0.06);
     z-index: 100;
   }
 
   .bottom-nav-item {
     flex: 1;
+    min-width: 0;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 3px;
@@ -260,6 +278,12 @@
     -webkit-tap-highlight-color: transparent;
     position: relative;
     padding: 4px;
+  }
+  .bottom-nav-item > span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .bottom-nav-item:active:not(:disabled) { transform: scale(0.93); }
   .bottom-nav-item:disabled { opacity: 0.35; }
@@ -292,7 +316,7 @@
     padding-bottom: 4px;
   }
 
-  /* Opaque solid ring around the FAB — fully covers the glass bar beneath. */
+  /* Solid ring around the FAB — sits cleanly on the bar surface. */
   .bnav-fab {
     width: 52px; height: 52px;
     border-radius: 50%;
