@@ -10,6 +10,20 @@ const CATEGORIES = ['Color Palette', 'Outfits', 'Decor', 'Flowers', 'Food', 'Jew
 
 const BLANK = { caption: '', category: 'Other', imageUrl: '' };
 
+/** Same breakpoint as layout mobile shell — grid taps open lightbox instead of new tab */
+function useMobileMoodLayout() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const onChange = () => setMobile(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return mobile;
+}
+
 let pinitLoadPromise = null;
 function loadPinterestScript() {
   if (typeof window === 'undefined') return Promise.resolve();
@@ -89,8 +103,8 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     a.dataset.pinDo = pinDoForUrl(boardUrl);
     if (a.dataset.pinDo === 'embedBoard') {
       a.dataset.pinBoardWidth = '100%';
-      a.dataset.pinScaleHeight = '520';
-      a.dataset.pinScaleWidth = '120';
+      a.dataset.pinScaleHeight = '280';
+      a.dataset.pinScaleWidth = '80';
     }
 
     root.appendChild(a);
@@ -134,9 +148,15 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
           </div>
         )}
         {!loading && embedHtml && (
-          <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+          <div className="mb-pinterest-viewport">
+            <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+          </div>
         )}
-        {!loading && !embedHtml && <div ref={widgetHostRef} className="mb-pinterest-widget-host" />}
+        {!loading && !embedHtml && (
+          <div className="mb-pinterest-viewport mb-pinterest-viewport--widget">
+            <div ref={widgetHostRef} className="mb-pinterest-widget-host" />
+          </div>
+        )}
       </div>
 
       <div className="mb-pinterest-footer">
@@ -168,6 +188,22 @@ export default function MoodBoard() {
   const [file, setFile]           = useState(null);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState(null);
+  const [pinLightbox, setPinLightbox] = useState(null);
+  const isMobileMood = useMobileMoodLayout();
+
+  useEffect(() => {
+    if (!pinLightbox) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function onKey(e) {
+      if (e.key === 'Escape') setPinLightbox(null);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [pinLightbox]);
 
   useEffect(() => {
     api.moodboard.list(id)
@@ -270,14 +306,8 @@ export default function MoodBoard() {
 
           {regularPins.length > 0 && (
             <div className="masonry-grid">
-              {regularPins.map(pin => (
-                <a
-                  key={pin.id}
-                  className="masonry-pin-link"
-                  href={resolvePinHref(pin.imageUrl)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+              {regularPins.map(pin => {
+                const inner = (
                   <div className="masonry-pin">
                     <img src={resolvePinHref(pin.imageUrl)} alt={pin.caption || 'pin'} className="masonry-img" loading="lazy" />
                     <div className="masonry-overlay">
@@ -296,8 +326,44 @@ export default function MoodBoard() {
                       </button>
                     </div>
                   </div>
-                </a>
-              ))}
+                );
+
+                if (isMobileMood) {
+                  return (
+                    <div
+                      key={pin.id}
+                      className="masonry-pin-link masonry-pin-link--tap"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        if (e.target.closest('.masonry-delete')) return;
+                        setPinLightbox(pin);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.target.closest('.masonry-delete')) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setPinLightbox(pin);
+                        }
+                      }}
+                    >
+                      {inner}
+                    </div>
+                  );
+                }
+
+                return (
+                  <a
+                    key={pin.id}
+                    className="masonry-pin-link"
+                    href={resolvePinHref(pin.imageUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {inner}
+                  </a>
+                );
+              })}
             </div>
           )}
         </>
@@ -353,6 +419,51 @@ export default function MoodBoard() {
           onConfirm={() => deletePin(deleting.id)}
           onCancel={() => setDeleting(null)}
         />
+      )}
+
+      {pinLightbox && (
+        <div
+          className="mb-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={pinLightbox.caption || 'Pin preview'}
+          onClick={() => setPinLightbox(null)}
+        >
+          <button
+            type="button"
+            className="mb-lightbox-close"
+            aria-label="Close"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPinLightbox(null);
+            }}
+          >
+            ✕
+          </button>
+          <div className="mb-lightbox-inner" onClick={e => e.stopPropagation()}>
+            <img
+              src={resolvePinHref(pinLightbox.imageUrl)}
+              alt={pinLightbox.caption || ''}
+              className="mb-lightbox-img"
+            />
+            <div className="mb-lightbox-meta">
+              {pinLightbox.category && (
+                <span className="mb-lightbox-cat">{pinLightbox.category}</span>
+              )}
+              {pinLightbox.caption && (
+                <p className="mb-lightbox-caption">{pinLightbox.caption}</p>
+              )}
+              <a
+                className="btn btn-secondary btn-sm mb-lightbox-open"
+                href={resolvePinHref(pinLightbox.imageUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open original ↗
+              </a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
