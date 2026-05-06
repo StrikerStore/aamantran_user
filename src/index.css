@@ -215,6 +215,10 @@ input, select, textarea { font-family: inherit; }
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .card { padding: 16px; }
+
+  /* Prevent iOS Safari auto-zoom on input focus (triggered when font-size < 16px).
+     The zoom persists across page refreshes, causing the "zoomed-in" appearance. */
+  input, select, textarea { font-size: 16px !important; }
 }
 
 /* ── Pill / filter button (shared across feature pages) ── */
