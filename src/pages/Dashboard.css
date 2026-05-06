@@ -1,78 +1,101 @@
-/* ── Hero Card ── */
+/* ── Hero (single column, mobile-first) ──
+   No more side-by-side countdown. The countdown is rendered inline within
+   the hero so the same number is never repeated below. */
 .dash-hero {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--r-xl);
-  padding: 28px 32px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: flex-start;
-  gap: 28px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
 }
-
-.dash-hero-main { flex: 1; min-width: 0; }
 
 .dash-status-pills {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .dash-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 3px 10px;
   border-radius: 99px;
   border: 1px solid transparent;
 }
-
-.pill-live {
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
-  border-color: rgba(34, 197, 94, 0.28);
-}
-
-.pill-draft {
-  background: rgba(184, 145, 46, 0.12);
-  color: var(--gold);
-  border-color: var(--border-gold);
-}
-
-.pill-neutral {
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  border-color: var(--border-subtle);
-}
-
-.pill-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
+.pill-live    { background: rgba(34,197,94,0.12); color: #16a34a; border-color: rgba(34,197,94,0.28); }
+.pill-draft   { background: rgba(184,145,46,0.12); color: var(--gold); border-color: var(--border-gold); }
+.pill-neutral { background: var(--bg-elevated); color: var(--text-secondary); border-color: var(--border-subtle); }
+.pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
 .dash-couple-name {
   font-family: 'Playfair Display', serif;
-  font-size: 2rem;
+  font-size: 1.85rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   line-height: 1.2;
+  word-break: break-word;
+}
+
+.dash-name-skeleton {
+  width: 60%;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-overlay) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  margin: 0 0 4px;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .dash-event-meta {
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   color: var(--text-muted);
   font-style: italic;
-  margin: 0 0 20px;
+  margin: 0 0 14px;
+}
+
+/* Inline countdown — chip-style, single line, no duplication elsewhere */
+.dash-cd-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 99px;
+  padding: 6px 14px;
+  margin-bottom: 16px;
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+.dash-cd-inline .dash-cd-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1;
+}
+.dash-cd-inline .dash-cd-unit {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.dash-cd-tail {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-left: 4px;
 }
 
 .dash-url-bar {
@@ -82,11 +105,9 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-sm);
-  padding: 7px 12px;
-  margin-bottom: 18px;
-  max-width: 500px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
 }
-
 .dash-url-text {
   flex: 1;
   font-size: 0.8rem;
@@ -96,7 +117,6 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
-
 .dash-copy-btn {
   flex-shrink: 0;
   font-size: 0.75rem;
@@ -105,101 +125,67 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--r-sm);
-  padding: 3px 10px;
+  padding: 5px 12px;
+  min-height: 32px;
   cursor: pointer;
   transition: all var(--t-fast);
 }
-
 .dash-copy-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-.dash-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-
-/* ── Countdown block ── */
-.dash-countdown {
-  flex-shrink: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
-  padding: 20px 24px;
-  text-align: center;
-  min-width: 186px;
-}
-
-.dash-cd-label {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin: 0 0 14px;
-}
-
-.dash-cd-nums {
+.dash-hero-actions {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
+.dash-hero-actions .btn { min-height: 44px; flex: 1; }
 
-.dash-cd-unit { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-
-.dash-cd-num {
-  font-family: 'Playfair Display', serif;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--gold);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.dash-cd-unit small {
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.dash-cd-sep { font-size: 1.2rem; color: var(--border-default); margin-bottom: 16px; }
-
-/* ── Guest Glance ── */
+/* ── Glance row — guest summary as compact stat chips ── */
 .dash-glance {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--r-md);
-  padding: 14px 24px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin-bottom: 16px;
 }
-
 .dash-glance-title {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
-  white-space: nowrap;
+  margin-bottom: 10px;
 }
-
 .dash-glance-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.glance-stat {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 4px;
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 10px;
+}
+.glance-stat:first-child { border-left: 2px solid var(--border-subtle); }
+.glance-stat strong {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.glance-stat strong.g-green { color: #16a34a; }
+.glance-stat strong.g-red   { color: var(--red); }
+.glance-stat span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
-.glance-chip { font-size: 0.875rem; color: var(--text-secondary); }
-.glance-chip strong { font-weight: 700; }
-.chip-green strong { color: #16a34a; }
-.chip-red strong { color: var(--red); }
-.chip-muted strong { color: var(--text-primary); }
-.glance-dot { color: var(--border-default); font-size: 1rem; }
-
-/* ── Stat card additions ── */
+/* ── Stat cards — only the meaningful ones (RSVPs + Attending donut) ── */
 .stat-card-hd {
   display: flex;
   align-items: center;
@@ -247,18 +233,13 @@
 .stat-donut-row { display: flex; align-items: center; gap: 16px; margin-top: 4px; }
 
 .stat-donut-sm {
-  width: 64px; height: 64px; flex-shrink: 0;
+  width: 60px; height: 60px; flex-shrink: 0;
   border-radius: 50%;
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #fff calc(100% - 11px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 12px), #fff calc(100% - 11px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #fff calc(100% - 10px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 11px), #fff calc(100% - 10px));
 }
 
-/* ── Countdown stat card gold accent ── */
-.stat-card-countdown { border-color: var(--border-gold); background: rgba(201,144,10,0.04); }
-.stat-card-countdown .stat-value { color: var(--gold); }
-.countdown-val { font-variant-numeric: tabular-nums; }
-
-/* ── What's Next widget ── */
+/* ── What's Next widget (draft) ── */
 .whats-next-steps { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 .whats-next-step  { display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--text-secondary); }
 .whats-next-step.done { color: var(--text-muted); }
@@ -268,38 +249,7 @@
 .wn-cta   { font-size: 0.8rem; font-weight: 700; color: var(--gold); white-space: nowrap; text-decoration: none; }
 .wn-cta:hover { text-decoration: underline; }
 
-/* ── Draft banner ── */
-.dashboard-banner {
-  background: rgba(184,145,46,0.08);
-  border: 1px solid var(--border-gold);
-  border-radius: var(--r-md);
-  padding: 12px 18px;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.banner-link {
-  color: var(--gold);
-  font-weight: 600;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-/* ── Invitation details ── */
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.detail-item { display: flex; flex-direction: column; gap: 4px; }
-.detail-item span:last-child { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
-.detail-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
-.detail-link-row { grid-column: 1 / -1; }
-.invite-link-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.invite-link { font-size: 0.85rem; color: var(--teal); word-break: break-all; }
-
-/* ── Event rows ── */
+/* ── Event rows (multi-event) ── */
 .event-row { display: flex; align-items: center; gap: 16px; padding: 12px 8px; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background var(--t-fast); border-radius: var(--r-sm); }
 .event-row:last-child { border-bottom: none; }
 .event-row:hover  { background: var(--bg-elevated); }
@@ -310,29 +260,21 @@
 
 /* ── Mobile ── */
 @media (max-width: 900px) {
-  .dash-hero {
-    flex-direction: column;
-    padding: 20px 18px;
-    gap: 18px;
-  }
-
-  .dash-couple-name { font-size: 1.6rem; }
-
-  .dash-countdown { width: 100%; min-width: unset; }
-  .dash-cd-nums   { gap: 14px; }
-
-  .dash-glance {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 14px 18px;
-    gap: 10px;
-  }
-
-  .dash-url-bar { max-width: none; }
+  .dash-hero { padding: 18px 16px; border-radius: var(--r-lg, 14px); }
+  .dash-couple-name { font-size: 1.5rem; }
+  .dash-glance { padding: 14px 14px; }
+  .dash-glance-row { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .glance-stat { padding-left: 8px; }
+  .glance-stat strong { font-size: 1.05rem; }
+  .glance-stat span { font-size: 0.66rem; }
 }
 
 @media (max-width: 600px) {
-  .detail-grid { grid-template-columns: 1fr; }
-  .glance-dot  { display: none; }
-  .dash-glance-row { gap: 6px 14px; }
+  .dash-hero { padding: 16px 14px; }
+  .dash-couple-name { font-size: 1.4rem; }
+  .dash-cd-inline { padding: 6px 10px; }
+  .dash-cd-tail { display: none; }
+  .dash-hero-actions .btn { font-size: 0.92rem; }
+  .dash-glance-row { grid-template-columns: repeat(2, 1fr); gap: 8px 12px; }
+  .glance-stat { padding-left: 8px; }
 }

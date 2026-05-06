@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useOutletContext, useNavigate } from 'react-router-dom';
+import { useParams, useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { parseGoogleMapsUrl, formatDate } from '../lib/utils';
 import { toHtmlDateInputValue } from '../utils/dateNormalize';
 import { getInviteBaseUrl } from '../lib/config';
 import { NameConfirmBar } from '../components/NameConfirmBar';
-import { WhatsAppShare } from '../components/WhatsAppShare';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import './InvitationForm.css';
@@ -1795,17 +1794,18 @@ export default function GenerateInvitation() {
               </div>
             </div>
 
-            {/* WhatsApp Share — shown after publish */}
+            {/* Share — moved to a dedicated page */}
             {event.isPublished && (
-              <WhatsAppShare
-                event={event}
-                people={people}
-                functions={functions}
-                venues={venues}
-                partialUrl={partialUrl}
-                eventId={id}
-                schemaPeopleRoles={schemaPeopleRoles}
-              />
+              <div className="share-cta-card">
+                <div className="share-cta-icon">📱</div>
+                <div className="share-cta-text">
+                  <div className="share-cta-title">Ready to send invitations?</div>
+                  <p>Open the Share page to craft a personalised WhatsApp message and send it to every guest.</p>
+                </div>
+                <Link to={`/events/${id}/share`} className="btn btn-primary share-cta-btn">
+                  Open Share Page →
+                </Link>
+              </div>
             )}
           </div>
         )}

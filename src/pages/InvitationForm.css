@@ -459,3 +459,26 @@
   .celebration-link  { margin: 0 0 8px; }
   .celebration-actions { margin: 16px 0 0; }
 }
+
+/* ── Share CTA Card (replaces inline WhatsAppShare in publish section) ── */
+.share-cta-card {
+  margin-top: 16px;
+  background: linear-gradient(135deg, rgba(184,145,46,0.08), rgba(184,145,46,0.02));
+  border: 1px solid var(--border-gold);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.share-cta-icon { font-size: 2rem; flex-shrink: 0; }
+.share-cta-text { flex: 1; min-width: 200px; }
+.share-cta-title { font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.share-cta-text p { font-size: 0.85rem; color: var(--text-secondary); margin: 0; line-height: 1.45; }
+.share-cta-btn { flex-shrink: 0; }
+
+@media (max-width: 600px) {
+  .share-cta-card { padding: 16px; }
+  .share-cta-btn { width: 100%; }
+}

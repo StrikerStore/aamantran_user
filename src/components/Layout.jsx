@@ -16,6 +16,7 @@ export function Layout() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
 
@@ -171,12 +172,10 @@ export function Layout() {
       ],
     },
     {
-      title: 'Account',
+      title: 'Help',
       items: [
-        { label: 'Guide',    icon: '📖', to: '/guide' },
-        { label: 'Settings', icon: '⚙️', to: '/settings' },
-        { label: 'Support',  icon: '💬', to: '/support' },
-        { label: 'Review',   icon: '⭐', to: '/review' },
+        { label: 'Feature Guide', icon: '📖', to: '/guide' },
+        { label: 'Leave a Review', icon: '⭐', to: '/review' },
       ],
     },
   ];
@@ -326,7 +325,13 @@ export function Layout() {
             )}
           </div>
           <div className="topbar-actions">
-            <div className="topbar-mobile-avatar">{initial}</div>
+            <button
+              className="topbar-mobile-avatar"
+              onClick={() => setProfileOpen(true)}
+              aria-label="Open profile menu"
+            >
+              {initial}
+            </button>
           </div>
         </header>
 
@@ -355,15 +360,8 @@ export function Layout() {
           <span>Invite</span>
         </button>
         <button
-          className="bottom-nav-item bottom-nav-share"
-          onClick={() => {
-            if (!published || !eid) return;
-            if (path === '/dashboard') {
-              window.dispatchEvent(new CustomEvent('aam:open-share'));
-            } else {
-              navigate('/dashboard?share=1');
-            }
-          }}
+          className={`bottom-nav-item bottom-nav-share ${path.endsWith('/share') ? 'active' : ''}`}
+          onClick={() => eid && published && navigate(`/events/${eid}/share`)}
           disabled={!eid || !published}
           aria-label="Share invitation"
         >
@@ -388,6 +386,56 @@ export function Layout() {
           <span>More</span>
         </button>
       </nav>
+
+      {/* Profile bottom sheet (mobile — accessed by tapping the avatar) */}
+      {profileOpen && (
+        <>
+          <div className="bottom-sheet-overlay" onClick={() => setProfileOpen(false)} />
+          <div className="profile-sheet">
+            <div className="bottom-sheet-handle" />
+            <div className="profile-sheet-head">
+              <div className="profile-sheet-avatar">{initial}</div>
+              <div className="profile-sheet-id">
+                <div className="profile-sheet-name">{username}</div>
+                <div className="profile-sheet-email">{info?.email || ''}</div>
+              </div>
+            </div>
+            <div className="profile-sheet-actions">
+              <button
+                className="profile-sheet-row"
+                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+              >
+                <span className="ps-icon">⚙️</span>
+                <span className="ps-label">Settings</span>
+                <span className="ps-chev">›</span>
+              </button>
+              <button
+                className="profile-sheet-row"
+                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+              >
+                <span className="ps-icon">📖</span>
+                <span className="ps-label">Feature Guide</span>
+                <span className="ps-chev">›</span>
+              </button>
+              <button
+                className="profile-sheet-row"
+                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+              >
+                <span className="ps-icon">💬</span>
+                <span className="ps-label">Support</span>
+                <span className="ps-chev">›</span>
+              </button>
+              <button
+                className="profile-sheet-row profile-sheet-logout"
+                onClick={() => { setProfileOpen(false); handleLogout(); }}
+              >
+                <span className="ps-icon">🚪</span>
+                <span className="ps-label">Sign out</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* More bottom sheet */}
       {moreOpen && (

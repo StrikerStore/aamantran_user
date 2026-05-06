@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Support from './pages/Support';
 import Review from './pages/Review';
 import Guide from './pages/Guide';
+import Share from './pages/Share';
 import Tasks from './pages/Tasks';
 import Inventory from './pages/Inventory';
 import Budget from './pages/Budget';
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/events/:id/moodboard" element={<MoodBoard />} />
           <Route path="/events/:id/gifts"     element={<Gifts />} />
           <Route path="/events/:id/photos"    element={<PhotoWall />} />
+          <Route path="/events/:id/share"     element={<Share />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/support"  element={<Support />} />
           <Route path="/review"   element={<Review />} />

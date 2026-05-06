@@ -1,53 +1,79 @@
-import { useState, useEffect } from 'react';
-import { useOutletContext, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatDate, countdown } from '../lib/utils';
 import { getInviteBaseUrl } from '../lib/config';
-import { WhatsAppShare } from '../components/WhatsAppShare';
 import { useToast } from '../components/ui/Toast';
 import './Dashboard.css';
+
+function stripHonorifics(name) {
+  if (!name) return '';
+  // Strip very common honorifics so the dashboard headline reads as a name,
+  // not a salutation. People can still see the full string elsewhere.
+  return String(name)
+    .replace(/^\s*(mr|mrs|ms|miss|sri|smt|shri|dr|prof)\.?\s+/i, '')
+    .trim();
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { activeEvent, events = [], setActiveEvent } = useOutletContext() || {};
 
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
-  const [showShare, setShowShare] = useState(false);
   const [eventDetail, setEventDetail] = useState(null);
+  const [loadingEvent, setLoadingEvent] = useState(false);
 
   const displayEvents = events.filter(ev => ev.inviteScope !== 'subset');
 
   useEffect(() => {
     if (!activeEvent?.id) return;
     setLoadingStats(true);
+    setLoadingEvent(true);
     Promise.all([
       api.events.stats(activeEvent.id),
       api.events.get(activeEvent.id),
     ]).then(([sr, er]) => {
       setStats(sr.stats);
       setEventDetail(er.event);
-    }).catch(() => {}).finally(() => setLoadingStats(false));
+    }).catch(() => {}).finally(() => {
+      setLoadingStats(false);
+      setLoadingEvent(false);
+    });
   }, [activeEvent?.id]);
 
-  // Open share dialog when navigated with ?share=1 (from bottom nav)
-  useEffect(() => {
-    if (searchParams.get('share') === '1' && activeEvent?.isPublished) {
-      setShowShare(true);
-      const next = new URLSearchParams(searchParams);
-      next.delete('share');
-      setSearchParams(next, { replace: true });
-    }
-  }, [searchParams, activeEvent?.isPublished]);
+  // ── Pick the main couple from frozen names ──
+  // Required-role people are the headline names per the template schema.
+  // We never fall back to the slug — better to show "Your Wedding" placeholder
+  // than to surface raw URL strings on the dashboard.
+  const displayTitle = useMemo(() => {
+    if (loadingEvent) return null;                          // suppress placeholder while loading
+    if (!activeEvent?.namesAreFrozen) return 'Your Wedding';
 
-  // Listen for share trigger from bottom nav while already on dashboard
-  useEffect(() => {
-    const open = () => activeEvent?.isPublished && setShowShare(true);
-    window.addEventListener('aam:open-share', open);
-    return () => window.removeEventListener('aam:open-share', open);
-  }, [activeEvent?.isPublished]);
+    const people = eventDetail?.people || [];
+    if (!people.length) return 'Your Wedding';
+
+    // Try schema-required roles first (they identify the bride/groom etc.)
+    let schema = eventDetail?.template?.fieldSchema;
+    if (typeof schema === 'string') { try { schema = JSON.parse(schema); } catch { schema = null; } }
+    const requiredRoles = (schema?.people || [])
+      .filter(r => r && r.required && r.role)
+      .map(r => r.role);
+
+    let chosen = [];
+    if (requiredRoles.length) {
+      chosen = requiredRoles
+        .map(role => people.find(p => p.role === role))
+        .filter(Boolean);
+    }
+    if (!chosen.length) chosen = people.slice(0, 2);
+
+    const names = chosen
+      .map(p => stripHonorifics(p.name || p.displayName || ''))
+      .filter(Boolean);
+    return names.length ? names.join(' & ') : 'Your Wedding';
+  }, [loadingEvent, activeEvent?.namesAreFrozen, eventDetail]);
 
   if (!activeEvent) {
     return (
@@ -74,147 +100,91 @@ export default function Dashboard() {
   const cd = firstFn?.date ? countdown(firstFn.date) : null;
   const inviteBase = getInviteBaseUrl();
   const inviteUrl = `${inviteBase}/i/${activeEvent.slug}`;
-  const pairedEvent = eventDetail?.pairedEvent;
-  const partialUrl = pairedEvent ? `${inviteBase}/i/${pairedEvent.slug}` : null;
 
-  // Display title — only show couple names when names are frozen.
-  // Otherwise show a neutral placeholder so we don't surface unconfirmed names.
-  const people = eventDetail?.people || [];
-  let displayTitle;
-  if (activeEvent.namesAreFrozen && people.length) {
-    const names = people
-      .slice(0, 2)
-      .map(p => p.name || p.displayName || [p.firstName, p.lastName].filter(Boolean).join(' '))
-      .filter(Boolean);
-    displayTitle = names.length ? names.join(' & ') : 'Your Wedding';
-  } else {
-    displayTitle = activeEvent.community
-      ? `${activeEvent.community} ${activeEvent.eventType || 'Wedding'}`
-      : 'Your Wedding';
-  }
-
-  // RSVP breakdown — counts must reflect *unique guests*, not function×guest pairs.
-  // A single guest replying yes to N functions shows up N times in perFunction sums.
-  // Approximation: max across functions ≈ unique respondents (accurate when guests
-  // respond to all functions, which is the dominant case).
-  const fnAttending     = stats?.perFunction?.map(f => f.attending    || 0) ?? [];
-  const fnNotAttending  = stats?.perFunction?.map(f => f.notAttending || 0) ?? [];
-  const fnResponded     = stats?.perFunction?.map((f, i) => (fnAttending[i] || 0) + (fnNotAttending[i] || 0)) ?? [];
-  const attending       = fnAttending.length    ? Math.max(...fnAttending)    : 0;
-  const declined        = fnNotAttending.length ? Math.max(...fnNotAttending) : 0;
-  const responded       = fnResponded.length    ? Math.max(...fnResponded)    : 0;
-  const guestCount      = stats?.guestCount ?? 0;
-  const pending         = Math.max(0, guestCount - responded);
-  const rsvpTotal       = responded;
-  const attPct          = guestCount > 0 ? Math.round((attending / guestCount) * 100) : 0;
-  const pendingPct      = guestCount > 0 ? Math.round((pending   / guestCount) * 100) : 0;
-  const donutTotal      = attending + declined + pending || 1;
-  const donutAttPct     = Math.round((attending / donutTotal) * 100);
-  const donutDecPct     = Math.round((declined  / donutTotal) * 100);
+  // ── RSVP unique counts (max across functions ≈ unique respondents) ──
+  const fnAttending    = stats?.perFunction?.map(f => f.attending    || 0) ?? [];
+  const fnNotAttending = stats?.perFunction?.map(f => f.notAttending || 0) ?? [];
+  const fnResponded    = stats?.perFunction?.map((_, i) => (fnAttending[i] || 0) + (fnNotAttending[i] || 0)) ?? [];
+  const attending      = fnAttending.length    ? Math.max(...fnAttending)    : 0;
+  const declined       = fnNotAttending.length ? Math.max(...fnNotAttending) : 0;
+  const responded      = fnResponded.length    ? Math.max(...fnResponded)    : 0;
+  const guestCount     = stats?.guestCount ?? 0;
+  const pending        = Math.max(0, guestCount - responded);
+  const rsvpTotal      = responded;
+  const attPct         = guestCount > 0 ? Math.round((attending / guestCount) * 100) : 0;
+  const pendingPct     = guestCount > 0 ? Math.round((pending   / guestCount) * 100) : 0;
+  const donutTotal     = attending + declined + pending || 1;
+  const donutAttPct    = Math.round((attending / donutTotal) * 100);
+  const donutDecPct    = Math.round((declined  / donutTotal) * 100);
 
   return (
     <div className="page-fade">
 
-      {/* ── Hero card ── */}
+      {/* ── Hero ── */}
       <div className="dash-hero">
-        <div className="dash-hero-main">
-          <div className="dash-status-pills">
-            <span className={`dash-pill ${activeEvent.isPublished ? 'pill-live' : 'pill-draft'}`}>
-              <span className="pill-dot" />
-              {activeEvent.isPublished ? 'Live' : 'Draft'}
-            </span>
-            {activeEvent.template?.name && (
-              <span className="dash-pill pill-neutral">{activeEvent.template.name}</span>
-            )}
-            {firstFn?.date && (
-              <span className="dash-pill pill-neutral">📅 {formatDate(firstFn.date)}</span>
-            )}
-          </div>
-
-          <h1 className="dash-couple-name">{displayTitle}</h1>
-
-          {(firstFn?.date || firstFn?.venueName) && (
-            <p className="dash-event-meta">
-              {[firstFn.date && formatDate(firstFn.date), firstFn.venueName].filter(Boolean).join(' · ')}
-            </p>
+        <div className="dash-status-pills">
+          <span className={`dash-pill ${activeEvent.isPublished ? 'pill-live' : 'pill-draft'}`}>
+            <span className="pill-dot" />
+            {activeEvent.isPublished ? 'Live' : 'Draft'}
+          </span>
+          {activeEvent.template?.name && (
+            <span className="dash-pill pill-neutral">{activeEvent.template.name}</span>
           )}
-
-          {activeEvent.isPublished && (
-            <div className="dash-url-bar">
-              <span className="dash-url-text">{inviteUrl}</span>
-              <button
-                className="dash-copy-btn"
-                onClick={() => { navigator.clipboard.writeText(inviteUrl); toast('Copied!', 'success'); }}
-              >
-                Copy
-              </button>
-            </div>
-          )}
-
-          <div className="dash-hero-actions">
-            {activeEvent.isPublished && (
-              <button className="btn btn-secondary" onClick={() => setShowShare(s => !s)}>
-                📱 Share
-              </button>
-            )}
-            <Link
-              to={`/events/${activeEvent.id}/${activeEvent.isPublished ? 'edit' : 'generate'}`}
-              className="btn btn-primary"
-            >
-              {activeEvent.isPublished ? 'Edit Invitation' : 'Build Invitation'}
-            </Link>
-          </div>
         </div>
 
+        {displayTitle === null ? (
+          <div className="dash-name-skeleton" />
+        ) : (
+          <h1 className="dash-couple-name">{displayTitle}</h1>
+        )}
+
+        {(firstFn?.date || firstFn?.venueName) && (
+          <p className="dash-event-meta">
+            {[firstFn.date && formatDate(firstFn.date), firstFn.venueName].filter(Boolean).join(' · ')}
+          </p>
+        )}
+
+        {/* Inline countdown — replaces the duplicate stat card */}
         {cd && !cd.past && (
-          <div className="dash-countdown">
-            <p className="dash-cd-label">Countdown to the day</p>
-            <div className="dash-cd-nums">
-              <div className="dash-cd-unit">
-                <span className="dash-cd-num">{cd.days}</span>
-                <small>days</small>
-              </div>
-              <span className="dash-cd-sep">·</span>
-              <div className="dash-cd-unit">
-                <span className="dash-cd-num">{cd.hours}</span>
-                <small>hrs</small>
-              </div>
-              <span className="dash-cd-sep">·</span>
-              <div className="dash-cd-unit">
-                <span className="dash-cd-num">{cd.minutes}</span>
-                <small>min</small>
-              </div>
-            </div>
+          <div className="dash-cd-inline">
+            <span className="dash-cd-num">{cd.days}</span><span className="dash-cd-unit">d</span>
+            <span className="dash-cd-num">{cd.hours}</span><span className="dash-cd-unit">h</span>
+            <span className="dash-cd-num">{cd.minutes}</span><span className="dash-cd-unit">m</span>
+            <span className="dash-cd-tail">to your day</span>
           </div>
         )}
+
+        {activeEvent.isPublished && (
+          <div className="dash-url-bar">
+            <span className="dash-url-text">{inviteUrl}</span>
+            <button
+              className="dash-copy-btn"
+              onClick={() => { navigator.clipboard.writeText(inviteUrl); toast('Copied!', 'success'); }}
+            >
+              Copy
+            </button>
+          </div>
+        )}
+
+        <div className="dash-hero-actions">
+          {activeEvent.isPublished && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate(`/events/${activeEvent.id}/share`)}
+            >
+              Share
+            </button>
+          )}
+          <Link
+            to={`/events/${activeEvent.id}/${activeEvent.isPublished ? 'edit' : 'generate'}`}
+            className="btn btn-primary"
+          >
+            {activeEvent.isPublished ? 'Edit Invitation' : 'Build Invitation'}
+          </Link>
+        </div>
       </div>
 
-      {/* ── Draft banner ── */}
-      {!activeEvent.isPublished && (
-        <div className="dashboard-banner">
-          <span>Your invitation is a <strong>Draft</strong>.</span>
-          {!activeEvent.namesAreFrozen && <span> Confirm your names to unlock publishing.</span>}
-          <Link to={`/events/${activeEvent.id}/generate`} className="banner-link">Complete it →</Link>
-        </div>
-      )}
-
-      {/* ── Guest glance ── */}
-      {activeEvent.isPublished && stats && (
-        <div className="dash-glance">
-          <span className="dash-glance-title">A glance at your guest list</span>
-          <div className="dash-glance-row">
-            <span className="glance-chip chip-green"><strong>{attending}</strong> coming</span>
-            <span className="glance-dot">·</span>
-            <span className="glance-chip chip-muted"><strong>{pending}</strong> awaiting reply</span>
-            <span className="glance-dot">·</span>
-            <span className="glance-chip chip-red"><strong>{declined}</strong> sends apologies</span>
-            <span className="glance-dot">·</span>
-            <span className="glance-chip chip-muted"><strong>{stats.opens ?? 0}</strong> total opens</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── What's Next (draft only) ── */}
+      {/* ── Draft prompt ── */}
       {!activeEvent.isPublished && eventDetail && (
         <div className="card mb-24 whats-next-card">
           <div className="card-title">What's Next</div>
@@ -246,80 +216,68 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Stat cards ── */}
-      <div className="stats-grid">
-
-        {/* Opens */}
-        <div className="stat-card">
-          <div className="stat-card-hd">
-            <span className="stat-label">Pages Open</span>
-            {activeEvent.isPublished && <span className="stat-tag">since launch</span>}
+      {/* ── Guest glance (published only) ── */}
+      {activeEvent.isPublished && stats && (
+        <div className="dash-glance">
+          <div className="dash-glance-title">A glance at your guest list</div>
+          <div className="dash-glance-row">
+            <div className="glance-stat"><strong className="g-green">{attending}</strong><span>coming</span></div>
+            <div className="glance-stat"><strong>{pending}</strong><span>awaiting</span></div>
+            <div className="glance-stat"><strong className="g-red">{declined}</strong><span>declined</span></div>
+            <div className="glance-stat"><strong>{stats.opens ?? 0}</strong><span>opens</span></div>
           </div>
-          <div className="stat-value">{loadingStats ? '—' : (stats?.opens ?? 0)}</div>
-          <div className="stat-sub">to your day</div>
         </div>
+      )}
 
-        {/* RSVPs */}
-        <div className="stat-card">
-          <div className="stat-card-hd">
-            <span className="stat-label">RSVPs</span>
-          </div>
-          <div className="stat-rsvp-main">
-            <span className="stat-value">{loadingStats ? '—' : rsvpTotal}</span>
-            {guestCount > 0 && <span className="stat-rsvp-of">of {guestCount} invited</span>}
-          </div>
-          {guestCount > 0 && stats && (
-            <div className="stat-prog-track">
-              <div className="stat-prog-fill fill-attending" style={{ width: `${attPct}%` }} />
-              <div className="stat-prog-fill fill-pending"   style={{ width: `${pendingPct}%` }} />
+      {/* ── Stat cards (only for published) ── */}
+      {activeEvent.isPublished && (
+        <div className="stats-grid">
+
+          {/* RSVPs progress */}
+          <div className="stat-card">
+            <div className="stat-card-hd">
+              <span className="stat-label">RSVPs</span>
             </div>
-          )}
-        </div>
-
-        {/* Attending */}
-        <div className="stat-card">
-          <div className="stat-card-hd">
-            <span className="stat-label">Attending</span>
-            {stats && rsvpTotal > 0 && <span className="stat-tag">{attPct}%</span>}
+            <div className="stat-rsvp-main">
+              <span className="stat-value">{loadingStats ? '—' : rsvpTotal}</span>
+              {guestCount > 0 && <span className="stat-rsvp-of">of {guestCount} invited</span>}
+            </div>
+            {guestCount > 0 && stats && (
+              <div className="stat-prog-track">
+                <div className="stat-prog-fill fill-attending" style={{ width: `${attPct}%` }} />
+                <div className="stat-prog-fill fill-pending"   style={{ width: `${pendingPct}%` }} />
+              </div>
+            )}
           </div>
-          <div className="stat-donut-row">
-            <div
-              className="rsvp-donut stat-donut-sm"
-              style={{
-                background: rsvpTotal > 0
-                  ? `conic-gradient(
-                      var(--green) 0% ${donutAttPct}%,
-                      var(--red)   ${donutAttPct}% ${donutAttPct + donutDecPct}%,
-                      var(--bg-overlay) ${donutAttPct + donutDecPct}% 100%
-                    )`
-                  : 'var(--bg-overlay)',
-              }}
-            />
-            <div>
-              <div className="stat-value">{attending}</div>
-              <div className="stat-sub">confirmed</div>
+
+          {/* Attending donut */}
+          <div className="stat-card">
+            <div className="stat-card-hd">
+              <span className="stat-label">Attending</span>
+              {stats && rsvpTotal > 0 && <span className="stat-tag">{attPct}%</span>}
+            </div>
+            <div className="stat-donut-row">
+              <div
+                className="rsvp-donut stat-donut-sm"
+                style={{
+                  background: rsvpTotal > 0
+                    ? `conic-gradient(
+                        var(--green) 0% ${donutAttPct}%,
+                        var(--red)   ${donutAttPct}% ${donutAttPct + donutDecPct}%,
+                        var(--bg-overlay) ${donutAttPct + donutDecPct}% 100%
+                      )`
+                    : 'var(--bg-overlay)',
+                }}
+              />
+              <div>
+                <div className="stat-value">{attending}</div>
+                <div className="stat-sub">confirmed</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Countdown / Guests */}
-        <div className="stat-card stat-card-countdown">
-          <div className="stat-card-hd">
-            <span className="stat-label">{cd ? 'Countdown' : 'Guests'}</span>
-          </div>
-          {cd ? (
-            <>
-              <div className="stat-value countdown-val">{cd.past ? 'Done!' : `${cd.days}`}</div>
-              <div className="stat-sub">{cd.past ? 'event has passed' : `days · ${cd.hours}h ${cd.minutes}m`}</div>
-            </>
-          ) : (
-            <>
-              <div className="stat-value">{loadingStats ? '—' : guestCount}</div>
-              <div className="stat-sub">in guest list</div>
-            </>
-          )}
         </div>
-      </div>
+      )}
 
       {/* ── Function Headcount ── */}
       {stats?.perFunction?.length > 0 && (
@@ -330,8 +288,8 @@ export default function Dashboard() {
               <thead>
                 <tr>
                   <th>Function</th>
-                  <th>Attending</th>
-                  <th>Not Attending</th>
+                  <th>Yes</th>
+                  <th>No</th>
                   <th>Pending</th>
                   <th>+1s</th>
                 </tr>
@@ -352,43 +310,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Invitation Details ── */}
-      <div className="card mb-24">
-        <div className="card-title">Invitation Details</div>
-        <div className="detail-grid">
-          <div className="detail-item">
-            <span className="detail-label">Status</span>
-            <span className={`badge ${activeEvent.isPublished ? 'badge-published' : 'badge-draft'}`}>
-              {activeEvent.isPublished ? 'Published' : 'Draft'}
-            </span>
-          </div>
-          <div className="detail-item">
-            <span className="detail-label">Names Confirmed</span>
-            <span className={`badge ${activeEvent.namesAreFrozen ? 'badge-frozen' : 'badge-pending'}`}>
-              {activeEvent.namesAreFrozen ? '🔒 Confirmed' : 'Not yet'}
-            </span>
-          </div>
-          <div className="detail-item">
-            <span className="detail-label">Template</span>
-            <span>{activeEvent.template?.name || '—'}</span>
-          </div>
-          <div className="detail-item">
-            <span className="detail-label">Language</span>
-            <span>{activeEvent.language || 'en'}</span>
-          </div>
-          {activeEvent.isPublished && partialUrl && (
-            <div className="detail-item detail-link-row">
-              <span className="detail-label">Partial Invite</span>
-              <div className="invite-link-wrap">
-                <a href={partialUrl} target="_blank" rel="noreferrer" className="invite-link">{partialUrl}</a>
-                <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard.writeText(partialUrl); toast('Copied!', 'success'); }}>Copy</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Your Events (multi-event) ── */}
+      {/* ── Your Events (multi-event only) ── */}
       {displayEvents.length > 1 && (
         <div className="card mb-24">
           <div className="card-title">Your Events</div>
@@ -411,15 +333,6 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-      )}
-
-      {showShare && activeEvent.isPublished && eventDetail && (
-        <WhatsAppShare
-          event={eventDetail}
-          people={eventDetail.people || []}
-          functions={eventDetail.functions || []}
-          partialUrl={partialUrl}
-        />
       )}
     </div>
   );
