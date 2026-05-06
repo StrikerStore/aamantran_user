@@ -1,21 +1,52 @@
-.mb-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.mb-filter-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
 
-/* ── Pinterest boards: compact, centered, scrollable preview ── */
+/* ── Boards + pins share one layout row on desktop to avoid empty side margins ── */
+.mb-board-layout {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (min-width: 901px) {
+  .mb-board-layout--split {
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
+.mb-board-layout .masonry-grid {
+  width: 100%;
+  min-width: 0;
+}
+
+.mb-board-layout--split .mb-pinterest-stack {
+  margin-bottom: 0;
+}
+
+/* ── Pinterest boards: full width of column, scrollable preview ── */
 .mb-pinterest-stack {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 20px;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 0;
   width: 100%;
+  min-width: 0;
 }
 
 .mb-pinterest-card {
   position: relative;
   width: 100%;
-  max-width: min(100%, 480px);
-  margin-left: auto;
-  margin-right: auto;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   background: var(--bg-surface);
   border-radius: var(--r-lg);
   border: 1px solid var(--border-default);
@@ -33,13 +64,13 @@
 
 .mb-pinterest-body {
   position: relative;
-  padding: 12px;
-  min-height: 120px;
+  padding: 10px;
+  min-height: 100px;
 }
 
 /* Clip tall Pinterest iframes so the page stays scannable; scroll inside */
 .mb-pinterest-viewport {
-  max-height: min(320px, 46vh);
+  max-height: min(280px, 42vh);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--r-md);
@@ -125,29 +156,30 @@
 
 @media (max-width: 900px) {
   .mb-pinterest-viewport {
-    max-height: min(280px, 42vh);
+    max-height: min(240px, 38vh);
   }
 
   .mb-pinterest-embed iframe {
-    min-height: 180px !important;
+    min-height: 160px !important;
   }
 }
 
 @media (min-width: 901px) {
-  .mb-pinterest-card {
-    max-width: min(100%, 440px);
+  /* Dedicated pinterest column in split layout: modest extra preview height */
+  .mb-board-layout--split .mb-pinterest-viewport {
+    max-height: min(340px, 48vh);
   }
 
   .mb-pinterest-viewport {
-    max-height: min(300px, 44vh);
+    max-height: min(300px, 40vh);
   }
 }
 
 /* ── Pin grid: uniform tiles, many visible at once ── */
 .masonry-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 158px), 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
+  gap: 8px;
   align-items: start;
 }
 
@@ -174,7 +206,7 @@
   cursor: pointer;
   width: 100%;
   aspect-ratio: 4 / 5;
-  max-height: min(220px, 38vh);
+  max-height: min(200px, 36vh);
 }
 
 .masonry-img {
@@ -228,24 +260,35 @@
   }
 
   .masonry-pin {
-    max-height: min(200px, 36vh);
+    max-height: min(176px, 34vh);
     aspect-ratio: 1 / 1;
   }
 
   .masonry-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+
+@media (max-width: 380px) {
+  .masonry-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
   }
 }
 
 @media (min-width: 901px) {
   .masonry-grid {
-    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .mb-board-layout--split .masonry-grid {
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 8px;
   }
 
   .masonry-pin {
-    max-height: min(240px, 34vh);
+    max-height: min(210px, 32vh);
   }
 }
 
@@ -338,14 +381,15 @@
   justify-content: center;
   max-width: 100%;
   max-height: 100%;
-  gap: 12px;
+  min-height: 0;
+  gap: 10px;
 }
 
 .mb-lightbox-img {
   max-width: 100%;
   width: auto;
   height: auto;
-  max-height: min(78vh, 100%);
+  max-height: min(76vh, 100%);
   object-fit: contain;
   border-radius: var(--r-md);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
@@ -358,7 +402,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .mb-lightbox-cat {
@@ -377,5 +422,51 @@
 }
 
 .mb-lightbox-open {
-  margin-top: 4px;
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .mb-lightbox {
+    align-items: stretch;
+    justify-content: flex-start;
+    padding-top: max(48px, calc(env(safe-area-inset-top) + 36px));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .mb-lightbox-inner {
+    flex: 1;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 0 2px;
+    width: 100%;
+  }
+
+  /* Shorter image leaves room for labels + bottom chrome without a huge gap */
+  .mb-lightbox-img {
+    max-height: min(54vh, 480px);
+    max-width: min(94vw, 100%);
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+
+  .mb-lightbox-meta {
+    padding: 8px 10px 10px;
+    border-radius: var(--r-md);
+    background: rgba(0, 0, 0, 0.35);
+    gap: 6px;
+  }
+
+  .mb-lightbox-caption {
+    font-size: 0.85rem;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .mb-lightbox-open {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+  }
 }

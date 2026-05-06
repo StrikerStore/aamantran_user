@@ -258,6 +258,7 @@ export default function MoodBoard() {
   const filtered = catFilter ? pins.filter(p => p.category === catFilter) : pins;
   const pinterestBoards = filtered.filter(p => p.category === 'Pinterest');
   const regularPins = filtered.filter(p => p.category !== 'Pinterest');
+  const splitBoardLayout = pinterestBoards.length > 0 && regularPins.length > 0;
 
   if (loading) return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
 
@@ -289,7 +290,7 @@ export default function MoodBoard() {
           <div className="empty-desc">Add images from your phone or connect a Pinterest board.</div>
         </div>
       ) : (
-        <>
+        <div className={`mb-board-layout${splitBoardLayout ? ' mb-board-layout--split' : ''}`}>
           {pinterestBoards.length > 0 && (
             <div className="mb-pinterest-stack">
               {pinterestBoards.map(pb => (
@@ -366,7 +367,7 @@ export default function MoodBoard() {
               })}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {showModal && (
