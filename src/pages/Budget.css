@@ -1,3 +1,7 @@
+.feat-shell + .card {
+  margin-top: 8px;
+}
+
 .budget-setup-row {
   display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px;
 }

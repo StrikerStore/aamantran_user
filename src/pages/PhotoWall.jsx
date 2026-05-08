@@ -61,25 +61,30 @@ export default function PhotoWall() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Photo Wall</h1>
-          <p className="page-subtitle">Your private wedding album · only you can see this</p>
-        </div>
-        <label className={`btn btn-primary ${uploading ? 'disabled' : ''}`} style={{ cursor: 'pointer' }}>
-          {uploading ? <span className="btn-spinner" /> : null}
-          {uploading ? 'Uploading…' : '+ Upload Photos'}
-          <input type="file" accept="image/*" multiple hidden onChange={uploadFiles} disabled={uploading} />
-        </label>
-      </div>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Photo wall</h1>
+            <p className="feat-desc">Your private wedding album — only you can see this</p>
+          </div>
+          <div className="feat-head-actions">
+            <label className={`btn btn-primary ${uploading ? 'disabled' : ''}`} style={{ cursor: uploading ? 'default' : 'pointer' }}>
+              {uploading ? <span className="btn-spinner" /> : null}
+              {uploading ? 'Uploading…' : '+ Upload photos'}
+              <input type="file" accept="image/*" multiple hidden onChange={uploadFiles} disabled={uploading} />
+            </label>
+          </div>
+        </header>
 
-      {/* Category filter */}
-      <div className="photo-filter-row">
-        <button className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
-        {CATEGORIES.map(c => (
-          <button key={c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
-        ))}
-      </div>
+        <div className="feat-hub">
+          <div className="feat-hub-pills feat-hub-pills--scroll">
+            <button type="button" className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
+            {CATEGORIES.map(c => (
+              <button type="button" key={c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {filtered.length === 0 ? (
         <div className="empty-state" style={{ padding: '40px 0' }}>

@@ -1,8 +1,8 @@
-.mb-filter-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
+/* Category filters: use .feat-hub (index.css) */
+
+.feat-shell + .mb-board-layout,
+.feat-shell + .empty-state {
+  margin-top: 6px;
 }
 
 /* ── Boards + pins share one layout row on desktop to avoid empty side margins ── */

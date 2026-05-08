@@ -264,24 +264,29 @@ export default function MoodBoard() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Mood Board</h1>
-          <p className="page-subtitle">Collect inspiration for your dream wedding</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-ghost" style={{ border: '1px solid var(--gold)', color: 'var(--gold)' }} onClick={openNewPinterest}>+ Add Pinterest Board</button>
-          <button className="btn btn-primary" onClick={openNew}>+ Add Pin</button>
-        </div>
-      </div>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Mood board</h1>
+            <p className="feat-desc">Collect inspiration for your dream wedding</p>
+          </div>
+          <div className="feat-head-actions">
+            <button type="button" className="btn btn-ghost" style={{ border: '1px solid var(--gold)', color: 'var(--gold)' }} onClick={openNewPinterest}>
+              + Pinterest board
+            </button>
+            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add pin</button>
+          </div>
+        </header>
 
-      {/* Category filter */}
-      <div className="mb-filter-row">
-        <button className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
-        {CATEGORIES.map(c => (
-          <button key={c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
-        ))}
-      </div>
+        <div className="feat-hub">
+          <div className="feat-hub-pills feat-hub-pills--scroll">
+            <button type="button" className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
+            {CATEGORIES.map(c => (
+              <button type="button" key={c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {filtered.length === 0 ? (
         <div className="empty-state" style={{ padding: '40px 0' }}>

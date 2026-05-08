@@ -1,6 +1,10 @@
-.photo-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
-
 /* Shares masonry-grid styles from MoodBoard.css via global index or duplicated here */
+
+.feat-shell + .masonry-grid,
+.feat-shell + .empty-state {
+  margin-top: 8px;
+}
+
 .masonry-grid {
   columns: 3;
   column-gap: 12px;

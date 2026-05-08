@@ -121,13 +121,17 @@ export default function Budget() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Budget</h1>
-          <p className="page-subtitle">Track your wedding expenses</p>
-        </div>
-        <button className="btn btn-primary" onClick={openNew}>+ Add Expense</button>
-      </div>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Budget</h1>
+            <p className="feat-desc">Track your wedding expenses</p>
+          </div>
+          <div className="feat-head-actions">
+            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add expense</button>
+          </div>
+        </header>
+      </section>
 
       {/* Budget setup */}
       <div className="card mb-24">

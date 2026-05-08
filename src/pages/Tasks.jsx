@@ -108,42 +108,73 @@ export default function Tasks() {
 
   const urgentCount = tasks.filter(t => isOverdue(t) || isDueToday(t)).length;
   const allDone = tasks.length > 0 && tasks.every(t => t.status === 'done');
+  const nTodo = tasks.filter(t => t.status === 'todo').length;
+  const nDoing = tasks.filter(t => t.status === 'inprogress').length;
+  const nDone = tasks.filter(t => t.status === 'done').length;
 
   if (loading) return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Tasks</h1>
-          <p className="page-subtitle">Keep track of everything for your big day</p>
-        </div>
-        <button className="btn btn-primary" onClick={openNew}>+ Add Task</button>
-      </div>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Tasks</h1>
+            <p className="feat-desc">Keep track of everything for your big day</p>
+          </div>
+          <div className="feat-head-actions">
+            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add Task</button>
+          </div>
+        </header>
 
-      {urgentCount > 0 && (
-        <div className="tasks-alert">
-          ⚠️ {urgentCount} task{urgentCount > 1 ? 's' : ''} need{urgentCount === 1 ? 's' : ''} attention today
-        </div>
-      )}
-      {allDone && (
-        <div className="tasks-allclear">You're all caught up! 🎊</div>
-      )}
+        {urgentCount > 0 && (
+          <div className="tasks-alert">
+            ⚠️ {urgentCount} task{urgentCount > 1 ? 's' : ''} need{urgentCount === 1 ? 's' : ''} attention today
+          </div>
+        )}
+        {allDone && (
+          <div className="tasks-allclear">You're all caught up! 🎊</div>
+        )}
 
-      {/* Filter bar */}
-      <div className="tasks-filters">
-        <div className="pill-group">
-          {['all','today','week','overdue','done'].map(f => (
-            <button key={f} className={`pill ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
-              {f === 'all' ? 'All' : f === 'today' ? 'Today' : f === 'week' ? 'This Week' : f === 'overdue' ? 'Overdue' : 'Done'}
-            </button>
-          ))}
+        <div className="feat-stats">
+          <div className="feat-stat">
+            <span className="feat-stat-val">{tasks.length}</span>
+            <span className="feat-stat-label">Total</span>
+          </div>
+          <div className="feat-stat">
+            <span className="feat-stat-val feat-stat-val--muted">{nTodo}</span>
+            <span className="feat-stat-label">To do</span>
+          </div>
+          <div className="feat-stat">
+            <span className="feat-stat-val feat-stat-val--gold">{nDoing}</span>
+            <span className="feat-stat-label">Active</span>
+          </div>
+          <div className="feat-stat">
+            <span className="feat-stat-val feat-stat-val--green">{nDone}</span>
+            <span className="feat-stat-label">Done</span>
+          </div>
+          <div className="feat-stat">
+            <span className={`feat-stat-val ${urgentCount ? 'feat-stat-val--amber' : ''}`}>{urgentCount}</span>
+            <span className="feat-stat-label">Urgent</span>
+          </div>
         </div>
-        <select className="form-select tasks-cat-select" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
-          <option value="">All Categories</option>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
+
+        <div className="feat-hub">
+          <div className="feat-hub-pills feat-hub-pills--wrap">
+            {['all', 'today', 'week', 'overdue', 'done'].map(f => (
+              <button type="button" key={f} className={`pill ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
+                {f === 'all' ? 'All' : f === 'today' ? 'Today' : f === 'week' ? 'This week' : f === 'overdue' ? 'Overdue' : 'Done'}
+              </button>
+            ))}
+          </div>
+          <div className="feat-hub-tools">
+            <select className="form-select tasks-cat-select" value={catFilter} onChange={e => setCatFilter(e.target.value)} aria-label="Category">
+              <option value="">All categories</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+      </section>
 
       {/* Kanban */}
       <div className="kanban-board">

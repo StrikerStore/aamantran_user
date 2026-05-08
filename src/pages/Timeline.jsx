@@ -77,13 +77,36 @@ export default function Timeline() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Day-of Timeline</h1>
-          <p className="page-subtitle">Plan your ceremony schedule hour by hour</p>
-        </div>
-        {activeFn && <button className="btn btn-primary" onClick={openNew}>+ Add Entry</button>}
-      </div>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Day-of timeline</h1>
+            <p className="feat-desc">Plan your ceremony schedule hour by hour</p>
+          </div>
+          <div className="feat-head-actions">
+            {activeFn && (
+              <button type="button" className="btn btn-primary" onClick={openNew}>+ Add entry</button>
+            )}
+          </div>
+        </header>
+
+        {functions.length > 0 && (
+          <div className="feat-hub">
+            <div className="feat-hub-pills feat-hub-pills--scroll timeline-fn-tabs">
+              {functions.map(fn => (
+                <button
+                  type="button"
+                  key={fn.id}
+                  className={`timeline-fn-tab ${activeFn === fn.id ? 'active' : ''}`}
+                  onClick={() => setActiveFn(fn.id)}
+                >
+                  {fn.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {functions.length === 0 ? (
         <div className="card">
@@ -94,20 +117,7 @@ export default function Timeline() {
           </div>
         </div>
       ) : (
-        <>
-          {/* Function selector */}
-          <div className="timeline-fn-tabs">
-            {functions.map(fn => (
-              <button
-                key={fn.id}
-                className={`timeline-fn-tab ${activeFn === fn.id ? 'active' : ''}`}
-                onClick={() => setActiveFn(fn.id)}
-              >
-                {fn.name}
-              </button>
-            ))}
-          </div>
-
+        <div className="timeline-body">
           {sorted.length === 0 ? (
             <div className="empty-state" style={{ padding: '32px 0' }}>
               <div className="empty-icon">📋</div>
@@ -130,8 +140,8 @@ export default function Timeline() {
                     <div className="timeline-entry-header">
                       <span className="timeline-title">{entry.title}</span>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(entry)}>✏️</button>
-                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(entry)}>✕</button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(entry)}>✏️</button>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(entry)}>✕</button>
                       </div>
                     </div>
                     {entry.location && <div className="timeline-meta">📍 {entry.location}</div>}
@@ -142,7 +152,7 @@ export default function Timeline() {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {showModal && (

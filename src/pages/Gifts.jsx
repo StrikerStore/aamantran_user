@@ -75,33 +75,40 @@ export default function Gifts() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Gift Tracker</h1>
-          <p className="page-subtitle">Track gifts and thank-you messages</p>
-        </div>
-        <button className="btn btn-primary" onClick={openNew}>+ Add Gift</button>
-      </div>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Gift tracker</h1>
+            <p className="feat-desc">Track gifts and thank-you messages</p>
+          </div>
+          <div className="feat-head-actions">
+            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add gift</button>
+          </div>
+        </header>
 
-      {/* Summary */}
-      <div className="gifts-summary">
-        <div className="gifts-stat">
-          <span className="gifts-stat-val">{gifts.length}</span>
-          <span>Total Gifts</span>
+        <div className="feat-stats">
+          <div className="feat-stat">
+            <span className="feat-stat-val">{gifts.length}</span>
+            <span className="feat-stat-label">Total gifts</span>
+          </div>
+          <div className="feat-stat">
+            <span className={`feat-stat-val ${pending > 0 ? 'feat-stat-val--amber' : 'feat-stat-val--green'}`}>{pending}</span>
+            <span className="feat-stat-label">Thank you pending</span>
+          </div>
         </div>
-        <div className="gifts-stat">
-          <span className="gifts-stat-val" style={{ color: pending > 0 ? 'var(--amber)' : 'var(--green)' }}>{pending}</span>
-          <span>Thank You Pending</span>
-        </div>
-      </div>
 
-      {/* Filter */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button className={`pill ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
-        <button className={`pill ${filter === 'pending' ? 'active' : ''}`} onClick={() => setFilter('pending')}>
-          Pending {pending > 0 && <span style={{ background: 'var(--amber)', color: '#fff', borderRadius: '99px', padding: '0 5px', fontSize: '0.7rem', marginLeft: 4 }}>{pending}</span>}
-        </button>
-      </div>
+        <div className="feat-hub">
+          <div className="feat-hub-pills feat-hub-pills--wrap">
+            <button type="button" className={`pill ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
+            <button type="button" className={`pill ${filter === 'pending' ? 'active' : ''}`} onClick={() => setFilter('pending')}>
+              Pending
+              {pending > 0 && (
+                <span className="gifts-pill-count">{pending}</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </section>
 
       {filtered.length === 0 ? (
         <div className="empty-state" style={{ padding: '40px 0' }}>

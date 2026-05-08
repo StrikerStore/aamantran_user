@@ -116,46 +116,60 @@ export default function Inventory() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Inventory</h1>
-          <p className="page-subtitle">Track everything you need for the wedding</p>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Inventory</h1>
+            <p className="feat-desc">Track everything you need for the wedding</p>
+          </div>
+          <div className="feat-head-actions">
+            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add Item</button>
+          </div>
+        </header>
+
+        {reminders.length > 0 && (
+          <div className="inv-alert">
+            📅 {reminders.length} item{reminders.length > 1 ? 's' : ''} need your attention
+          </div>
+        )}
+
+        <div className="feat-stats">
+          <div className="feat-stat">
+            <span className="feat-stat-val">{stats.total}</span>
+            <span className="feat-stat-label">Total</span>
+          </div>
+          <div className="feat-stat">
+            <span className={`feat-stat-val feat-stat-val--teal`}>{stats.ordered}</span>
+            <span className="feat-stat-label">Ordered</span>
+          </div>
+          <div className="feat-stat">
+            <span className="feat-stat-val feat-stat-val--green">{stats.received}</span>
+            <span className="feat-stat-label">Received</span>
+          </div>
+          <div className="feat-stat">
+            <span className="feat-stat-val feat-stat-val--maroon">{stats.packed}</span>
+            <span className="feat-stat-label">Packed+</span>
+          </div>
         </div>
-        <button className="btn btn-primary" onClick={openNew}>+ Add Item</button>
-      </div>
 
-      {reminders.length > 0 && (
-        <div className="inv-alert">
-          📅 {reminders.length} item{reminders.length > 1 ? 's' : ''} need your attention
+        <div className="feat-hub">
+          <div className="feat-hub-pills feat-hub-pills--scroll">
+            <button type="button" className={`inv-cat-tab ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
+            {CATEGORIES.map(c => (
+              <button type="button" key={c.label} className={`inv-cat-tab ${catFilter === c.label ? 'active' : ''}`} onClick={() => setCatFilter(c.label)}>
+                {c.icon} {c.label}
+              </button>
+            ))}
+          </div>
+          <div className="feat-hub-tools">
+            <input className="form-input" placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} aria-label="Search items" />
+            <select className="form-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} aria-label="Filter by status">
+              <option value="">All statuses</option>
+              {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </div>
         </div>
-      )}
-
-      {/* Summary */}
-      <div className="inv-stats">
-        <div className="inv-stat"><span className="inv-stat-val">{stats.total}</span><span>Total</span></div>
-        <div className="inv-stat"><span className="inv-stat-val" style={{ color: 'var(--teal)' }}>{stats.ordered}</span><span>Ordered</span></div>
-        <div className="inv-stat"><span className="inv-stat-val" style={{ color: 'var(--green)' }}>{stats.received}</span><span>Received</span></div>
-        <div className="inv-stat"><span className="inv-stat-val" style={{ color: 'var(--maroon)' }}>{stats.packed}</span><span>Packed+</span></div>
-      </div>
-
-      {/* Category tabs */}
-      <div className="inv-cat-tabs">
-        <button className={`inv-cat-tab ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
-        {CATEGORIES.map(c => (
-          <button key={c.label} className={`inv-cat-tab ${catFilter === c.label ? 'active' : ''}`} onClick={() => setCatFilter(c.label)}>
-            {c.icon} {c.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search + status filter */}
-      <div className="inv-filter-row">
-        <input className="form-input" placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
-        <select className="form-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width: 'auto' }}>
-          <option value="">All Statuses</option>
-          {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
-      </div>
+      </section>
 
       {/* Items grid */}
       {filtered.length === 0 ? (

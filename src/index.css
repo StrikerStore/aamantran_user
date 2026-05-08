@@ -215,6 +215,202 @@ input, select, textarea { font-family: inherit; }
 .mb-16 { margin-bottom: 16px; }
 .mb-24 { margin-bottom: 24px; }
 
+/* ═══════════════════════════════════════════════════════════
+   Planning features — unified shell (Inventory, Tasks, Vendors,
+   Timeline, Budget, Gifts, Photo Wall, Mood Board)
+   ═══════════════════════════════════════════════════════════ */
+
+.feat-shell {
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feat-shell .feat-head {
+  margin-bottom: 0;
+}
+
+.feat-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.feat-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.feat-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.32rem, 3.2vw, 1.52rem);
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+
+.feat-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.45;
+  max-width: 54ch;
+}
+
+.feat-head-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .feat-head-actions {
+    width: 100%;
+  }
+
+  .feat-head-actions .btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+}
+
+/* Horizontal stat strip — scannable, compact */
+.feat-stats {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0 2px;
+  scrollbar-width: thin;
+}
+
+.feat-stats::-webkit-scrollbar {
+  height: 4px;
+}
+
+.feat-stats::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 99px;
+}
+
+.feat-stat {
+  flex: 0 0 auto;
+  min-width: 72px;
+  padding: 8px 11px;
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.feat-stat-val {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.feat-stat-val--teal { color: var(--teal); }
+.feat-stat-val--green { color: var(--green); }
+.feat-stat-val--amber { color: var(--amber); }
+.feat-stat-val--red { color: var(--red); }
+.feat-stat-val--gold { color: var(--gold); }
+.feat-stat-val--maroon { color: var(--maroon); }
+.feat-stat-val--muted { color: var(--text-muted); }
+
+.feat-stat-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+/* One control card: filters + search row */
+.feat-hub {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 11px 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feat-hub-pills {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 1px;
+}
+
+.feat-hub-pills--wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.feat-hub .pill,
+.feat-hub .inv-cat-tab,
+.feat-hub .timeline-fn-tab {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 0.76rem;
+}
+
+.feat-hub-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 2px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.feat-hub-tools .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.feat-hub-tools .form-select {
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+
+@media (min-width: 640px) {
+  .feat-hub-tools {
+    display: grid;
+    grid-template-columns: 1fr minmax(150px, 220px);
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .feat-hub-tools .form-input,
+  .feat-hub-tools .form-select {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -82,28 +82,50 @@ export default function Vendors() {
   }
 
   const filtered = statusFilter ? vendors.filter(v => v.status === statusFilter) : vendors;
+  const nBooked = vendors.filter(v => ['booked', 'deposit-paid', 'fully-paid'].includes(v.status)).length;
+  const nPipeline = vendors.filter(v => ['contacted', 'negotiating'].includes(v.status)).length;
 
   if (loading) return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Vendors</h1>
-          <p className="page-subtitle">Manage your wedding service providers</p>
-        </div>
-        <button className="btn btn-primary" onClick={openNew}>+ Add Vendor</button>
-      </div>
+      <section className="feat-shell">
+        <header className="feat-head">
+          <div className="feat-head-text">
+            <h1 className="feat-title">Vendors</h1>
+            <p className="feat-desc">Manage your wedding service providers</p>
+          </div>
+          <div className="feat-head-actions">
+            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add Vendor</button>
+          </div>
+        </header>
 
-      {/* Status filter */}
-      <div className="vendor-filters">
-        <button className={`pill ${!statusFilter ? 'active' : ''}`} onClick={() => setStatusFilter('')}>All</button>
-        {VENDOR_STATUSES.map(s => (
-          <button key={s.key} className={`pill ${statusFilter === s.key ? 'active' : ''}`} onClick={() => setStatusFilter(s.key)}>
-            {s.label}
-          </button>
-        ))}
-      </div>
+        <div className="feat-stats">
+          <div className="feat-stat">
+            <span className="feat-stat-val">{vendors.length}</span>
+            <span className="feat-stat-label">Total</span>
+          </div>
+          <div className="feat-stat">
+            <span className="feat-stat-val feat-stat-val--teal">{nBooked}</span>
+            <span className="feat-stat-label">Booked</span>
+          </div>
+          <div className="feat-stat">
+            <span className="feat-stat-val feat-stat-val--amber">{nPipeline}</span>
+            <span className="feat-stat-label">In talks</span>
+          </div>
+        </div>
+
+        <div className="feat-hub">
+          <div className="feat-hub-pills feat-hub-pills--scroll">
+            <button type="button" className={`pill ${!statusFilter ? 'active' : ''}`} onClick={() => setStatusFilter('')}>All</button>
+            {VENDOR_STATUSES.map(s => (
+              <button type="button" key={s.key} className={`pill ${statusFilter === s.key ? 'active' : ''}`} onClick={() => setStatusFilter(s.key)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {filtered.length === 0 ? (
         <div className="empty-state" style={{ padding: '40px 0' }}>

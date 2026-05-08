@@ -1,4 +1,13 @@
-.timeline-fn-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.timeline-fn-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.feat-hub .timeline-fn-tabs {
+  margin-bottom: 0;
+}
 .timeline-fn-tab {
   padding: 6px 16px; border-radius: 99px;
   border: 1px solid var(--border-default);
@@ -8,6 +17,10 @@
 }
 .timeline-fn-tab:hover { border-color: var(--gold); }
 .timeline-fn-tab.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+
+.timeline-body {
+  margin-top: 12px;
+}
 
 .timeline-list { display: flex; flex-direction: column; gap: 0; }
 

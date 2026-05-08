@@ -1,9 +1,8 @@
-.vendor-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
-
 .vendor-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+  margin-top: 4px;
 }
 
 .vendor-card {
