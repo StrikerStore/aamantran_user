@@ -7,6 +7,22 @@ import { getToken } from '../lib/auth';
 import { useToast } from '../components/ui/Toast';
 import './GuestManager.css';
 
+function rsvpFullTitle(r) {
+  const fn = r.function?.name || 'Function';
+  const status = r.attending === true ? 'Yes' : r.attending === false ? 'No' : 'Pending';
+  const plus = r.attending === true && r.plusCount > 0 ? ` (+${r.plusCount})` : '';
+  return `${fn}: ${status}${plus}`;
+}
+
+/** One-line chip text; full sentence in title tooltip */
+function rsvpCompactLabel(r) {
+  const raw = (r.function?.name || 'Event').trim();
+  const short = raw.length > 18 ? `${raw.slice(0, 16)}…` : raw;
+  const sym = r.attending === true ? '✓' : r.attending === false ? '✗' : '○';
+  const plus = r.attending === true && r.plusCount > 0 ? `+${r.plusCount}` : '';
+  return `${short} ${sym}${plus ? ` ${plus}` : ''}`;
+}
+
 export default function GuestManager() {
   const { id } = useParams();
   const toast = useToast();
@@ -150,18 +166,21 @@ export default function GuestManager() {
                       {g.email && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{g.email}</div>}
                     </td>
                     <td>{g.side || '—'}</td>
-                    <td>
+                    <td className="guest-col-rsvp">
                       {g.rsvps?.length > 0 ? (
                         <div className="rsvp-chips">
                           {g.rsvps.map(r => (
-                            <span key={r.id} className={`rsvp-chip ${r.attending === true ? 'yes' : r.attending === false ? 'no' : 'pending'}`}>
-                              {r.function?.name}: {r.attending === true ? 'Yes' : r.attending === false ? 'No' : 'Pending'}
-                              {r.attending && r.plusCount > 0 ? ` +${r.plusCount}` : ''}
+                            <span
+                              key={r.id}
+                              className={`rsvp-chip ${r.attending === true ? 'yes' : r.attending === false ? 'no' : 'pending'}`}
+                              title={rsvpFullTitle(r)}
+                            >
+                              {rsvpCompactLabel(r)}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>No RSVP</span>
+                        <span className="guest-rsvp-empty">No RSVP</span>
                       )}
                     </td>
                     <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{formatRelative(g.createdAt)}</td>
