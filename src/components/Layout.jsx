@@ -17,7 +17,7 @@ export function Layout() {
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -25,6 +25,11 @@ export function Layout() {
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
   const routeEventId = getRouteEventId(location.pathname);
+  const routeEvent = routeEventId
+    ? events.find(ev => String(ev.id) === routeEventId)
+    : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const activeEvent = routeEvent || selectedEvent || defaultEvent;
 
   // Collapsible sidebar group state — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -54,23 +59,6 @@ export function Layout() {
   }, []);
 
   useEffect(() => {
-    if (!events.length) return;
-
-    if (routeEventId) {
-      const routeEvent = events.find(ev => String(ev.id) === routeEventId);
-      if (routeEvent && activeEvent?.id !== routeEvent.id) {
-        setActiveEvent(routeEvent);
-      }
-      return;
-    }
-
-    if (!activeEvent) {
-      const first = events.find(ev => ev.inviteScope !== 'subset') || events[0];
-      setActiveEvent(first);
-    }
-  }, [events, routeEventId, activeEvent?.id]);
-
-  useEffect(() => {
     function handler(e) {
       if (switcherRef.current && !switcherRef.current.contains(e.target)) {
         setSwitcherOpen(false);
@@ -89,8 +77,12 @@ export function Layout() {
   }
 
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEvent(ev);
     setSwitcherOpen(false);
+  }
+
+  function setActiveEvent(ev) {
+    setSelectedEvent(ev);
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
