@@ -53,6 +53,89 @@ function pinDoForUrl(url) {
   return String(url).toLowerCase().includes('/pin/') ? 'embedPin' : 'embedBoard';
 }
 
+function normalizePinterestUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+
+  let url;
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.pinterest.com';
+    url = new URL(value, origin);
+  } catch {
+    return '';
+  }
+
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+
+  const host = url.hostname.toLowerCase();
+  const isPinterest = host === 'pinterest.com' || host.endsWith('.pinterest.com');
+  const isPinShortlink = host === 'pin.it' || host.endsWith('.pin.it');
+  return isPinterest || isPinShortlink ? url.href : '';
+}
+
+function copySafeDimensionAttr(source, target, attr) {
+  const value = source.getAttribute(attr);
+  if (value && /^[0-9.%]+$/.test(value)) target.setAttribute(attr, value);
+}
+
+function sanitizePinterestEmbedHtml(html) {
+  if (typeof document === 'undefined' || !html) return null;
+
+  const template = document.createElement('template');
+  template.innerHTML = String(html);
+  const output = document.createElement('div');
+
+  function appendSafeChildren(source, target) {
+    Array.from(source.childNodes).forEach((node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+      const tag = node.tagName.toLowerCase();
+      if (tag === 'a') {
+        const href = normalizePinterestUrl(node.getAttribute('href'));
+        if (!href) return;
+
+        const anchor = document.createElement('a');
+        anchor.href = href;
+        anchor.textContent = node.textContent || 'Pinterest';
+        ['data-pin-do', 'data-pin-board-width', 'data-pin-scale-height', 'data-pin-scale-width'].forEach((attr) => {
+          const value = node.getAttribute(attr);
+          if (value && /^[\w%.-]+$/.test(value)) anchor.setAttribute(attr, value);
+        });
+        target.appendChild(anchor);
+        return;
+      }
+
+      if (tag === 'iframe') {
+        const src = normalizePinterestUrl(node.getAttribute('src'));
+        if (!src) return;
+
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.title = node.getAttribute('title') || 'Pinterest embed';
+        iframe.loading = 'lazy';
+        iframe.referrerPolicy = 'no-referrer-when-downgrade';
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+        copySafeDimensionAttr(node, iframe, 'width');
+        copySafeDimensionAttr(node, iframe, 'height');
+        target.appendChild(iframe);
+        return;
+      }
+
+      if (tag === 'div' || tag === 'span' || tag === 'blockquote') {
+        const wrapper = document.createElement(tag);
+        appendSafeChildren(node, wrapper);
+        if (wrapper.childNodes.length) target.appendChild(wrapper);
+        return;
+      }
+
+      appendSafeChildren(node, target);
+    });
+  }
+
+  appendSafeChildren(template.content, output);
+  return output.innerHTML.trim() || null;
+}
+
 /** Image / upload URLs may be relative to the API origin */
 function resolvePinHref(imageUrl) {
   if (!imageUrl) return '#';
@@ -67,18 +150,27 @@ function resolvePinHref(imageUrl) {
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const [loading, setLoading] = useState(true);
   const [embedHtml, setEmbedHtml] = useState(null);
+  const embedHostRef = useRef(null);
   const widgetHostRef = useRef(null);
+  const safeBoardUrl = normalizePinterestUrl(boardUrl);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setEmbedHtml(null);
 
+    if (!safeBoardUrl) {
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     api.moodboard
-      .pinterestOembed(eventId, boardUrl)
+      .pinterestOembed(eventId, safeBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedHtml(sanitizePinterestEmbedHtml(r.html));
       })
       .catch(() => {
         if (!cancelled) setEmbedHtml(null);
@@ -90,17 +182,42 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [eventId, boardUrl]);
+  }, [eventId, safeBoardUrl]);
 
   useEffect(() => {
-    if (loading || embedHtml) return;
+    if (loading || !embedHtml) return;
+    const root = embedHostRef.current;
+    if (!root) return;
+
+    let cancelled = false;
+    loadPinterestScript().then(() => {
+      if (cancelled || !embedHostRef.current) return;
+      requestAnimationFrame(() => {
+        try {
+          if (typeof window.parsePins === 'function') window.parsePins(embedHostRef.current);
+          else if (window.PinUtils && typeof window.PinUtils.build === 'function') {
+            window.PinUtils.build(embedHostRef.current);
+          }
+        } catch {
+          /* Pinterest script API varies by region/version */
+        }
+      });
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, embedHtml]);
+
+  useEffect(() => {
+    if (loading || embedHtml || !safeBoardUrl) return;
     const root = widgetHostRef.current;
     if (!root) return;
 
     root.innerHTML = '';
     const a = document.createElement('a');
-    a.href = boardUrl;
-    a.dataset.pinDo = pinDoForUrl(boardUrl);
+    a.href = safeBoardUrl;
+    a.dataset.pinDo = pinDoForUrl(safeBoardUrl);
     if (a.dataset.pinDo === 'embedBoard') {
       a.dataset.pinBoardWidth = '100%';
       a.dataset.pinScaleHeight = '280';
@@ -127,7 +244,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [loading, embedHtml, boardUrl]);
+  }, [loading, embedHtml, safeBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
@@ -149,7 +266,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
         )}
         {!loading && embedHtml && (
           <div className="mb-pinterest-viewport">
-            <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <div ref={embedHostRef} className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
           </div>
         )}
         {!loading && !embedHtml && (
@@ -166,9 +283,12 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
         </div>
         <a
           className="btn btn-secondary btn-sm mb-pinterest-open"
-          href={boardUrl}
+          href={safeBoardUrl || '#'}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => {
+            if (!safeBoardUrl) e.preventDefault();
+          }}
         >
           Open on Pinterest ↗
         </a>
