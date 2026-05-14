@@ -6,19 +6,30 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 
+function getRouteEventId(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
+  const routeEventId = getRouteEventId(location.pathname);
+  const routeEvent = routeEventId
+    ? events.find(ev => String(ev.id) === routeEventId)
+    : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const activeEvent = routeEvent || selectedEvent || defaultEvent;
 
   // Collapsible sidebar group state — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -36,16 +47,15 @@ export function Layout() {
   }
 
   useEffect(() => {
+    let cancelled = false;
     api.events.list()
       .then(r => {
+        if (cancelled) return;
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -67,8 +77,12 @@ export function Layout() {
   }
 
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEvent(ev);
     setSwitcherOpen(false);
+  }
+
+  function setActiveEvent(ev) {
+    setSelectedEvent(ev);
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
