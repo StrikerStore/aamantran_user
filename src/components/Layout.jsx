@@ -1,10 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { clearToken, getUserInfo } from '../lib/auth';
 import { api } from '../lib/api';
 import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
+
+function getEventRoute(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)(\/.*)?$/);
+  if (!match) return { id: null, suffix: '' };
+
+  return {
+    id: decodeURIComponent(match[1]),
+    suffix: match[2] || '',
+  };
+}
 
 export function Layout() {
   const navigate = useNavigate();
@@ -19,6 +29,7 @@ export function Layout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
+  const eventRoute = useMemo(() => getEventRoute(location.pathname), [location.pathname]);
 
   // Collapsible sidebar group state — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -40,13 +51,29 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setActiveEvent(prev => {
+      if (!events.length) return null;
+
+      const routeEvent = eventRoute.id
+        ? events.find(ev => String(ev.id) === eventRoute.id)
+        : null;
+
+      if (routeEvent) {
+        return String(prev?.id) === String(routeEvent.id) ? prev : routeEvent;
+      }
+
+      if (prev && events.some(ev => String(ev.id) === String(prev.id))) {
+        return prev;
+      }
+
+      return events.find(ev => ev.inviteScope !== 'subset') || events[0];
+    });
+  }, [events, eventRoute.id]);
 
   useEffect(() => {
     function handler(e) {
@@ -69,6 +96,11 @@ export function Layout() {
   function selectEvent(ev) {
     setActiveEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+
+    if (eventRoute.id && String(ev.id) !== eventRoute.id) {
+      navigate(`/events/${ev.id}${eventRoute.suffix}${location.search}${location.hash}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
