@@ -6,13 +6,22 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 
+function routeEventId(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function routeWithEventId(pathname, eventId) {
+  return pathname.replace(/^\/events\/[^/]+/, `/events/${encodeURIComponent(eventId)}`);
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEvent, setActiveEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -36,17 +45,26 @@ export function Layout() {
   }
 
   useEffect(() => {
+    let cancelled = false;
     api.events.list()
       .then(r => {
+        if (cancelled) return;
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
+
+  const currentRouteEventId = routeEventId(location.pathname);
+  const routedEvent = currentRouteEventId
+    ? events.find(ev => String(ev.id) === String(currentRouteEventId))
+    : null;
+  const selectedAvailable = selectedEvent
+    ? (events.find(ev => ev.id === selectedEvent.id) || (!events.length ? selectedEvent : null))
+    : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const activeEvent = routedEvent || selectedAvailable || defaultEvent;
 
   useEffect(() => {
     function handler(e) {
@@ -69,6 +87,14 @@ export function Layout() {
   function selectEvent(ev) {
     setActiveEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+    if (currentRouteEventId) {
+      navigate({
+        pathname: routeWithEventId(location.pathname, ev.id),
+        search: location.search,
+        hash: location.hash,
+      });
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
