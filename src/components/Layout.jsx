@@ -21,7 +21,7 @@ export function Layout() {
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEvent, setActiveEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -57,27 +57,14 @@ export function Layout() {
   }, []);
 
   const currentRouteEventId = routeEventId(location.pathname);
-
-  useEffect(() => {
-    if (!events.length) {
-      setActiveEvent(null);
-      return;
-    }
-
-    setActiveEvent(current => {
-      const routed = currentRouteEventId
-        ? events.find(ev => String(ev.id) === String(currentRouteEventId))
-        : null;
-      if (routed) return routed;
-
-      if (current) {
-        const stillAvailable = events.find(ev => ev.id === current.id);
-        if (stillAvailable) return stillAvailable;
-      }
-
-      return events.find(ev => ev.inviteScope !== 'subset') || events[0];
-    });
-  }, [events, currentRouteEventId]);
+  const routedEvent = currentRouteEventId
+    ? events.find(ev => String(ev.id) === String(currentRouteEventId))
+    : null;
+  const selectedAvailable = selectedEvent
+    ? (events.find(ev => ev.id === selectedEvent.id) || (!events.length ? selectedEvent : null))
+    : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const activeEvent = routedEvent || selectedAvailable || defaultEvent;
 
   useEffect(() => {
     function handler(e) {
