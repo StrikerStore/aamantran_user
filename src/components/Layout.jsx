@@ -15,7 +15,7 @@ export function Layout() {
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -48,19 +48,6 @@ export function Layout() {
   }, []);
 
   useEffect(() => {
-    setActiveEvent(current => {
-      if (!events.length) return null;
-
-      if (routeEventId) {
-        return events.find(ev => String(ev.id) === routeEventId) || null;
-      }
-
-      if (current && events.some(ev => ev.id === current.id)) return current;
-      return events.find(ev => ev.inviteScope !== 'subset') || events[0];
-    });
-  }, [events, routeEventId]);
-
-  useEffect(() => {
     function handler(e) {
       if (switcherRef.current && !switcherRef.current.contains(e.target)) {
         setSwitcherOpen(false);
@@ -78,8 +65,17 @@ export function Layout() {
     navigate('/');
   }
 
+  const routeEvent = routeEventId
+    ? events.find(ev => String(ev.id) === routeEventId) || null
+    : null;
+  const selectedEventFromList = selectedEvent
+    ? events.find(ev => ev.id === selectedEvent.id) || null
+    : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const activeEvent = routeEventId ? routeEvent : (selectedEventFromList || defaultEvent);
+
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEvent(ev);
     setSwitcherOpen(false);
     setMobileSwitcherOpen(false);
     if (routeEventId && String(ev.id) !== routeEventId) {
@@ -352,7 +348,7 @@ export function Layout() {
         </header>
 
         <main className="page-content page-fade">
-          <Outlet context={{ activeEvent, setActiveEvent, events, setEvents }} />
+          <Outlet context={{ activeEvent, setActiveEvent: setSelectedEvent, events, setEvents }} />
         </main>
       </div>
 
