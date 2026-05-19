@@ -9,6 +9,9 @@ const NAV_STATE_KEY = 'aam_nav_state';
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const eventRouteMatch = location.pathname.match(/^\/events\/([^/]+)(\/.*)?$/);
+  const routeEventId = eventRouteMatch?.[1] || null;
+  const routeEventSuffix = eventRouteMatch?.[2] || '';
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
@@ -40,13 +43,22 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setActiveEvent(current => {
+      if (!events.length) return null;
+
+      if (routeEventId) {
+        return events.find(ev => String(ev.id) === routeEventId) || null;
+      }
+
+      if (current && events.some(ev => ev.id === current.id)) return current;
+      return events.find(ev => ev.inviteScope !== 'subset') || events[0];
+    });
+  }, [events, routeEventId]);
 
   useEffect(() => {
     function handler(e) {
@@ -69,6 +81,10 @@ export function Layout() {
   function selectEvent(ev) {
     setActiveEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+    if (routeEventId && String(ev.id) !== routeEventId) {
+      navigate(`/events/${ev.id}${routeEventSuffix}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
