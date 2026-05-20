@@ -44,6 +44,28 @@ function normalizeMediaSlots(fullSchema) {
     }));
 }
 
+function functionKey(fn) {
+  return fn.id || fn._cid;
+}
+
+function savedPartialFunctionIds(functions, partialFnIds) {
+  return functions
+    .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
+    .map((f) => f.id);
+}
+
+function pairedMainFunctionIds(pairedEvent) {
+  return new Set(pairedEvent?.pairedFunctionIds || []);
+}
+
+function replacePartialFunctionKey(prev, oldKey, newId) {
+  if (!oldKey || !prev.has(oldKey)) return prev;
+  const next = new Set(prev);
+  next.delete(oldKey);
+  if (newId) next.add(newId);
+  return next;
+}
+
 function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest, toast, globalAssets = [] }) {
   const [caption, setCaption] = useState('');
   const [busy, setBusy] = useState(false);
@@ -396,7 +418,7 @@ export default function GenerateInvitation() {
       if (ev.pairedEvent) {
         setPartialEnabled(true);
         setPartialSlug(ev.pairedEvent.slug || '');
-        setPartialFnIds(new Set(ev.pairedEvent.pairedFunctionIds || []));
+        setPartialFnIds(pairedMainFunctionIds(ev.pairedEvent));
       }
       setLoading(false);
     }).catch(() => {
@@ -531,13 +553,7 @@ export default function GenerateInvitation() {
         const r = await api.functions.add(id, payload);
         setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
         // Transition partial selection from _cid to real id
-        setPartialFnIds(prev => {
-          if (!prev.has(fn._cid)) return prev;
-          const next = new Set(prev);
-          next.delete(fn._cid);
-          if (r.function.id) next.add(r.function.id);
-          return next;
-        });
+        setPartialFnIds(prev => replacePartialFunctionKey(prev, fn._cid, r.function.id));
       } else {
         const r = await api.functions.update(id, fn.id, payload);
         setFunctions(prev => prev.map(f => f.id === fn.id ? r.function : f));
@@ -567,6 +583,7 @@ export default function GenerateInvitation() {
         if (fn._isNew) {
           const r = await api.functions.add(id, payload);
           setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
+          setPartialFnIds(prev => replacePartialFunctionKey(prev, fn._cid, r.function.id));
         } else {
           const r = await api.functions.update(id, fn.id, payload);
           setFunctions(prev => prev.map(f => f.id === fn.id ? r.function : f));
@@ -589,7 +606,12 @@ export default function GenerateInvitation() {
     try {
       if (!fn._isNew) await api.functions.remove(id, fn.id);
       setFunctions(f => f.filter(x => x.id !== fn.id && x._cid !== fn._cid));
-      setPartialFnIds(prev => { const next = new Set(prev); next.delete(fn.id); return next; });
+      setPartialFnIds(prev => {
+        const next = new Set(prev);
+        next.delete(fn.id);
+        next.delete(fn._cid);
+        return next;
+      });
       setDeletingFn(null);
     } catch (err) {
       toast(err.message, 'error');
@@ -771,19 +793,21 @@ export default function GenerateInvitation() {
 
   // ── PUBLISH ──────────────────────────────────────────────
   async function handlePublish() {
+    const selectedPartialIds = savedPartialFunctionIds(functions, partialFnIds);
     if (partialEnabled && partialFnIds.size === 0) {
       toast('Select at least one function for the partial invite, or disable partial invite.', 'error');
+      return;
+    }
+    if (partialEnabled && selectedPartialIds.length < partialFnIds.size) {
+      toast('Save selected ceremonies before publishing the partial invite.', 'error');
       return;
     }
     setPublishing(true);
     try {
       // If a paired invite already exists, push current partial selection first.
       if (event.invitePairId && partialEnabled) {
-        const selectedIds = functions
-          .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
-          .map((f) => f.id);
-        if (selectedIds.length > 0) {
-          await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
+        if (selectedPartialIds.length > 0) {
+          await api.events.updatePartial(id, { partialFunctionIds: selectedPartialIds });
         }
       }
 
@@ -791,7 +815,7 @@ export default function GenerateInvitation() {
         slugFull: slugFull || undefined,
         createPartial: partialEnabled && !event.invitePairId,
         partialSlug: partialEnabled ? partialSlug : undefined,
-        partialFunctionIds: partialEnabled ? [...partialFnIds].filter(k => !String(k).startsWith('new-')) : undefined,
+        partialFunctionIds: partialEnabled ? selectedPartialIds : undefined,
       };
       await api.events.publish(id, body);
       // Reload event to get updated slug, inviteScope, pairedEvent
@@ -800,7 +824,7 @@ export default function GenerateInvitation() {
       if (r.event.pairedEvent) {
         setPartialEnabled(true);
         setPartialSlug(r.event.pairedEvent.slug);
-        setPartialFnIds(new Set((r.event.pairedEvent.functions || []).map(f => f.id)));
+        setPartialFnIds(pairedMainFunctionIds(r.event.pairedEvent));
       }
       setShowCelebration(true);
     } catch (err) {
@@ -837,9 +861,7 @@ export default function GenerateInvitation() {
     try {
       // Refresh should also sync partial selection changes made via checkboxes.
       if (event.invitePairId && partialEnabled) {
-        const selectedIds = functions
-          .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
-          .map((f) => f.id);
+        const selectedIds = savedPartialFunctionIds(functions, partialFnIds);
         if (selectedIds.length > 0) {
           await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
         }
@@ -850,7 +872,7 @@ export default function GenerateInvitation() {
       if (r.event.pairedEvent) {
         setPartialEnabled(true);
         setPartialSlug(r.event.pairedEvent.slug || '');
-        setPartialFnIds(new Set(r.event.pairedEvent.pairedFunctionIds || []));
+        setPartialFnIds(pairedMainFunctionIds(r.event.pairedEvent));
       }
       toast('Invite details refreshed', 'success');
     } catch (err) {
@@ -1104,7 +1126,7 @@ export default function GenerateInvitation() {
             ) : (
               <div className="fn-cards">
                 {functions.map((fn, idx) => {
-                  const key = fn._cid || fn.id;
+                  const key = functionKey(fn);
                   const isSaving = savingFnId === key;
                   return (
                     <div key={key} className={`fn-card${isSaving ? ' fn-card-saving' : ''}`}>
@@ -1205,10 +1227,10 @@ export default function GenerateInvitation() {
                         <label className="fn-partial-label">
                           <input
                             type="checkbox"
-                            checked={partialFnIds.has(fn.id || fn._cid)}
+                            checked={partialFnIds.has(functionKey(fn))}
                             onChange={e => setPartialFnIds(prev => {
                               const next = new Set(prev);
-                              const k = fn.id || fn._cid;
+                              const k = functionKey(fn);
                               e.target.checked ? next.add(k) : next.delete(k);
                               return next;
                             })}
@@ -1698,7 +1720,7 @@ export default function GenerateInvitation() {
                       <div className="form-hint">
                         Only selected functions from Section B.
                         {partialFnIds.size > 0 && (
-                          <> Selected: {functions.filter(f => partialFnIds.has(f.id)).map(f => f.name).join(', ')}</>
+                          <> Selected: {functions.filter(f => partialFnIds.has(functionKey(f))).map(f => f.name).join(', ')}</>
                         )}
                       </div>
                     </div>
