@@ -41,7 +41,7 @@ export function Layout() {
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -69,6 +69,21 @@ export function Layout() {
     [location.pathname]
   );
 
+  const activeEvent = useMemo(() => {
+    if (!events.length) return null;
+
+    if (routeEventId) {
+      return events.find(ev => String(ev.id) === String(routeEventId)) || null;
+    }
+
+    if (selectedEventId) {
+      const selected = events.find(ev => String(ev.id) === String(selectedEventId));
+      if (selected) return selected;
+    }
+
+    return defaultEvent(events);
+  }, [events, routeEventId, selectedEventId]);
+
   useEffect(() => {
     api.events.list()
       .then(r => {
@@ -77,23 +92,6 @@ export function Layout() {
       })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    setActiveEvent(current => {
-      if (!events.length) return null;
-
-      if (routeEventId) {
-        const routed = events.find(ev => String(ev.id) === String(routeEventId));
-        return routed || null;
-      }
-
-      if (current && events.some(ev => ev.id === current.id)) {
-        return current;
-      }
-
-      return defaultEvent(events);
-    });
-  }, [events, routeEventId]);
 
   useEffect(() => {
     function handler(e) {
@@ -111,6 +109,10 @@ export function Layout() {
   function handleLogout() {
     clearToken();
     navigate('/');
+  }
+
+  function setActiveEvent(ev) {
+    setSelectedEventId(ev?.id ?? null);
   }
 
   function selectEvent(ev) {
