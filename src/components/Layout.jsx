@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { clearToken, getUserInfo } from '../lib/auth';
 import { api } from '../lib/api';
@@ -6,13 +6,42 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 
+function eventIdFromPathname(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)/);
+  if (!match) return null;
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
+function defaultEvent(events) {
+  return events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+}
+
+function eventScopedPathFor(pathname, event) {
+  const match = pathname.match(/^\/events\/[^/]+(?:\/(.*))?$/);
+  if (!match) return null;
+
+  const eventId = encodeURIComponent(String(event.id));
+  const suffix = match[1] || (event.isPublished ? 'edit' : 'generate');
+  const [section] = suffix.split('/');
+  const nextSuffix = section === 'edit' || section === 'generate'
+    ? (event.isPublished ? 'edit' : 'generate')
+    : suffix;
+
+  return `/events/${eventId}/${nextSuffix}`;
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -35,15 +64,31 @@ export function Layout() {
     });
   }
 
+  const routeEventId = useMemo(
+    () => eventIdFromPathname(location.pathname),
+    [location.pathname]
+  );
+
+  const activeEvent = useMemo(() => {
+    if (!events.length) return null;
+
+    if (routeEventId) {
+      return events.find(ev => String(ev.id) === String(routeEventId)) || null;
+    }
+
+    if (selectedEventId) {
+      const selected = events.find(ev => String(ev.id) === String(selectedEventId));
+      if (selected) return selected;
+    }
+
+    return defaultEvent(events);
+  }, [events, routeEventId, selectedEventId]);
+
   useEffect(() => {
     api.events.list()
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
@@ -66,9 +111,17 @@ export function Layout() {
     navigate('/');
   }
 
+  function setActiveEvent(ev) {
+    setSelectedEventId(ev?.id ?? null);
+  }
+
   function selectEvent(ev) {
     setActiveEvent(ev);
     setSwitcherOpen(false);
+    const nextPath = eventScopedPathFor(location.pathname, ev);
+    if (nextPath && nextPath !== location.pathname) {
+      navigate(nextPath);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
