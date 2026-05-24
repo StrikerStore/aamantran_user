@@ -6,19 +6,30 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 
+function getRouteEventId(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
+  const routeEventId = getRouteEventId(location.pathname);
 
   // Collapsible sidebar group state — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -40,10 +51,6 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
@@ -66,9 +73,32 @@ export function Layout() {
     navigate('/');
   }
 
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const findEvent = (eventId) => events.find(ev => String(ev.id) === String(eventId));
+  const activeEvent = routeEventId
+    ? findEvent(routeEventId) || null
+    : (selectedEventId && findEvent(selectedEventId))
+      || defaultEvent;
+
+  function rememberActiveEvent(ev) {
+    const nextId = ev?.id || null;
+    setSelectedEventId(nextId);
+  }
+
+  function rememberCurrentRouteEvent() {
+    if (routeEventId) setSelectedEventId(routeEventId);
+  }
+
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    rememberActiveEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+
+    const eventPathMatch = location.pathname.match(/^\/events\/[^/]+(\/.*)?$/);
+    if (eventPathMatch) {
+      const nextPath = `/events/${encodeURIComponent(ev.id)}${eventPathMatch[1] || ''}`;
+      if (nextPath !== location.pathname) navigate(nextPath);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -251,7 +281,13 @@ export function Layout() {
                     key={item.label}
                     to={to}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                    onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
+                    onClick={(e) => {
+                      if (disabled) e.preventDefault();
+                      else {
+                        rememberCurrentRouteEvent();
+                        setSidebarOpen(false);
+                      }
+                    }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
                   >
                     <item.icon />
@@ -336,7 +372,7 @@ export function Layout() {
         </header>
 
         <main className="page-content page-fade">
-          <Outlet context={{ activeEvent, setActiveEvent, events, setEvents }} />
+          <Outlet key={routeEventId || 'global'} context={{ activeEvent, setActiveEvent: rememberActiveEvent, events, setEvents }} />
         </main>
       </div>
 
@@ -344,7 +380,7 @@ export function Layout() {
       <nav className="bottom-nav">
         <button
           className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => { rememberCurrentRouteEvent(); navigate('/dashboard'); }}
           aria-label="Home"
         >
           <BNavIconHome />
@@ -403,7 +439,7 @@ export function Layout() {
             <div className="profile-sheet-actions">
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/settings'); }}
               >
                 <span className="ps-icon">⚙️</span>
                 <span className="ps-label">Settings</span>
@@ -411,7 +447,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/guide'); }}
               >
                 <span className="ps-icon">📖</span>
                 <span className="ps-label">Feature Guide</span>
@@ -419,7 +455,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/support'); }}
               >
                 <span className="ps-icon">💬</span>
                 <span className="ps-label">Support</span>
@@ -456,7 +492,7 @@ export function Layout() {
                         <button
                           key={item.label}
                           className={`bottom-sheet-row ${active ? 'active' : ''}`}
-                          onClick={() => { if (!disabled) { setMoreOpen(false); navigate(item.to); } }}
+                          onClick={() => { if (!disabled) { rememberCurrentRouteEvent(); setMoreOpen(false); navigate(item.to); } }}
                           disabled={disabled}
                         >
                           <span className="bottom-sheet-row-icon">{item.icon}</span>
