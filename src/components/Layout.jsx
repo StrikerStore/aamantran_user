@@ -23,13 +23,14 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [lastEventId, setLastEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
-  const lastRouteEventIdRef = useRef(null);
+  const routeEventId = getRouteEventId(location.pathname);
 
   // Collapsible sidebar group state — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -51,12 +52,6 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        setSelectedEventId(prev => {
-          if (prev) return prev;
-          if (lastRouteEventIdRef.current) return prev;
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          return first?.id || null;
-        });
       })
       .catch(() => {});
   }, []);
@@ -79,20 +74,21 @@ export function Layout() {
     navigate('/');
   }
 
-  const routeEventId = getRouteEventId(location.pathname);
-  if (routeEventId) lastRouteEventIdRef.current = routeEventId;
+  useEffect(() => {
+    if (routeEventId) setLastEventId(routeEventId);
+  }, [routeEventId]);
 
   const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
   const findEvent = (eventId) => events.find(ev => String(ev.id) === String(eventId));
   const activeEvent = routeEventId
     ? findEvent(routeEventId) || null
-    : (selectedEventId && findEvent(selectedEventId))
-      || (lastRouteEventIdRef.current && findEvent(lastRouteEventIdRef.current))
+    : (lastEventId && findEvent(lastEventId))
+      || (selectedEventId && findEvent(selectedEventId))
       || defaultEvent;
 
   function rememberActiveEvent(ev) {
     const nextId = ev?.id || null;
-    if (nextId) lastRouteEventIdRef.current = nextId;
+    if (nextId) setLastEventId(nextId);
     setSelectedEventId(nextId);
   }
 
