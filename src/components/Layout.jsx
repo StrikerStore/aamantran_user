@@ -6,19 +6,30 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 
+function getRouteEventId(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
+  const lastRouteEventIdRef = useRef(null);
 
   // Collapsible sidebar group state — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -40,10 +51,12 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
+        setSelectedEventId(prev => {
+          if (prev) return prev;
+          if (lastRouteEventIdRef.current) return prev;
           const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
+          return first?.id || null;
+        });
       })
       .catch(() => {});
   }, []);
@@ -66,9 +79,33 @@ export function Layout() {
     navigate('/');
   }
 
+  const routeEventId = getRouteEventId(location.pathname);
+  if (routeEventId) lastRouteEventIdRef.current = routeEventId;
+
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const findEvent = (eventId) => events.find(ev => String(ev.id) === String(eventId));
+  const activeEvent = routeEventId
+    ? findEvent(routeEventId) || null
+    : (selectedEventId && findEvent(selectedEventId))
+      || (lastRouteEventIdRef.current && findEvent(lastRouteEventIdRef.current))
+      || defaultEvent;
+
+  function rememberActiveEvent(ev) {
+    const nextId = ev?.id || null;
+    if (nextId) lastRouteEventIdRef.current = nextId;
+    setSelectedEventId(nextId);
+  }
+
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    rememberActiveEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+
+    const eventPathMatch = location.pathname.match(/^\/events\/[^/]+(\/.*)?$/);
+    if (eventPathMatch) {
+      const nextPath = `/events/${encodeURIComponent(ev.id)}${eventPathMatch[1] || ''}`;
+      if (nextPath !== location.pathname) navigate(nextPath);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -336,7 +373,7 @@ export function Layout() {
         </header>
 
         <main className="page-content page-fade">
-          <Outlet context={{ activeEvent, setActiveEvent, events, setEvents }} />
+          <Outlet key={routeEventId || 'global'} context={{ activeEvent, setActiveEvent: rememberActiveEvent, events, setEvents }} />
         </main>
       </div>
 
