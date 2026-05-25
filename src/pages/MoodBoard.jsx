@@ -64,6 +64,23 @@ function resolvePinHref(imageUrl) {
   return `${base}${path}`;
 }
 
+function pinterestEmbedSrcDoc(html) {
+  return `<!doctype html>
+<html>
+<head>
+  <base target="_blank">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body { margin: 0; padding: 0; background: transparent; }
+    body { display: flex; justify-content: center; overflow: auto; }
+    iframe, img, span, div { max-width: 100%; }
+  </style>
+</head>
+<body>${html}</body>
+</html>`;
+}
+
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const [loading, setLoading] = useState(true);
   const [embedHtml, setEmbedHtml] = useState(null);
@@ -149,7 +166,13 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
         )}
         {!loading && embedHtml && (
           <div className="mb-pinterest-viewport">
-            <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <iframe
+              className="mb-pinterest-embed-frame"
+              title={caption ? `Pinterest preview: ${caption}` : 'Pinterest preview'}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              referrerPolicy="no-referrer"
+              srcDoc={pinterestEmbedSrcDoc(embedHtml)}
+            />
           </div>
         )}
         {!loading && !embedHtml && (

@@ -6,6 +6,10 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 
+function routeEventIdFrom(pathname) {
+  return pathname.match(/^\/events\/([^/]+)/)?.[1] || null;
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,10 +44,7 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
+        setActiveEvent(prev => prev || all.find(ev => ev.inviteScope !== 'subset') || all[0] || null);
       })
       .catch(() => {});
   }, []);
@@ -66,15 +67,33 @@ export function Layout() {
     navigate('/');
   }
 
+  const routeEventId = routeEventIdFrom(location.pathname);
+  const routeActiveEvent = routeEventId
+    ? events.find(ev => String(ev.id) === routeEventId)
+    : null;
+  const selectedEvent = activeEvent
+    ? events.find(ev => ev.id === activeEvent.id) || activeEvent
+    : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const layoutActiveEvent = routeActiveEvent || selectedEvent || defaultEvent;
+
+  function rememberRouteEvent() {
+    if (routeActiveEvent) setActiveEvent(routeActiveEvent);
+  }
+
   function selectEvent(ev) {
     setActiveEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+    if (routeEventId) {
+      navigate(location.pathname.replace(/^\/events\/[^/]+/, `/events/${ev.id}`));
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
   const username = info?.username || 'User';
-  const published = activeEvent?.isPublished ?? false;
-  const eid = activeEvent?.id;
+  const published = layoutActiveEvent?.isPublished ?? false;
+  const eid = layoutActiveEvent?.id;
 
   function ePath(sub) { return eid ? `/events/${eid}/${sub}` : '#'; }
 
@@ -198,10 +217,10 @@ export function Layout() {
             <button className="event-switcher-btn" onClick={() => setSwitcherOpen(o => !o)}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="event-switcher-name">
-                  {activeEvent ? (activeEvent.slug || 'My Event') : 'No event yet'}
+                  {layoutActiveEvent ? (layoutActiveEvent.slug || 'My Event') : 'No event yet'}
                 </div>
                 <div className="event-switcher-sub">
-                  {activeEvent ? (activeEvent.isPublished ? 'Published' : 'Draft') : 'Set up an event'}
+                  {layoutActiveEvent ? (layoutActiveEvent.isPublished ? 'Published' : 'Draft') : 'Set up an event'}
                 </div>
               </div>
               <span className="event-switcher-chevron">{switcherOpen ? '▲' : '▼'}</span>
@@ -212,7 +231,7 @@ export function Layout() {
                 {events.filter(ev => ev.inviteScope !== 'subset').map(ev => (
                   <div
                     key={ev.id}
-                    className={`event-option ${activeEvent?.id === ev.id ? 'active' : ''}`}
+                    className={`event-option ${layoutActiveEvent?.id === ev.id ? 'active' : ''}`}
                     onClick={() => selectEvent(ev)}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -222,7 +241,7 @@ export function Layout() {
                       </div>
                       <div className="event-option-sub">{ev.isPublished ? 'Published' : 'Draft'}</div>
                     </div>
-                    {activeEvent?.id === ev.id && <span className="event-option-check">✓</span>}
+                    {layoutActiveEvent?.id === ev.id && <span className="event-option-check">✓</span>}
                   </div>
                 ))}
                 <div className="event-switcher-add" onClick={() => { setSwitcherOpen(false); navigate('/onboarding'); }}>
@@ -251,7 +270,13 @@ export function Layout() {
                     key={item.label}
                     to={to}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                    onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
+                    onClick={(e) => {
+                      if (disabled) e.preventDefault();
+                      else {
+                        rememberRouteEvent();
+                        setSidebarOpen(false);
+                      }
+                    }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
                   >
                     <item.icon />
@@ -296,7 +321,7 @@ export function Layout() {
               disabled={!events.length}
             >
               <span className="topbar-event-name">
-                {activeEvent ? (activeEvent.slug || 'My Event') : 'No event'}
+                {layoutActiveEvent ? (layoutActiveEvent.slug || 'My Event') : 'No event'}
               </span>
               <span className="topbar-event-chev">{mobileSwitcherOpen ? '▲' : '▼'}</span>
             </button>
@@ -305,8 +330,8 @@ export function Layout() {
                 {events.filter(ev => ev.inviteScope !== 'subset').map(ev => (
                   <div
                     key={ev.id}
-                    className={`event-option ${activeEvent?.id === ev.id ? 'active' : ''}`}
-                    onClick={() => { selectEvent(ev); setMobileSwitcherOpen(false); }}
+                    className={`event-option ${layoutActiveEvent?.id === ev.id ? 'active' : ''}`}
+                    onClick={() => selectEvent(ev)}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="event-option-name">
@@ -315,7 +340,7 @@ export function Layout() {
                       </div>
                       <div className="event-option-sub">{ev.isPublished ? 'Published' : 'Draft'}</div>
                     </div>
-                    {activeEvent?.id === ev.id && <span className="event-option-check">✓</span>}
+                    {layoutActiveEvent?.id === ev.id && <span className="event-option-check">✓</span>}
                   </div>
                 ))}
                 <div className="event-switcher-add" onClick={() => { setMobileSwitcherOpen(false); navigate('/onboarding'); }}>
@@ -336,7 +361,7 @@ export function Layout() {
         </header>
 
         <main className="page-content page-fade">
-          <Outlet context={{ activeEvent, setActiveEvent, events, setEvents }} />
+          <Outlet context={{ activeEvent: layoutActiveEvent, setActiveEvent, events, setEvents }} />
         </main>
       </div>
 
@@ -344,7 +369,7 @@ export function Layout() {
       <nav className="bottom-nav">
         <button
           className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => { rememberRouteEvent(); navigate('/dashboard'); }}
           aria-label="Home"
         >
           <BNavIconHome />
@@ -403,7 +428,7 @@ export function Layout() {
             <div className="profile-sheet-actions">
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                onClick={() => { rememberRouteEvent(); setProfileOpen(false); navigate('/settings'); }}
               >
                 <span className="ps-icon">⚙️</span>
                 <span className="ps-label">Settings</span>
@@ -411,7 +436,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+                onClick={() => { rememberRouteEvent(); setProfileOpen(false); navigate('/guide'); }}
               >
                 <span className="ps-icon">📖</span>
                 <span className="ps-label">Feature Guide</span>
@@ -419,7 +444,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+                onClick={() => { rememberRouteEvent(); setProfileOpen(false); navigate('/support'); }}
               >
                 <span className="ps-icon">💬</span>
                 <span className="ps-label">Support</span>
@@ -456,7 +481,13 @@ export function Layout() {
                         <button
                           key={item.label}
                           className={`bottom-sheet-row ${active ? 'active' : ''}`}
-                          onClick={() => { if (!disabled) { setMoreOpen(false); navigate(item.to); } }}
+                          onClick={() => {
+                            if (!disabled) {
+                              rememberRouteEvent();
+                              setMoreOpen(false);
+                              navigate(item.to);
+                            }
+                          }}
                           disabled={disabled}
                         >
                           <span className="bottom-sheet-row-icon">{item.icon}</span>
