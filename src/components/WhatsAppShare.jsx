@@ -13,11 +13,10 @@ import './WhatsAppShare.css';
  *   people           — array of EventPerson (all people)
  *   schemaPeopleRoles — array of { role, label, required } from template schema
  *   functions        — array of ceremony functions
- *   venues           — array of venue objects
  *   partialUrl       — (optional) partial invite URL if a paired subset exists
  *   eventId          — event ID for persisting the share image via media API
  */
-export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], functions = [], venues = [], partialUrl = null, eventId }) {
+export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], functions = [], partialUrl = null, eventId }) {
   const toast = useToast();
   const [imageFile, setImageFile] = useState(null);   // local File (before upload)
   const [imagePreview, setImagePreview] = useState(null);   // URL for display
