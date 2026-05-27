@@ -53,6 +53,34 @@ function pinDoForUrl(url) {
   return String(url).toLowerCase().includes('/pin/') ? 'embedPin' : 'embedBoard';
 }
 
+function buildPinterestEmbedSrcDoc(embedHtml) {
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base target="_blank" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow: auto;
+      }
+
+      iframe,
+      img,
+      span,
+      div {
+        max-width: 100% !important;
+      }
+    </style>
+  </head>
+  <body>${embedHtml}</body>
+</html>`;
+}
+
 /** Image / upload URLs may be relative to the API origin */
 function resolvePinHref(imageUrl) {
   if (!imageUrl) return '#';
@@ -149,7 +177,13 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
         )}
         {!loading && embedHtml && (
           <div className="mb-pinterest-viewport">
-            <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <iframe
+              className="mb-pinterest-embed-frame"
+              title={caption ? `Pinterest preview: ${caption}` : 'Pinterest preview'}
+              srcDoc={buildPinterestEmbedSrcDoc(embedHtml)}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              loading="lazy"
+            />
           </div>
         )}
         {!loading && !embedHtml && (
