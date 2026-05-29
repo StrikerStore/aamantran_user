@@ -93,34 +93,27 @@ function resolvePinterestHref(boardUrl) {
 }
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const [embedState, setEmbedState] = useState({ eventId: null, href: null, html: null });
   const widgetHostRef = useRef(null);
   const pinterestHref = resolvePinterestHref(boardUrl);
+  const embedLoaded = Boolean(
+    pinterestHref && embedState.eventId === eventId && embedState.href === pinterestHref,
+  );
+  const loading = Boolean(pinterestHref && !embedLoaded);
+  const embedHtml = embedLoaded ? embedState.html : null;
 
   useEffect(() => {
+    if (!pinterestHref) return undefined;
+
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
-
-    if (!pinterestHref) {
-      setLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
     api.moodboard
       .pinterestOembed(eventId, pinterestHref)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedState({ eventId, href: pinterestHref, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedState({ eventId, href: pinterestHref, html: null });
       });
 
     return () => {
