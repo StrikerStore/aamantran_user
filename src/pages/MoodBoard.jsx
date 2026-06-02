@@ -10,6 +10,22 @@ const CATEGORIES = ['Color Palette', 'Outfits', 'Decor', 'Flowers', 'Food', 'Jew
 
 const BLANK = { caption: '', category: 'Other', imageUrl: '' };
 
+function getSafePinterestUrl(url) {
+  try {
+    const parsed = new URL(String(url || '').trim());
+    const host = parsed.hostname.toLowerCase();
+    const allowedHost = host === 'pin.it' || host === 'pinterest.com' || host.endsWith('.pinterest.com');
+    if (parsed.protocol !== 'https:' || !allowedHost) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function pinterestEmbedSrcDoc(html) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;background:transparent;overflow:auto;}body{display:flex;justify-content:center;}</style></head><body>${html}</body></html>`;
+}
+
 /** Same breakpoint as layout mobile shell — grid taps open lightbox instead of new tab */
 function useMobileMoodLayout() {
   const [mobile, setMobile] = useState(() =>
@@ -68,14 +84,22 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const [loading, setLoading] = useState(true);
   const [embedHtml, setEmbedHtml] = useState(null);
   const widgetHostRef = useRef(null);
+  const safeBoardUrl = getSafePinterestUrl(boardUrl);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setEmbedHtml(null);
 
+    if (!safeBoardUrl) {
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     api.moodboard
-      .pinterestOembed(eventId, boardUrl)
+      .pinterestOembed(eventId, safeBoardUrl)
       .then((r) => {
         if (cancelled) return;
         setEmbedHtml(r.html || null);
@@ -90,17 +114,17 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [eventId, boardUrl]);
+  }, [eventId, safeBoardUrl]);
 
   useEffect(() => {
-    if (loading || embedHtml) return;
+    if (loading || embedHtml || !safeBoardUrl) return;
     const root = widgetHostRef.current;
     if (!root) return;
 
     root.innerHTML = '';
     const a = document.createElement('a');
-    a.href = boardUrl;
-    a.dataset.pinDo = pinDoForUrl(boardUrl);
+    a.href = safeBoardUrl;
+    a.dataset.pinDo = pinDoForUrl(safeBoardUrl);
     if (a.dataset.pinDo === 'embedBoard') {
       a.dataset.pinBoardWidth = '100%';
       a.dataset.pinScaleHeight = '280';
@@ -127,7 +151,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [loading, embedHtml, boardUrl]);
+  }, [loading, embedHtml, safeBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
@@ -147,14 +171,25 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
             <p className="mb-pinterest-loading-text">Loading Pinterest preview…</p>
           </div>
         )}
-        {!loading && embedHtml && (
+        {!loading && safeBoardUrl && embedHtml && (
           <div className="mb-pinterest-viewport">
-            <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <iframe
+              className="mb-pinterest-embed-frame"
+              title={caption ? `Pinterest preview: ${caption}` : 'Pinterest preview'}
+              srcDoc={pinterestEmbedSrcDoc(embedHtml)}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              referrerPolicy="no-referrer"
+            />
           </div>
         )}
-        {!loading && !embedHtml && (
+        {!loading && safeBoardUrl && !embedHtml && (
           <div className="mb-pinterest-viewport mb-pinterest-viewport--widget">
             <div ref={widgetHostRef} className="mb-pinterest-widget-host" />
+          </div>
+        )}
+        {!loading && !safeBoardUrl && (
+          <div className="mb-pinterest-invalid">
+            Add a secure Pinterest or pin.it URL to preview this board.
           </div>
         )}
       </div>
@@ -164,14 +199,16 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
           {caption ? <p className="mb-pinterest-caption">{caption}</p> : null}
           <p className="mb-pinterest-hint">Pins load inside the preview when Pinterest allows embedding.</p>
         </div>
-        <a
-          className="btn btn-secondary btn-sm mb-pinterest-open"
-          href={boardUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open on Pinterest ↗
-        </a>
+        {safeBoardUrl && (
+          <a
+            className="btn btn-secondary btn-sm mb-pinterest-open"
+            href={safeBoardUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open on Pinterest ↗
+          </a>
+        )}
       </div>
     </div>
   );
@@ -222,6 +259,11 @@ export default function MoodBoard() {
       let payloadCategory = form.category;
       if (payloadCategory === 'Other' && form.customCategory?.trim()) {
         payloadCategory = form.customCategory.trim();
+      }
+
+      if (payloadCategory === 'Pinterest' && !getSafePinterestUrl(form.imageUrl)) {
+        toast('Enter a valid https://pinterest.com or https://pin.it URL', 'error');
+        return;
       }
 
       let payload;
