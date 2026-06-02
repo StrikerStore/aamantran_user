@@ -81,34 +81,29 @@ function resolvePinHref(imageUrl) {
 }
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
   const widgetHostRef = useRef(null);
   const safeBoardUrl = getSafePinterestUrl(boardUrl);
+  const [embedState, setEmbedState] = useState(() => ({
+    url: safeBoardUrl,
+    loading: Boolean(safeBoardUrl),
+    html: null,
+  }));
+  const embedHtml = embedState.url === safeBoardUrl ? embedState.html : null;
+  const loading = safeBoardUrl ? embedState.url !== safeBoardUrl || embedState.loading : false;
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
 
-    if (!safeBoardUrl) {
-      setLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
+    if (!safeBoardUrl) return undefined;
 
     api.moodboard
       .pinterestOembed(eventId, safeBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedState({ url: safeBoardUrl, loading: false, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedState({ url: safeBoardUrl, loading: false, html: null });
       });
 
     return () => {
@@ -247,7 +242,7 @@ export default function MoodBoard() {
       .then(r => setPins(r.pins || []))
       .catch(() => toast('Failed to load mood board', 'error'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, toast]);
 
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setFile(null); setShowModal(true); }
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
