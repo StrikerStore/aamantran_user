@@ -94,31 +94,25 @@ function resolvePinHref(imageUrl) {
 }
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const [embedResult, setEmbedResult] = useState({ url: null, html: null });
   const widgetHostRef = useRef(null);
   const trustedBoardUrl = getTrustedPinterestUrl(boardUrl);
-  const activeEmbedHtml = trustedBoardUrl ? embedHtml : null;
-  const isPreviewLoading = Boolean(trustedBoardUrl && loading);
+  const activeEmbedHtml = trustedBoardUrl && embedResult.url === trustedBoardUrl ? embedResult.html : null;
+  const isPreviewLoading = Boolean(trustedBoardUrl && embedResult.url !== trustedBoardUrl);
 
   useEffect(() => {
     if (!trustedBoardUrl) return;
 
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
 
     api.moodboard
       .pinterestOembed(eventId, trustedBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedResult({ url: trustedBoardUrl, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedResult({ url: trustedBoardUrl, html: null });
       });
 
     return () => {
@@ -259,7 +253,7 @@ export default function MoodBoard() {
       .then(r => setPins(r.pins || []))
       .catch(() => toast('Failed to load mood board', 'error'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, toast]);
 
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setFile(null); setShowModal(true); }
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
