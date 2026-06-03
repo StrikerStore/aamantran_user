@@ -98,13 +98,11 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const [embedHtml, setEmbedHtml] = useState(null);
   const widgetHostRef = useRef(null);
   const trustedBoardUrl = getTrustedPinterestUrl(boardUrl);
+  const activeEmbedHtml = trustedBoardUrl ? embedHtml : null;
+  const isPreviewLoading = Boolean(trustedBoardUrl && loading);
 
   useEffect(() => {
-    if (!trustedBoardUrl) {
-      setLoading(false);
-      setEmbedHtml(null);
-      return;
-    }
+    if (!trustedBoardUrl) return;
 
     let cancelled = false;
     setLoading(true);
@@ -129,7 +127,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   }, [eventId, trustedBoardUrl]);
 
   useEffect(() => {
-    if (loading || embedHtml || !trustedBoardUrl) return;
+    if (isPreviewLoading || activeEmbedHtml || !trustedBoardUrl) return;
     const root = widgetHostRef.current;
     if (!root) return;
 
@@ -163,7 +161,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [loading, embedHtml, trustedBoardUrl]);
+  }, [isPreviewLoading, activeEmbedHtml, trustedBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
@@ -177,29 +175,29 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
       </button>
 
       <div className="mb-pinterest-body">
-        {loading && (
+        {isPreviewLoading && (
           <div className="mb-pinterest-loading">
             <div className="spinner spinner-lg" />
             <p className="mb-pinterest-loading-text">Loading Pinterest preview…</p>
           </div>
         )}
-        {!loading && embedHtml && (
+        {!isPreviewLoading && activeEmbedHtml && (
           <div className="mb-pinterest-viewport">
             <iframe
               title={caption ? `Pinterest preview: ${caption}` : 'Pinterest preview'}
               className="mb-pinterest-embed-frame"
               sandbox="allow-scripts"
               referrerPolicy="no-referrer"
-              srcDoc={pinterestEmbedSrcDoc(embedHtml)}
+              srcDoc={pinterestEmbedSrcDoc(activeEmbedHtml)}
             />
           </div>
         )}
-        {!loading && !embedHtml && trustedBoardUrl && (
+        {!isPreviewLoading && !activeEmbedHtml && trustedBoardUrl && (
           <div className="mb-pinterest-viewport mb-pinterest-viewport--widget">
             <div ref={widgetHostRef} className="mb-pinterest-widget-host" />
           </div>
         )}
-        {!loading && !trustedBoardUrl && (
+        {!isPreviewLoading && !trustedBoardUrl && (
           <div className="mb-pinterest-viewport mb-pinterest-blocked">
             <p>Preview blocked because this is not a valid Pinterest URL.</p>
           </div>
