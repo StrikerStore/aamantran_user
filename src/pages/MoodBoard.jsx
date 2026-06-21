@@ -77,40 +77,31 @@ function resolvePinHref(imageUrl) {
 }
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const [embedState, setEmbedState] = useState({ key: null, html: null });
   const widgetHostRef = useRef(null);
   const pinterestUrl = getPinterestUrl(boardUrl);
+  const embedKey = pinterestUrl ? `${eventId}:${pinterestUrl}` : null;
+  const loading = Boolean(embedKey) && embedState.key !== embedKey;
+  const embedHtml = embedState.key === embedKey ? embedState.html : null;
 
   useEffect(() => {
-    let cancelled = false;
-    if (!pinterestUrl) {
-      setLoading(false);
-      setEmbedHtml(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-    setLoading(true);
-    setEmbedHtml(null);
+    if (!pinterestUrl || !embedKey) return;
 
+    let cancelled = false;
     api.moodboard
       .pinterestOembed(eventId, pinterestUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedState({ key: embedKey, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedState({ key: embedKey, html: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [eventId, pinterestUrl]);
+  }, [embedKey, eventId, pinterestUrl]);
 
   useEffect(() => {
     if (loading || embedHtml || !pinterestUrl) return;
@@ -242,7 +233,7 @@ export default function MoodBoard() {
       .then(r => setPins(r.pins || []))
       .catch(() => toast('Failed to load mood board', 'error'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, toast]);
 
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setFile(null); setShowModal(true); }
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
