@@ -92,40 +92,31 @@ function resolvePinHref(imageUrl) {
 }
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const [embedPreview, setEmbedPreview] = useState({ key: '', html: null });
   const widgetHostRef = useRef(null);
   const safeBoardUrl = getValidPinterestUrl(boardUrl);
+  const embedRequestKey = safeBoardUrl ? `${eventId}:${safeBoardUrl}` : '';
+  const loading = Boolean(embedRequestKey && embedPreview.key !== embedRequestKey);
+  const embedHtml = embedPreview.key === embedRequestKey ? embedPreview.html : null;
 
   useEffect(() => {
+    if (!embedRequestKey) return undefined;
+
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
-
-    if (!safeBoardUrl) {
-      setLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
     api.moodboard
       .pinterestOembed(eventId, safeBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedPreview({ key: embedRequestKey, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedPreview({ key: embedRequestKey, html: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [eventId, safeBoardUrl]);
+  }, [eventId, embedRequestKey, safeBoardUrl]);
 
   useEffect(() => {
     if (loading || embedHtml || !safeBoardUrl) return;
@@ -252,7 +243,7 @@ export default function MoodBoard() {
       .then(r => setPins(r.pins || []))
       .catch(() => toast('Failed to load mood board', 'error'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, toast]);
 
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setFile(null); setShowModal(true); }
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
