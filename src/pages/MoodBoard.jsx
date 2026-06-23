@@ -53,6 +53,33 @@ function pinDoForUrl(url) {
   return String(url).toLowerCase().includes('/pin/') ? 'embedPin' : 'embedBoard';
 }
 
+function normalizePinterestUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    const host = url.hostname.toLowerCase();
+    const isPinterestHost = host === 'pinterest.com' || host.endsWith('.pinterest.com') || host === 'pin.it';
+    if (url.protocol !== 'https:' || !isPinterestHost) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function pinterestEmbedSrcDoc(embedHtml) {
+  return `<!doctype html>
+<html>
+  <head>
+    <base target="_blank">
+    <style>
+      html, body { margin: 0; padding: 0; background: transparent; overflow: auto; }
+      body { display: flex; justify-content: center; align-items: flex-start; min-width: 0; }
+      img, iframe { max-width: 100%; }
+    </style>
+  </head>
+  <body>${embedHtml}</body>
+</html>`;
+}
+
 /** Image / upload URLs may be relative to the API origin */
 function resolvePinHref(imageUrl) {
   if (!imageUrl) return '#';
@@ -68,14 +95,21 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const [loading, setLoading] = useState(true);
   const [embedHtml, setEmbedHtml] = useState(null);
   const widgetHostRef = useRef(null);
+  const safeBoardUrl = normalizePinterestUrl(boardUrl);
 
   useEffect(() => {
+    if (!safeBoardUrl) {
+      setEmbedHtml(null);
+      setLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
     setLoading(true);
     setEmbedHtml(null);
 
     api.moodboard
-      .pinterestOembed(eventId, boardUrl)
+      .pinterestOembed(eventId, safeBoardUrl)
       .then((r) => {
         if (cancelled) return;
         setEmbedHtml(r.html || null);
@@ -90,17 +124,17 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [eventId, boardUrl]);
+  }, [eventId, safeBoardUrl]);
 
   useEffect(() => {
-    if (loading || embedHtml) return;
+    if (!safeBoardUrl || loading || embedHtml) return;
     const root = widgetHostRef.current;
     if (!root) return;
 
-    root.innerHTML = '';
+    root.replaceChildren();
     const a = document.createElement('a');
-    a.href = boardUrl;
-    a.dataset.pinDo = pinDoForUrl(boardUrl);
+    a.href = safeBoardUrl;
+    a.dataset.pinDo = pinDoForUrl(safeBoardUrl);
     if (a.dataset.pinDo === 'embedBoard') {
       a.dataset.pinBoardWidth = '100%';
       a.dataset.pinScaleHeight = '280';
@@ -127,7 +161,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [loading, embedHtml, boardUrl]);
+  }, [loading, embedHtml, safeBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
@@ -147,12 +181,26 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
             <p className="mb-pinterest-loading-text">Loading Pinterest preview…</p>
           </div>
         )}
-        {!loading && embedHtml && (
+        {!loading && !safeBoardUrl && (
           <div className="mb-pinterest-viewport">
-            <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <div className="mb-pinterest-loading">
+              <p className="mb-pinterest-loading-text">This saved Pinterest URL is invalid.</p>
+            </div>
           </div>
         )}
-        {!loading && !embedHtml && (
+        {!loading && safeBoardUrl && embedHtml && (
+          <div className="mb-pinterest-viewport">
+            <div className="mb-pinterest-embed">
+              <iframe
+                title="Pinterest preview"
+                sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+                referrerPolicy="no-referrer"
+                srcDoc={pinterestEmbedSrcDoc(embedHtml)}
+              />
+            </div>
+          </div>
+        )}
+        {!loading && safeBoardUrl && !embedHtml && (
           <div className="mb-pinterest-viewport mb-pinterest-viewport--widget">
             <div ref={widgetHostRef} className="mb-pinterest-widget-host" />
           </div>
@@ -164,14 +212,16 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
           {caption ? <p className="mb-pinterest-caption">{caption}</p> : null}
           <p className="mb-pinterest-hint">Pins load inside the preview when Pinterest allows embedding.</p>
         </div>
-        <a
-          className="btn btn-secondary btn-sm mb-pinterest-open"
-          href={boardUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open on Pinterest ↗
-        </a>
+        {safeBoardUrl && (
+          <a
+            className="btn btn-secondary btn-sm mb-pinterest-open"
+            href={safeBoardUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open on Pinterest ↗
+          </a>
+        )}
       </div>
     </div>
   );
@@ -216,16 +266,27 @@ export default function MoodBoard() {
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
 
   async function save() {
-    if (!file && !form.imageUrl.trim()) { toast('Upload an image or enter a URL', 'error'); return; }
+    let payloadCategory = form.category;
+    if (payloadCategory === 'Other' && form.customCategory?.trim()) {
+      payloadCategory = form.customCategory.trim();
+    }
+
+    const normalizedPinterestUrl = payloadCategory === 'Pinterest' ? normalizePinterestUrl(form.imageUrl) : null;
+    if (payloadCategory === 'Pinterest' && !normalizedPinterestUrl) {
+      toast('Enter a valid Pinterest board or pin URL', 'error');
+      return;
+    }
+    if (payloadCategory !== 'Pinterest' && !file && !form.imageUrl.trim()) {
+      toast('Upload an image or enter a URL', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
-      let payloadCategory = form.category;
-      if (payloadCategory === 'Other' && form.customCategory?.trim()) {
-        payloadCategory = form.customCategory.trim();
-      }
-
       let payload;
-      if (file) {
+      if (payloadCategory === 'Pinterest') {
+        payload = { imageUrl: normalizedPinterestUrl, caption: form.caption, category: payloadCategory };
+      } else if (file) {
         const fd = new FormData();
         fd.append('file', file);
         fd.append('caption', form.caption);
