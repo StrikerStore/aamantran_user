@@ -96,13 +96,10 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const [embedHtml, setEmbedHtml] = useState(null);
   const widgetHostRef = useRef(null);
   const safeBoardUrl = normalizePinterestUrl(boardUrl);
+  const previewLoading = Boolean(safeBoardUrl && loading);
 
   useEffect(() => {
-    if (!safeBoardUrl) {
-      setEmbedHtml(null);
-      setLoading(false);
-      return undefined;
-    }
+    if (!safeBoardUrl) return undefined;
 
     let cancelled = false;
     setLoading(true);
@@ -127,7 +124,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   }, [eventId, safeBoardUrl]);
 
   useEffect(() => {
-    if (!safeBoardUrl || loading || embedHtml) return;
+    if (!safeBoardUrl || previewLoading || embedHtml) return;
     const root = widgetHostRef.current;
     if (!root) return;
 
@@ -161,7 +158,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     return () => {
       cancelled = true;
     };
-  }, [loading, embedHtml, safeBoardUrl]);
+  }, [previewLoading, embedHtml, safeBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
@@ -175,20 +172,20 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
       </button>
 
       <div className="mb-pinterest-body">
-        {loading && (
+        {previewLoading && (
           <div className="mb-pinterest-loading">
             <div className="spinner spinner-lg" />
             <p className="mb-pinterest-loading-text">Loading Pinterest preview…</p>
           </div>
         )}
-        {!loading && !safeBoardUrl && (
+        {!previewLoading && !safeBoardUrl && (
           <div className="mb-pinterest-viewport">
             <div className="mb-pinterest-loading">
               <p className="mb-pinterest-loading-text">This saved Pinterest URL is invalid.</p>
             </div>
           </div>
         )}
-        {!loading && safeBoardUrl && embedHtml && (
+        {!previewLoading && safeBoardUrl && embedHtml && (
           <div className="mb-pinterest-viewport">
             <div className="mb-pinterest-embed">
               <iframe
@@ -200,7 +197,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
             </div>
           </div>
         )}
-        {!loading && safeBoardUrl && !embedHtml && (
+        {!previewLoading && safeBoardUrl && !embedHtml && (
           <div className="mb-pinterest-viewport mb-pinterest-viewport--widget">
             <div ref={widgetHostRef} className="mb-pinterest-widget-host" />
           </div>
@@ -260,7 +257,7 @@ export default function MoodBoard() {
       .then(r => setPins(r.pins || []))
       .catch(() => toast('Failed to load mood board', 'error'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, toast]);
 
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setFile(null); setShowModal(true); }
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
