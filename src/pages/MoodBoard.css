@@ -78,10 +78,12 @@
   background: var(--bg-elevated);
 }
 
-.mb-pinterest-viewport--widget {
+.mb-pinterest-viewport--empty {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
+  min-height: 140px;
+  padding: 18px;
 }
 
 .mb-pinterest-loading {
@@ -100,25 +102,12 @@
   text-align: center;
 }
 
-.mb-pinterest-embed span,
-.mb-pinterest-embed div {
-  max-width: 100%;
-}
-
-.mb-pinterest-embed iframe {
+.mb-pinterest-embed-frame {
   width: 100% !important;
-  max-width: 100% !important;
-  min-height: 200px !important;
-  max-height: none !important;
-  border: 0 !important;
+  height: 280px;
+  border: 0;
   border-radius: var(--r-sm);
   display: block;
-  margin: 0 auto;
-}
-
-.mb-pinterest-widget-host {
-  min-height: 180px;
-  width: 100%;
 }
 
 .mb-pinterest-footer {
@@ -159,8 +148,8 @@
     max-height: min(240px, 38vh);
   }
 
-  .mb-pinterest-embed iframe {
-    min-height: 160px !important;
+  .mb-pinterest-embed-frame {
+    height: 240px;
   }
 }
 
