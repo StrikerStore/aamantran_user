@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { API_BASE } from '../lib/config';
@@ -24,33 +24,17 @@ function useMobileMoodLayout() {
   return mobile;
 }
 
-let pinitLoadPromise = null;
-function loadPinterestScript() {
-  if (typeof window === 'undefined') return Promise.resolve();
-  if (typeof window.parsePins === 'function' || (window.PinUtils && typeof window.PinUtils.build === 'function')) {
-    return Promise.resolve();
+function getPinterestUrl(rawUrl) {
+  try {
+    const url = new URL(String(rawUrl || '').trim());
+    const host = url.hostname.toLowerCase();
+    const isPinterestHost = host === 'pinterest.com' || host.endsWith('.pinterest.com');
+    const isShortHost = host === 'pin.it';
+    if (url.protocol !== 'https:' || (!isPinterestHost && !isShortHost)) return null;
+    return url.href;
+  } catch {
+    return null;
   }
-  if (pinitLoadPromise) return pinitLoadPromise;
-  pinitLoadPromise = new Promise((resolve, reject) => {
-    const prev = document.querySelector('script[src*="assets.pinterest.com/js/pinit.js"]');
-    if (prev) {
-      prev.addEventListener('load', () => resolve(), { once: true });
-      prev.addEventListener('error', () => reject(new Error('pinit')), { once: true });
-      return;
-    }
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = 'https://assets.pinterest.com/js/pinit.js';
-    s.dataset.pinBuild = 'parsePins';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('pinit'));
-    document.body.appendChild(s);
-  });
-  return pinitLoadPromise;
-}
-
-function pinDoForUrl(url) {
-  return String(url).toLowerCase().includes('/pin/') ? 'embedPin' : 'embedBoard';
 }
 
 /** Image / upload URLs may be relative to the API origin */
@@ -65,69 +49,29 @@ function resolvePinHref(imageUrl) {
 }
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
-  const widgetHostRef = useRef(null);
+  const safeBoardUrl = getPinterestUrl(boardUrl);
+  const [embedPreview, setEmbedPreview] = useState({ url: '', html: null });
+  const embedHtml = safeBoardUrl && embedPreview.url === safeBoardUrl ? embedPreview.html : null;
+  const loading = Boolean(safeBoardUrl) && embedPreview.url !== safeBoardUrl;
 
   useEffect(() => {
+    if (!safeBoardUrl) return;
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
 
     api.moodboard
-      .pinterestOembed(eventId, boardUrl)
+      .pinterestOembed(eventId, safeBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedPreview({ url: safeBoardUrl, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedPreview({ url: safeBoardUrl, html: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [eventId, boardUrl]);
-
-  useEffect(() => {
-    if (loading || embedHtml) return;
-    const root = widgetHostRef.current;
-    if (!root) return;
-
-    root.innerHTML = '';
-    const a = document.createElement('a');
-    a.href = boardUrl;
-    a.dataset.pinDo = pinDoForUrl(boardUrl);
-    if (a.dataset.pinDo === 'embedBoard') {
-      a.dataset.pinBoardWidth = '100%';
-      a.dataset.pinScaleHeight = '280';
-      a.dataset.pinScaleWidth = '80';
-    }
-
-    root.appendChild(a);
-
-    let cancelled = false;
-    loadPinterestScript().then(() => {
-      if (cancelled || !widgetHostRef.current) return;
-      requestAnimationFrame(() => {
-        try {
-          if (typeof window.parsePins === 'function') window.parsePins(widgetHostRef.current);
-          else if (window.PinUtils && typeof window.PinUtils.build === 'function') {
-            window.PinUtils.build(widgetHostRef.current);
-          }
-        } catch {
-          /* Pinterest script API varies by region/version */
-        }
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, embedHtml, boardUrl]);
+  }, [eventId, safeBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
@@ -147,14 +91,24 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
             <p className="mb-pinterest-loading-text">Loading Pinterest preview…</p>
           </div>
         )}
-        {!loading && embedHtml && (
-          <div className="mb-pinterest-viewport">
-            <div className="mb-pinterest-embed" dangerouslySetInnerHTML={{ __html: embedHtml }} />
+        {!safeBoardUrl && (
+          <div className="mb-pinterest-viewport mb-pinterest-viewport--empty">
+            <p className="mb-pinterest-loading-text">This saved Pinterest link is invalid and was not loaded.</p>
           </div>
         )}
-        {!loading && !embedHtml && (
-          <div className="mb-pinterest-viewport mb-pinterest-viewport--widget">
-            <div ref={widgetHostRef} className="mb-pinterest-widget-host" />
+        {!loading && safeBoardUrl && embedHtml && (
+          <div className="mb-pinterest-viewport">
+            <iframe
+              className="mb-pinterest-embed-frame"
+              title={caption ? `Pinterest preview: ${caption}` : 'Pinterest preview'}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              srcDoc={embedHtml}
+            />
+          </div>
+        )}
+        {!loading && safeBoardUrl && !embedHtml && (
+          <div className="mb-pinterest-viewport mb-pinterest-viewport--empty">
+            <p className="mb-pinterest-loading-text">Pinterest preview is unavailable for this link.</p>
           </div>
         )}
       </div>
@@ -164,14 +118,16 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
           {caption ? <p className="mb-pinterest-caption">{caption}</p> : null}
           <p className="mb-pinterest-hint">Pins load inside the preview when Pinterest allows embedding.</p>
         </div>
-        <a
-          className="btn btn-secondary btn-sm mb-pinterest-open"
-          href={boardUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open on Pinterest ↗
-        </a>
+        {safeBoardUrl && (
+          <a
+            className="btn btn-secondary btn-sm mb-pinterest-open"
+            href={safeBoardUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open on Pinterest ↗
+          </a>
+        )}
       </div>
     </div>
   );
@@ -225,7 +181,14 @@ export default function MoodBoard() {
       }
 
       let payload;
-      if (file) {
+      if (payloadCategory === 'Pinterest') {
+        const pinterestUrl = getPinterestUrl(form.imageUrl);
+        if (!pinterestUrl) {
+          toast('Enter a valid HTTPS Pinterest board or pin URL', 'error');
+          return;
+        }
+        payload = { imageUrl: pinterestUrl, caption: form.caption, category: payloadCategory };
+      } else if (file) {
         const fd = new FormData();
         fd.append('file', file);
         fd.append('caption', form.caption);
