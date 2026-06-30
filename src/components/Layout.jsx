@@ -12,7 +12,7 @@ export function Layout() {
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [rememberedEvent, setRememberedEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -40,10 +40,6 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
@@ -66,9 +62,38 @@ export function Layout() {
     navigate('/');
   }
 
+  const eventRouteMatch = location.pathname.match(/^\/events\/([^/]+)(?:\/([^/]+))?/);
+  const routeEventId = eventRouteMatch?.[1] || null;
+  const routeEventSection = eventRouteMatch?.[2] || null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const routeEvent = routeEventId
+    ? events.find(ev => String(ev.id) === String(routeEventId)) || null
+    : null;
+  const rememberedEventFromList = rememberedEvent
+    ? events.find(ev => String(ev.id) === String(rememberedEvent.id)) || rememberedEvent
+    : null;
+  const activeEvent = routeEvent || rememberedEventFromList || defaultEvent;
+
+  function setActiveEvent(ev) {
+    setRememberedEvent(ev || null);
+  }
+
+  function rememberCurrentEvent() {
+    if (activeEvent) setRememberedEvent(activeEvent);
+  }
+
+  function navigateWithCurrentEvent(to) {
+    rememberCurrentEvent();
+    navigate(to);
+  }
+
   function selectEvent(ev) {
     setActiveEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+    if (routeEventSection) {
+      navigate(`/events/${ev.id}/${routeEventSection}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -212,7 +237,7 @@ export function Layout() {
                 {events.filter(ev => ev.inviteScope !== 'subset').map(ev => (
                   <div
                     key={ev.id}
-                    className={`event-option ${activeEvent?.id === ev.id ? 'active' : ''}`}
+                    className={`event-option ${String(activeEvent?.id) === String(ev.id) ? 'active' : ''}`}
                     onClick={() => selectEvent(ev)}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -222,10 +247,10 @@ export function Layout() {
                       </div>
                       <div className="event-option-sub">{ev.isPublished ? 'Published' : 'Draft'}</div>
                     </div>
-                    {activeEvent?.id === ev.id && <span className="event-option-check">✓</span>}
+                    {String(activeEvent?.id) === String(ev.id) && <span className="event-option-check">✓</span>}
                   </div>
                 ))}
-                <div className="event-switcher-add" onClick={() => { setSwitcherOpen(false); navigate('/onboarding'); }}>
+                <div className="event-switcher-add" onClick={() => { setSwitcherOpen(false); navigateWithCurrentEvent('/onboarding'); }}>
                   <span>＋</span> Set Up New Event
                 </div>
               </div>
@@ -251,7 +276,14 @@ export function Layout() {
                     key={item.label}
                     to={to}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                    onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
+                    onClick={(e) => {
+                      if (disabled) {
+                        e.preventDefault();
+                      } else {
+                        rememberCurrentEvent();
+                        setSidebarOpen(false);
+                      }
+                    }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
                   >
                     <item.icon />
@@ -305,7 +337,7 @@ export function Layout() {
                 {events.filter(ev => ev.inviteScope !== 'subset').map(ev => (
                   <div
                     key={ev.id}
-                    className={`event-option ${activeEvent?.id === ev.id ? 'active' : ''}`}
+                    className={`event-option ${String(activeEvent?.id) === String(ev.id) ? 'active' : ''}`}
                     onClick={() => { selectEvent(ev); setMobileSwitcherOpen(false); }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -315,10 +347,10 @@ export function Layout() {
                       </div>
                       <div className="event-option-sub">{ev.isPublished ? 'Published' : 'Draft'}</div>
                     </div>
-                    {activeEvent?.id === ev.id && <span className="event-option-check">✓</span>}
+                    {String(activeEvent?.id) === String(ev.id) && <span className="event-option-check">✓</span>}
                   </div>
                 ))}
-                <div className="event-switcher-add" onClick={() => { setMobileSwitcherOpen(false); navigate('/onboarding'); }}>
+                <div className="event-switcher-add" onClick={() => { setMobileSwitcherOpen(false); navigateWithCurrentEvent('/onboarding'); }}>
                   <span>＋</span> Set Up New Event
                 </div>
               </div>
@@ -344,7 +376,7 @@ export function Layout() {
       <nav className="bottom-nav">
         <button
           className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigateWithCurrentEvent('/dashboard')}
           aria-label="Home"
         >
           <BNavIconHome />
@@ -352,7 +384,7 @@ export function Layout() {
         </button>
         <button
           className={`bottom-nav-item ${bottomActive.invite ? 'active' : ''}`}
-          onClick={() => navigate(ePath(published ? 'edit' : 'generate'))}
+          onClick={() => navigateWithCurrentEvent(ePath(published ? 'edit' : 'generate'))}
           disabled={!eid}
           aria-label="Invite"
         >
@@ -361,7 +393,7 @@ export function Layout() {
         </button>
         <button
           className={`bottom-nav-item bottom-nav-share ${path.endsWith('/share') ? 'active' : ''}`}
-          onClick={() => eid && published && navigate(`/events/${eid}/share`)}
+          onClick={() => eid && published && navigateWithCurrentEvent(`/events/${eid}/share`)}
           disabled={!eid || !published}
           aria-label="Share invitation"
         >
@@ -370,7 +402,7 @@ export function Layout() {
         </button>
         <button
           className={`bottom-nav-item ${bottomActive.items ? 'active' : ''}`}
-          onClick={() => navigate(ePath('inventory'))}
+          onClick={() => navigateWithCurrentEvent(ePath('inventory'))}
           disabled={!eid}
           aria-label="Items"
         >
@@ -403,7 +435,7 @@ export function Layout() {
             <div className="profile-sheet-actions">
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                onClick={() => { setProfileOpen(false); navigateWithCurrentEvent('/settings'); }}
               >
                 <span className="ps-icon">⚙️</span>
                 <span className="ps-label">Settings</span>
@@ -411,7 +443,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+                onClick={() => { setProfileOpen(false); navigateWithCurrentEvent('/guide'); }}
               >
                 <span className="ps-icon">📖</span>
                 <span className="ps-label">Feature Guide</span>
@@ -419,7 +451,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+                onClick={() => { setProfileOpen(false); navigateWithCurrentEvent('/support'); }}
               >
                 <span className="ps-icon">💬</span>
                 <span className="ps-label">Support</span>
@@ -456,7 +488,7 @@ export function Layout() {
                         <button
                           key={item.label}
                           className={`bottom-sheet-row ${active ? 'active' : ''}`}
-                          onClick={() => { if (!disabled) { setMoreOpen(false); navigate(item.to); } }}
+                          onClick={() => { if (!disabled) { setMoreOpen(false); navigateWithCurrentEvent(item.to); } }}
                           disabled={disabled}
                         >
                           <span className="bottom-sheet-row-icon">{item.icon}</span>
