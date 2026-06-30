@@ -100,6 +100,14 @@
   text-align: center;
 }
 
+.mb-pinterest-embed {
+  width: 100%;
+  min-height: 280px;
+  border: 0;
+  border-radius: var(--r-sm);
+  display: block;
+}
+
 .mb-pinterest-embed span,
 .mb-pinterest-embed div {
   max-width: 100%;
@@ -157,6 +165,10 @@
 @media (max-width: 900px) {
   .mb-pinterest-viewport {
     max-height: min(240px, 38vh);
+  }
+
+  .mb-pinterest-embed {
+    min-height: 220px;
   }
 
   .mb-pinterest-embed iframe {
