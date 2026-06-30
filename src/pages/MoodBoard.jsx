@@ -90,38 +90,32 @@ function resolvePinHref(imageUrl) {
 }
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const [embedResult, setEmbedResult] = useState({ key: '', html: null });
   const validBoardUrl = normalizePinterestUrl(boardUrl);
+  const embedKey = validBoardUrl ? `${eventId}:${validBoardUrl}` : '';
+  const hasCurrentEmbedResult = Boolean(embedKey && embedResult.key === embedKey);
+  const loading = Boolean(validBoardUrl && !hasCurrentEmbedResult);
+  const embedHtml = hasCurrentEmbedResult ? embedResult.html : null;
 
   useEffect(() => {
-    if (!validBoardUrl) {
-      setLoading(false);
-      setEmbedHtml(null);
-      return;
-    }
+    if (!validBoardUrl) return;
 
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
 
     api.moodboard
       .pinterestOembed(eventId, validBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedResult({ key: embedKey, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedResult({ key: embedKey, html: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [eventId, validBoardUrl]);
+  }, [embedKey, eventId, validBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
