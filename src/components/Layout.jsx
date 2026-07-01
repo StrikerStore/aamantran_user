@@ -6,13 +6,24 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 
+function routeEventId(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)(?:\/|$)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function eventRouteFor(pathname, event) {
+  const match = pathname.match(/^\/events\/[^/]+(\/.*)?$/);
+  const suffix = match?.[1] || `/${event.isPublished ? 'edit' : 'generate'}`;
+  return `/events/${event.id}${suffix}`;
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -38,12 +49,7 @@ export function Layout() {
   useEffect(() => {
     api.events.list()
       .then(r => {
-        const all = r.events || [];
-        setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
+        setEvents(r.events || []);
       })
       .catch(() => {});
   }, []);
@@ -67,10 +73,24 @@ export function Layout() {
   }
 
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEventId(ev.id);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+    if (currentRouteEventId) navigate(eventRouteFor(location.pathname, ev));
   }
 
+  function rememberCurrentEvent() {
+    if (activeEvent) setSelectedEventId(activeEvent.id);
+  }
+
+  const path = location.pathname;
+  const currentRouteEventId = routeEventId(path);
+  const selectableEvents = events.filter(ev => ev.inviteScope !== 'subset');
+  const routeEvent = events.find(ev => String(ev.id) === currentRouteEventId);
+  const selectedEvent = events.find(ev => String(ev.id) === String(selectedEventId));
+  const defaultEvent = selectableEvents[0] || events[0] || null;
+  const activeEvent = routeEvent || selectedEvent || defaultEvent;
+  const setActiveEvent = (event) => setSelectedEventId(event?.id ?? null);
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
   const username = info?.username || 'User';
   const published = activeEvent?.isPublished ?? false;
@@ -129,7 +149,6 @@ export function Layout() {
   ];
 
   // Determine which bottom tab is active
-  const path = location.pathname;
   const bottomActive = {
     home:   path === '/dashboard',
     invite: eid && (path.includes('/generate') || path.includes('/edit') || path.includes('/guests') || path.includes('/wishes')),
@@ -209,7 +228,7 @@ export function Layout() {
 
             {switcherOpen && (
               <div className="event-switcher-dropdown">
-                {events.filter(ev => ev.inviteScope !== 'subset').map(ev => (
+                {selectableEvents.map(ev => (
                   <div
                     key={ev.id}
                     className={`event-option ${activeEvent?.id === ev.id ? 'active' : ''}`}
@@ -251,7 +270,14 @@ export function Layout() {
                     key={item.label}
                     to={to}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                    onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
+                    onClick={(e) => {
+                      if (disabled) {
+                        e.preventDefault();
+                        return;
+                      }
+                      if (!to.startsWith('/events/')) rememberCurrentEvent();
+                      setSidebarOpen(false);
+                    }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
                   >
                     <item.icon />
@@ -302,11 +328,11 @@ export function Layout() {
             </button>
             {mobileSwitcherOpen && (
               <div className="topbar-event-dropdown">
-                {events.filter(ev => ev.inviteScope !== 'subset').map(ev => (
+                {selectableEvents.map(ev => (
                   <div
                     key={ev.id}
                     className={`event-option ${activeEvent?.id === ev.id ? 'active' : ''}`}
-                    onClick={() => { selectEvent(ev); setMobileSwitcherOpen(false); }}
+                    onClick={() => selectEvent(ev)}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="event-option-name">
@@ -344,7 +370,7 @@ export function Layout() {
       <nav className="bottom-nav">
         <button
           className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => { rememberCurrentEvent(); navigate('/dashboard'); }}
           aria-label="Home"
         >
           <BNavIconHome />
@@ -403,7 +429,7 @@ export function Layout() {
             <div className="profile-sheet-actions">
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                onClick={() => { rememberCurrentEvent(); setProfileOpen(false); navigate('/settings'); }}
               >
                 <span className="ps-icon">⚙️</span>
                 <span className="ps-label">Settings</span>
@@ -411,7 +437,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+                onClick={() => { rememberCurrentEvent(); setProfileOpen(false); navigate('/guide'); }}
               >
                 <span className="ps-icon">📖</span>
                 <span className="ps-label">Feature Guide</span>
@@ -419,7 +445,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+                onClick={() => { rememberCurrentEvent(); setProfileOpen(false); navigate('/support'); }}
               >
                 <span className="ps-icon">💬</span>
                 <span className="ps-label">Support</span>
@@ -456,7 +482,13 @@ export function Layout() {
                         <button
                           key={item.label}
                           className={`bottom-sheet-row ${active ? 'active' : ''}`}
-                          onClick={() => { if (!disabled) { setMoreOpen(false); navigate(item.to); } }}
+                          onClick={() => {
+                            if (!disabled) {
+                              if (!item.to.startsWith('/events/')) rememberCurrentEvent();
+                              setMoreOpen(false);
+                              navigate(item.to);
+                            }
+                          }}
                           disabled={disabled}
                         >
                           <span className="bottom-sheet-row-icon">{item.icon}</span>
