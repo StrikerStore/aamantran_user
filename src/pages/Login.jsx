@@ -268,7 +268,7 @@ export default function Login() {
             Forgot username or password?
           </button>
           <br />
-          Need help? <a href="mailto:support@aamantran.co">Contact support</a>
+          Need help? <a href="mailto:aamantran@plexzuu.com">Contact support</a>
         </p>
       </div>
 
