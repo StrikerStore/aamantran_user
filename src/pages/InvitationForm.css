@@ -49,6 +49,9 @@
 
 .inline-form .form-group { margin-bottom: 14px; }
 .inline-form .form-group:last-of-type { margin-bottom: 0; }
+/* A row spaces as one unit; its stacked children must not add their own gap */
+.inline-form .form-row { margin-bottom: 14px; }
+.inline-form .form-row .form-group { margin-bottom: 0; }
 
 .inline-form-actions {
   display: flex;
