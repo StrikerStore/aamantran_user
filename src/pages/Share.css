@@ -5,12 +5,12 @@
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
+  background: linear-gradient(145deg, #ffffff 55%, var(--bg-elevated));
+  border: none;
   border-radius: var(--r-xl);
   padding: 22px 24px;
   margin-bottom: 16px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-md);
 }
 
 .share-back-btn {
@@ -28,7 +28,7 @@
 
 .share-topcard-text { flex: 1; min-width: 0; }
 .share-topcard h1 {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0 0 4px;
@@ -115,7 +115,7 @@
 }
 .share-state-emoji { font-size: 2.5rem; }
 .share-state-card h2 {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1.4rem;
   margin: 0;
   color: var(--text-primary);

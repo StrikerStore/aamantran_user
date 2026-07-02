@@ -1,6 +1,6 @@
 .tasks-alert {
-  background: rgba(217,119,6,0.10);
-  border: 1px solid rgba(217,119,6,0.3);
+  background: var(--lemon-soft);
+  border: none;
   border-radius: var(--r-md);
   padding: 9px 14px;
   font-size: 0.82rem;
@@ -10,8 +10,8 @@
 }
 
 .tasks-allclear {
-  background: rgba(42,158,104,0.08);
-  border: 1px solid rgba(42,158,104,0.25);
+  background: var(--mint-soft);
+  border: none;
   border-radius: var(--r-md);
   padding: 9px 14px;
   font-size: 0.82rem;
@@ -92,7 +92,7 @@
   font-size: 0.7rem; font-weight: 600; padding: 2px 8px;
   border-radius: 99px; background: var(--bg-elevated); color: var(--text-muted);
 }
-.task-pill-maroon { background: rgba(155,35,53,0.10); color: var(--maroon); }
+.task-pill-maroon { background: var(--rose-soft); color: var(--maroon); }
 
 .task-due { font-size: 0.72rem; color: var(--text-muted); }
 .task-due.overdue { color: var(--red); font-weight: 700; }

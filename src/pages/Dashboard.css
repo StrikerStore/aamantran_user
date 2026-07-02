@@ -2,12 +2,12 @@
    No more side-by-side countdown. The countdown is rendered inline within
    the hero so the same number is never repeated below. */
 .dash-hero {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
+  background: linear-gradient(145deg, #ffffff 55%, var(--bg-elevated));
+  border: none;
   border-radius: var(--r-xl);
   padding: 22px 24px;
   margin-bottom: 16px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-md);
   min-width: 0;
 }
 
@@ -30,13 +30,13 @@
   border-radius: 99px;
   border: 1px solid transparent;
 }
-.pill-live    { background: rgba(34,197,94,0.12); color: #16a34a; border-color: rgba(34,197,94,0.28); }
-.pill-draft   { background: rgba(184,145,46,0.12); color: var(--gold); border-color: var(--border-gold); }
-.pill-neutral { background: var(--bg-elevated); color: var(--text-secondary); border-color: var(--border-subtle); }
+.pill-live    { background: var(--mint-soft); color: var(--mint-deep); border-color: transparent; }
+.pill-draft   { background: var(--lemon-soft); color: var(--lemon-deep); border-color: transparent; }
+.pill-neutral { background: var(--bg-elevated); color: var(--text-secondary); border-color: transparent; }
 .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
 .dash-couple-name {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1.85rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -53,10 +53,6 @@
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   margin: 0 0 4px;
-}
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
 
 .dash-event-meta {
@@ -80,7 +76,7 @@
   flex-wrap: wrap;
 }
 .dash-cd-inline .dash-cd-num {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--gold);
@@ -146,8 +142,9 @@
 
 /* ── Glance row — guest summary as compact stat chips ── */
 .dash-glance {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
+  background: linear-gradient(145deg, #ffffff 55%, var(--bg-elevated));
+  border: none;
+  box-shadow: var(--shadow-md);
   border-radius: var(--r-md);
   padding: 14px 18px;
   margin-bottom: 16px;
@@ -183,7 +180,7 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.glance-stat strong.g-green { color: #16a34a; }
+.glance-stat strong.g-green { color: var(--green); }
 .glance-stat strong.g-red   { color: var(--red); }
 .glance-stat span {
   font-size: 0.7rem;
@@ -238,7 +235,7 @@
 }
 
 .stat-prog-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
-.fill-attending { background: #16a34a; }
+.fill-attending { background: var(--green); }
 .fill-pending   { background: var(--gold); opacity: 0.55; }
 
 .stat-donut-row {
@@ -271,7 +268,7 @@
 .event-row { display: flex; align-items: center; gap: 16px; padding: 12px 8px; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background var(--t-fast); border-radius: var(--r-sm); }
 .event-row:last-child { border-bottom: none; }
 .event-row:hover  { background: var(--bg-elevated); }
-.event-row.active { background: rgba(184,145,46,0.06); }
+.event-row.active { background: var(--rose-soft); }
 .event-row-info   { flex: 1; min-width: 0; }
 .event-row-name   { font-weight: 600; color: var(--text-primary); font-size: 0.9rem; }
 .event-row-meta   { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }

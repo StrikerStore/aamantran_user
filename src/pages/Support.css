@@ -42,7 +42,7 @@
 }
 
 .thread-msg.user {
-  background: rgba(184,145,46,0.10);
+  background: var(--rose-soft);
   align-self: flex-end;
   border: 1px solid var(--border-gold);
 }

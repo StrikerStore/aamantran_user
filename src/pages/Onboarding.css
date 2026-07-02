@@ -29,7 +29,7 @@
 }
 .slug-input-wrap:focus-within {
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(184,145,46,0.15);
+  box-shadow: var(--focus-ring);
 }
 .slug-prefix {
   padding: 9px 12px;

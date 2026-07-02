@@ -5,23 +5,21 @@
   padding: 14px 18px;
   border-radius: var(--r-md);
   margin-bottom: 20px;
-  border: 1px solid;
+  border: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .name-confirm-bar.frozen {
-  background: rgba(42,158,104,0.08);
-  border-color: rgba(42,158,104,0.25);
+  background: var(--mint-soft);
   color: var(--green);
 }
 
 .name-confirm-bar.pending {
-  background: rgba(217,119,6,0.08);
-  border-color: rgba(217,119,6,0.25);
+  background: var(--lemon-soft);
 }
 
 .name-confirm-bar.empty {
   background: var(--bg-elevated);
-  border-color: var(--border-default);
 }
 
 .ncb-icon { font-size: 1.3rem; flex-shrink: 0; }

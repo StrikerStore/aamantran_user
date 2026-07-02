@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { API_BASE } from '../lib/config';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
+import { GridSkeleton } from '../components/ui/Skeleton';
 import './MoodBoard.css';
 
 const CATEGORIES = ['Color Palette', 'Outfits', 'Decor', 'Flowers', 'Food', 'Jewellery', 'Pinterest', 'Other'];
@@ -260,7 +261,7 @@ export default function MoodBoard() {
   const regularPins = filtered.filter(p => p.category !== 'Pinterest');
   const splitBoardLayout = pinterestBoards.length > 0 && regularPins.length > 0;
 
-  if (loading) return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
+  if (loading) return <div className="page-fade" style={{ paddingTop: 8 }}><GridSkeleton count={9} /></div>;
 
   return (
     <div className="page-fade">

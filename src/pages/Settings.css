@@ -25,7 +25,7 @@
   overflow: hidden;
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
-.slug-input-wrap:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,145,46,0.15); }
+.slug-input-wrap:focus-within { border-color: var(--gold); box-shadow: var(--focus-ring); }
 .slug-prefix { padding: 9px 12px; background: var(--bg-elevated); border-right: 1px solid var(--border-default); font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .slug-input { border: none !important; border-radius: 0 !important; box-shadow: none !important; flex: 1; }
 

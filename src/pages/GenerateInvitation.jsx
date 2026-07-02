@@ -7,6 +7,7 @@ import { getInviteBaseUrl } from '../lib/config';
 import { NameConfirmBar } from '../components/NameConfirmBar';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import './InvitationForm.css';
 
 const SECTIONS = [
@@ -126,7 +127,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
                 <span className="item-label">{m.type}{m.caption ? ` — ${m.caption}` : ''}</span>
                 {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
                 {m.type === 'music' && (
-                  <div style={{ marginTop: 8, background: 'var(--bg-card,#fff)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ marginTop: 8, background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>🎵 Background Music</div>
                     <audio
                       controls
@@ -137,7 +138,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
                     />
                   </div>
                 )}
-                {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent, #8b3a3a)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
+                {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
               </div>
               <div className="item-actions">
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemoveRequest(m)}>Remove</button>
@@ -186,7 +187,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
             const selected = globalAssets.find(a => a.id === selectedAssetId);
             if (!selected) return null;
             return (
-              <div style={{ marginTop: 8, background: 'var(--bg-card,#fff)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ marginTop: 8, background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview: {selected.name}</div>
                 <audio controls src={selected.url} style={{ width: '100%', height: 40 }} preload="metadata" controlsList="nodownload" />
               </div>
@@ -446,7 +447,7 @@ export default function GenerateInvitation() {
     setPeopleInputs(next);
   }, [hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole]);
 
-  if (loading) return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
+  if (loading) return <div className="page-fade" style={{ paddingTop: 8 }}><PageSkeleton stats={0} cards={3} /></div>;
   if (!event) return <div className="page-fade"><p>Event not found.</p></div>;
 
   const frozen = event.namesAreFrozen;
@@ -1351,7 +1352,7 @@ export default function GenerateInvitation() {
                             <span className="item-label">{m.type}</span>
                             {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
                             {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
-                            {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent, #8b3a3a)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
+                            {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
                           </div>
                           <div className="item-actions">
                             <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeletingMedia(m)}>Remove</button>
@@ -1407,7 +1408,7 @@ export default function GenerateInvitation() {
                           <span className="item-label">{m.type}{m.slotKey ? ` (${m.slotKey})` : ''}</span>
                           {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
                           {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
-                          {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent, #8b3a3a)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
+                          {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
                           {m.caption && <span className="item-meta">{m.caption}</span>}
                         </div>
                         <div className="item-actions">
