@@ -5,12 +5,14 @@ import { api } from '../lib/api';
 import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
+const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
 
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
   const [activeEvent, setActiveEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -33,6 +35,20 @@ export function Layout() {
       localStorage.setItem(NAV_STATE_KEY, JSON.stringify(next));
       return next;
     });
+  }
+
+  // One button, two behaviors: slides the drawer on mobile, collapses to an
+  // icon rail on desktop (persisted).
+  function handleNavToggle() {
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      setSidebarOpen(o => !o);
+    } else {
+      setRailCollapsed(c => {
+        const next = !c;
+        localStorage.setItem(SIDEBAR_RAIL_KEY, next ? '1' : '0');
+        return next;
+      });
+    }
   }
 
   useEffect(() => {
@@ -181,7 +197,7 @@ export function Layout() {
   ];
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${railCollapsed ? ' rail' : ''}`}>
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
@@ -239,17 +255,19 @@ export function Layout() {
               <button
                 className="nav-section-label nav-group-toggle"
                 onClick={() => toggleGroup(group.section)}
+                aria-expanded={!collapsed[group.section]}
               >
-                {group.section}
-                <span className="nav-group-chevron">{collapsed[group.section] ? '›' : '⌄'}</span>
+                <span className="nav-group-label-text">{group.section}</span>
+                <IconChevron className={`nav-group-chevron${collapsed[group.section] ? ' closed' : ''}`} />
               </button>
-              {!collapsed[group.section] && group.items.map(item => {
+              {(railCollapsed || !collapsed[group.section]) && group.items.map(item => {
                 const to = item.to;
                 const disabled = item.disabled;
                 return (
                   <NavLink
                     key={item.label}
                     to={to}
+                    title={item.label}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
                     onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
@@ -282,7 +300,7 @@ export function Layout() {
       {/* Main */}
       <div className="main">
         <header className="topbar">
-          <button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle sidebar">
+          <button className="sidebar-toggle" onClick={handleNavToggle} aria-label="Toggle sidebar" title="Collapse menu">
             <IconMenu />
           </button>
           <div className="topbar-mobile-brand">
@@ -503,6 +521,9 @@ function IconStar() {
 }
 function IconMenu() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
+}
+function IconChevron({ className }) {
+  return <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>;
 }
 function IconLogout() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>;
