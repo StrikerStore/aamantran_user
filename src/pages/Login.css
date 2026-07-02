@@ -92,3 +92,67 @@
   height: 15px;
   cursor: pointer;
 }
+
+/* ── Password field with show/hide toggle ─────────────────────────── */
+.pw-field { position: relative; }
+.pw-field .form-input { padding-right: 40px; width: 100%; }
+
+.pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.pw-toggle:hover { color: var(--text-primary); }
+
+.capslock-hint {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--red);
+}
+
+/* ── Recovery code input ──────────────────────────────────────────── */
+.recovery-code-input {
+  letter-spacing: 6px;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.resend-row { text-align: center; margin-top: 10px; }
+.resend-hint { font-size: 0.8rem; color: var(--text-muted); }
+
+/* ── Password strength meter ──────────────────────────────────────── */
+.strength-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.strength-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-default);
+  overflow: hidden;
+}
+
+.strength-fill { height: 100%; border-radius: 2px; transition: width 0.25s ease, background 0.25s ease; }
+.strength-fill.strength-1 { width: 25%;  background: #c94030; }
+.strength-fill.strength-2 { width: 50%;  background: #d99a2b; }
+.strength-fill.strength-3 { width: 75%;  background: #7fa650; }
+.strength-fill.strength-4 { width: 100%; background: #3f8f4f; }
+
+.strength-label { font-size: 0.74rem; font-weight: 600; min-width: 44px; text-align: right; }
+.strength-label-1 { color: #c94030; }
+.strength-label-2 { color: #d99a2b; }
+.strength-label-3 { color: #7fa650; }
+.strength-label-4 { color: #3f8f4f; }

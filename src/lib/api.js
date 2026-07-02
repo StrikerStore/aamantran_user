@@ -37,15 +37,19 @@ async function request(method, path, { body, multipart = false, params } = {}) {
     throw new ApiError('Network error — is the backend running?', 0, null);
   }
 
-  if (res.status === 401) {
-    clearToken();
-    window.location.href = '/';
-    return;
-  }
-
   let json;
   try { json = await res.json(); }
   catch { throw new ApiError(`Non-JSON response (${res.status})`, res.status, null); }
+
+  if (res.status === 401) {
+    const msg = json?.message || 'Session expired — please sign in again.';
+    const hadToken = !!getToken();
+    clearToken();
+    // Only hard-redirect when an active session expired mid-use. On the login
+    // page there is no token yet — throw so the form shows the error inline.
+    if (hadToken) window.location.href = '/';
+    throw new ApiError(msg, 401, json);
+  }
 
   if (!res.ok) throw new ApiError(json?.message || `Request failed (${res.status})`, res.status, json);
   return json;
