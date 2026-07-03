@@ -1,16 +1,31 @@
-/* ── Section Tabs (sticky under the topbar) ── */
+/* ── Collapsing sticky header (progress + section tabs) ── */
+.invite-scroll-sentinel { height: 1px; margin: 0; padding: 0; }
+
+.invite-sticky {
+  position: sticky;
+  top: 56px;
+  z-index: 41;
+  background: var(--bg-base);
+  padding: 10px 0 4px;
+  margin-bottom: 12px;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  transition: padding var(--t-base), box-shadow var(--t-base);
+}
+@media (max-width: 900px) {
+  .invite-sticky { top: 60px; }
+}
+
+/* ── Section Tabs ── */
 .section-tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   background: var(--bg-elevated);
   border-radius: var(--r-lg);
   padding: 6px;
   flex-wrap: wrap;
   box-shadow: var(--shadow-sm);
-  position: sticky;
-  top: 118px;
-  z-index: 40;
+  transition: padding var(--t-base);
 }
 
 .section-tab {
@@ -24,15 +39,31 @@
   font-weight: 700;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast);
   white-space: nowrap;
 }
 
 .section-tab:hover { background: var(--bg-surface); color: var(--text-secondary); }
 .section-tab.active { background: var(--bg-surface); color: var(--gold); box-shadow: var(--shadow-sm); }
 
-@media (max-width: 900px) {
-  .section-tabs { top: 122px; }
+/* Condensed: shrink to just the active tab (top-left) once scrolled past */
+.invite-sticky.condensed { padding: 6px 0 4px; box-shadow: 0 10px 16px -12px rgba(214,51,108,0.5); }
+.invite-sticky.condensed .invite-progress-wrap { margin-bottom: 8px; }
+.invite-sticky.condensed .invite-progress-header { display: none; }
+.invite-sticky.condensed .invite-progress-bar { height: 5px; }
+.invite-sticky.condensed .section-tabs { justify-content: flex-start; padding: 5px; }
+.invite-sticky.condensed:not(.expanded) .section-tab { display: none; }
+.invite-sticky.condensed:not(.expanded) .section-tab.active {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.invite-sticky.condensed:not(.expanded) .section-tab.active::after {
+  content: '▾';
+  margin-left: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.6;
 }
 
 .invite-form-body { }
@@ -376,17 +407,13 @@
   border: 1px solid var(--border-subtle);
 }
 
-/* ── Progress bar (sticky above the tabs) ── */
-.invite-progress-wrap { margin-bottom: 12px; position: sticky; top: 56px; z-index: 41; background: var(--bg-base); padding: 8px 0 6px; }
+/* ── Progress bar ── */
+.invite-progress-wrap { margin-bottom: 10px; }
 .invite-progress-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px; }
 .invite-progress-label { font-family: var(--font-display); font-size:0.9rem; font-weight:700; color:var(--text-primary); }
 .invite-progress-sub   { font-size:0.75rem; color:var(--text-muted); }
-.invite-progress-bar   { height:8px; background:var(--bg-overlay); border-radius:99px; overflow:hidden; box-shadow: inset 1px 1px 3px rgba(214,51,108,0.12); }
+.invite-progress-bar   { height:8px; background:var(--bg-overlay); border-radius:99px; overflow:hidden; box-shadow: inset 1px 1px 3px rgba(214,51,108,0.12); transition: height var(--t-base); }
 .invite-progress-fill  { height:100%; border-radius:99px; transition:width 0.45s ease; background: linear-gradient(90deg, var(--rose), var(--peach), var(--mint), var(--sky)); }
-
-@media (max-width: 900px) {
-  .invite-progress-wrap { top: 60px; }
-}
 
 /* ── Tab completion indicators ── */
 .section-tab.done { color: var(--mint-deep); }

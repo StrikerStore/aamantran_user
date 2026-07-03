@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
@@ -275,6 +275,10 @@ export default function GenerateInvitation() {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('people');
+  // Collapsing tab header: shrink to just the active tab once scrolled past it
+  const [tabsCondensed, setTabsCondensed] = useState(false);
+  const [tabsExpanded, setTabsExpanded] = useState(false);
+  const stickySentinelRef = useRef(null);
 
   // People
   const [people, setPeople] = useState([]);
@@ -447,6 +451,23 @@ export default function GenerateInvitation() {
     }
     setPeopleInputs(next);
   }, [hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole]);
+
+  // Watch a sentinel above the tab strip: once it scrolls under the topbar the
+  // header condenses to the active tab; scrolling back to the top expands it.
+  useEffect(() => {
+    const el = stickySentinelRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        const stuck = !entry.isIntersecting;
+        setTabsCondensed(stuck);
+        if (!stuck) setTabsExpanded(false);
+      },
+      { rootMargin: '-58px 0px 0px 0px', threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [loading]);
 
   if (loading) return <div className="page-fade" style={{ paddingTop: 8 }}><PageSkeleton stats={0} cards={3} /></div>;
   if (!event) return <div className="page-fade"><p>Event not found.</p></div>;
@@ -897,43 +918,53 @@ export default function GenerateInvitation() {
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="invite-progress-wrap">
-        <div className="invite-progress-header">
-          <span className="invite-progress-label">
-            {event.isPublished ? '✓ Published' : `${pct}% complete`}
-          </span>
-          <span className="invite-progress-sub">
-            {event.isPublished
-              ? 'Your invitation is live!'
-              : requiredDone < 3
-                ? `${3 - requiredDone} required step(s) left`
-                : 'All required steps done — ready to publish!'}
-          </span>
-        </div>
-        <div className="invite-progress-bar">
-          <div
-            className="invite-progress-fill"
-            style={{ width: `${pct}%`, background: event.isPublished ? 'var(--green)' : 'var(--gold)' }}
-          />
-        </div>
-      </div>
+      {/* Sentinel: when this scrolls under the topbar, the header condenses */}
+      <div ref={stickySentinelRef} className="invite-scroll-sentinel" aria-hidden="true" />
 
-      {/* Section tabs */}
-      <div className="section-tabs">
-        {SECTIONS.map(s => (
-          <button
-            key={s.id}
-            className={`section-tab ${activeSection === s.id ? 'active' : ''} ${sectionComplete[s.id] ? 'done' : ''}`}
-            onClick={() => setActiveSection(s.id)}
-          >
-            {s.label}
-            {sectionComplete[s.id] && <span className="tab-check">✓</span>}
-            {!sectionComplete[s.id] && (s.id === 'people' || s.id === 'functions') && (
-              <span className="tab-required">Required</span>
-            )}
-          </button>
-        ))}
+      <div className={`invite-sticky${tabsCondensed ? ' condensed' : ''}${tabsExpanded ? ' expanded' : ''}`}>
+        {/* Progress bar */}
+        <div className="invite-progress-wrap">
+          <div className="invite-progress-header">
+            <span className="invite-progress-label">
+              {event.isPublished ? '✓ Published' : `${pct}% complete`}
+            </span>
+            <span className="invite-progress-sub">
+              {event.isPublished
+                ? 'Your invitation is live!'
+                : requiredDone < 3
+                  ? `${3 - requiredDone} required step(s) left`
+                  : 'All required steps done — ready to publish!'}
+            </span>
+          </div>
+          <div className="invite-progress-bar">
+            <div
+              className="invite-progress-fill"
+              style={{ width: `${pct}%`, background: event.isPublished ? 'var(--green)' : 'var(--gold)' }}
+            />
+          </div>
+        </div>
+
+        {/* Section tabs */}
+        <div className="section-tabs">
+          {SECTIONS.map(s => (
+            <button
+              key={s.id}
+              className={`section-tab ${activeSection === s.id ? 'active' : ''} ${sectionComplete[s.id] ? 'done' : ''}`}
+              onClick={() => {
+                // In the condensed state, tapping the lone active tab reveals the rest
+                if (tabsCondensed && !tabsExpanded && activeSection === s.id) { setTabsExpanded(true); return; }
+                setActiveSection(s.id);
+                setTabsExpanded(false);
+              }}
+            >
+              {s.label}
+              {sectionComplete[s.id] && <span className="tab-check">✓</span>}
+              {!sectionComplete[s.id] && (s.id === 'people' || s.id === 'functions') && (
+                <span className="tab-required">Required</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="invite-form-body">
