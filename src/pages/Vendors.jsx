@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import './Vendors.css';
@@ -190,9 +191,9 @@ export default function Vendors() {
               </div>
               <div className="form-group">
                 <label className="form-label">Type</label>
-                <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                <Select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                   {VENDOR_TYPES.map(t => <option key={t}>{t}</option>)}
-                </select>
+                </Select>
                 {form.type === 'Other' && (
                   <input className="form-input" style={{ marginTop: 6 }} placeholder="Type name" value={form.customType || ''} onChange={e => setForm(f => ({ ...f, customType: e.target.value }))} />
                 )}
@@ -215,9 +216,9 @@ export default function Vendors() {
               </div>
               <div className="form-group">
                 <label className="form-label">Status</label>
-                <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                <Select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                   {VENDOR_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </select>
+                </Select>
               </div>
             </div>
             <div className="form-row">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import './Inventory.css';
@@ -163,10 +164,10 @@ export default function Inventory() {
           </div>
           <div className="feat-hub-tools">
             <input className="form-input" placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} aria-label="Search items" />
-            <select className="form-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} aria-label="Filter by status">
+            <Select className="form-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} aria-label="Filter by status">
               <option value="">All statuses</option>
               {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
+            </Select>
           </div>
         </div>
       </section>
@@ -223,17 +224,17 @@ export default function Inventory() {
               </div>
               <div className="form-group">
                 <label className="form-label">Status</label>
-                <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                <Select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                   {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </select>
+                </Select>
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Category</label>
-                <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))}>
+                <Select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))}>
                   {CATEGORIES.map(c => <option key={c.label} value={c.label}>{c.icon} {c.label}</option>)}
-                </select>
+                </Select>
                 {form.category === 'Other' && (
                   <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
                 )}
@@ -241,10 +242,10 @@ export default function Inventory() {
               {subOptions.length > 0 && (
                 <div className="form-group">
                   <label className="form-label">Sub-category</label>
-                  <select className="form-select" value={form.subCategory} onChange={e => setForm(f => ({ ...f, subCategory: e.target.value }))}>
+                  <Select className="form-select" value={form.subCategory} onChange={e => setForm(f => ({ ...f, subCategory: e.target.value }))}>
                     <option value="">— Select —</option>
                     {subOptions.map(s => <option key={s}>{s}</option>)}
-                  </select>
+                  </Select>
                 </div>
               )}
             </div>

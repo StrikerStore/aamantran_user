@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api';
+import { Select } from '../components/ui/Select';
 import { slugify } from '../lib/utils';
 import { useToast } from '../components/ui/Toast';
 import './Onboarding.css';
@@ -97,17 +98,17 @@ export default function Onboarding() {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Community / Religion</label>
-              <select className="form-select" value={form.community} onChange={e => set('community', e.target.value)} autoFocus>
+              <Select className="form-select" value={form.community} onChange={e => set('community', e.target.value)} autoFocus>
                 <option value="">Select...</option>
                 {COMMUNITIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              </Select>
             </div>
 
             <div className="form-group">
               <label className="form-label">Event Type</label>
-              <select className="form-select" value={form.eventType} onChange={e => set('eventType', e.target.value)}>
+              <Select className="form-select" value={form.eventType} onChange={e => set('eventType', e.target.value)}>
                 {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 

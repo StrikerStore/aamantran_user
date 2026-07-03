@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import './Tasks.css';
@@ -168,10 +169,10 @@ export default function Tasks() {
             ))}
           </div>
           <div className="feat-hub-tools">
-            <select className="form-select tasks-cat-select" value={catFilter} onChange={e => setCatFilter(e.target.value)} aria-label="Category">
+            <Select className="form-select tasks-cat-select" value={catFilter} onChange={e => setCatFilter(e.target.value)} aria-label="Category">
               <option value="">All categories</option>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            </Select>
           </div>
         </div>
       </section>
@@ -244,9 +245,9 @@ export default function Tasks() {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Category</label>
-                <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                <Select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                   {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                </select>
+                </Select>
                 {form.category === 'Other' && (
                   <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
                 )}

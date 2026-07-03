@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { Select } from '../components/ui/Select';
 import { parseGoogleMapsUrl, formatDate } from '../lib/utils';
 import { toHtmlDateInputValue } from '../utils/dateNormalize';
 import { getInviteBaseUrl } from '../lib/config';
@@ -163,7 +164,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
         <div className="form-group" style={{ marginBottom: 12, marginTop: 12 }}>
           <label className="form-label">Or choose pre-added music</label>
           <div style={{ display: 'flex', gap: 8 }}>
-            <select
+            <Select
               className="form-select"
               style={{ flex: 1 }}
               value={selectedAssetId}
@@ -174,7 +175,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
               {globalAssets.filter(a => a.type === 'bg_music').map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
             <button
               className="btn btn-secondary"
               onClick={selectGlobalAsset}
@@ -1148,7 +1149,7 @@ export default function GenerateInvitation() {
                             <button className="btn-link" onClick={() => setActiveSection('venues')}>add a venue first</button>
                           </div>
                         ) : (
-                          <select
+                          <Select
                             className="form-select"
                             value={fn.venueId || ''}
                             onChange={e => {
@@ -1174,7 +1175,7 @@ export default function GenerateInvitation() {
                                 {v.name}{v.city ? ` · ${v.city}` : ''}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         )}
                         {fn.venueId && fn.venueName && (
                           <div className="fn-venue-preview">
@@ -1368,11 +1369,11 @@ export default function GenerateInvitation() {
                   <div className="form-row">
                     <div className="form-group">
                       <label className="form-label">Type</label>
-                      <select className="form-select" value={mediaForm.type} onChange={(e) => setMediaForm((f) => ({ ...f, type: e.target.value }))}>
+                      <Select className="form-select" value={mediaForm.type} onChange={(e) => setMediaForm((f) => ({ ...f, type: e.target.value }))}>
                         <option value="photo">Photo</option>
                         <option value="music">Music</option>
                         <option value="video">Video</option>
-                      </select>
+                      </Select>
                     </div>
                     <div className="form-group">
                       <label className="form-label">Upload from device</label>

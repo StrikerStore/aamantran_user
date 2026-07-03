@@ -1,0 +1,79 @@
+.clay-select { position: relative; vertical-align: middle; }
+
+/* Trigger inherits its look from the passed class (form-select):
+   white well, rose border, rose chevron. These rules only fix button quirks. */
+.clay-select-trigger {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+}
+.clay-select-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.clay-select-label {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Keeps HTML `required` validation alive without being visible */
+.clay-select-native-mirror {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The clay popup that replaces the native OS dropdown list */
+.clay-select-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  max-width: 340px;
+  background: var(--bg-surface);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  z-index: 300;
+  max-height: 264px;
+  overflow-y: auto;
+  animation: fadeIn 0.12s ease;
+}
+
+.clay-select-popup.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.clay-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.clay-select-option.highlight { background: var(--rose-soft); color: var(--rose-deep); }
+.clay-select-option.selected  { color: var(--rose-deep); font-weight: 700; }
+.clay-select-option.disabled  { opacity: 0.45; cursor: not-allowed; }
+
+.clay-select-check {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--gold);
+}
+
+.clay-select-option-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
