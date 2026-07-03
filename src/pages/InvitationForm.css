@@ -31,6 +31,7 @@
 .section-tab {
   flex: 1;
   min-width: fit-content;
+  max-width: 280px;
   padding: 7px 14px;
   background: transparent;
   border: none;
@@ -39,23 +40,31 @@
   font-weight: 700;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  overflow: hidden;
+  transition: max-width var(--t-base), padding var(--t-base), opacity var(--t-base),
+              background var(--t-fast), color var(--t-fast);
   white-space: nowrap;
 }
 
 .section-tab:hover { background: var(--bg-surface); color: var(--text-secondary); }
 .section-tab.active { background: var(--bg-surface); color: var(--gold); box-shadow: var(--shadow-sm); }
 
-/* Condensed: shrink to just the active tab (top-left) once scrolled past */
+/* Condensed: shrink to just the active tab (top-left) once scrolled past.
+   Everything animates — non-active tabs shrink+fade, the header text collapses. */
 .invite-sticky.condensed { padding: 6px 0 4px; box-shadow: 0 10px 16px -12px rgba(214,51,108,0.5); }
 .invite-sticky.condensed .invite-progress-wrap { margin-bottom: 8px; }
-.invite-sticky.condensed .invite-progress-header { display: none; }
+.invite-sticky.condensed .invite-progress-header { max-height: 0; opacity: 0; margin-bottom: 0; }
 .invite-sticky.condensed .invite-progress-bar { height: 5px; }
-.invite-sticky.condensed .section-tabs { justify-content: flex-start; padding: 5px; }
-.invite-sticky.condensed:not(.expanded) .section-tab { display: none; }
+.invite-sticky.condensed .section-tabs { justify-content: flex-start; }
+.invite-sticky.condensed:not(.expanded) .section-tab:not(.active) {
+  min-width: 0;
+  max-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  pointer-events: none;
+}
 .invite-sticky.condensed:not(.expanded) .section-tab.active {
-  display: inline-flex;
-  align-items: center;
   flex: 0 0 auto;
 }
 .invite-sticky.condensed:not(.expanded) .section-tab.active::after {
@@ -409,7 +418,12 @@
 
 /* ── Progress bar ── */
 .invite-progress-wrap { margin-bottom: 10px; }
-.invite-progress-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px; }
+.invite-progress-header {
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-bottom:7px;
+  max-height: 2rem; opacity: 1; overflow: hidden;
+  transition: max-height var(--t-base), opacity var(--t-base), margin var(--t-base);
+}
 .invite-progress-label { font-family: var(--font-display); font-size:0.9rem; font-weight:700; color:var(--text-primary); }
 .invite-progress-sub   { font-size:0.75rem; color:var(--text-muted); }
 .invite-progress-bar   { height:8px; background:var(--bg-overlay); border-radius:99px; overflow:hidden; box-shadow: inset 1px 1px 3px rgba(214,51,108,0.12); transition: height var(--t-base); }
