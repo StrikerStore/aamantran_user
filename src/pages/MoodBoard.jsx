@@ -100,8 +100,10 @@ function resolvePinHref(imageUrl) {
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const safeBoardUrl = getSafePinterestUrl(boardUrl);
-  const [loading, setLoading] = useState(true);
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const embedRequestKey = safeBoardUrl ? `${eventId}:${safeBoardUrl}` : null;
+  const [embedResult, setEmbedResult] = useState({ key: null, html: null });
+  const loading = Boolean(embedRequestKey && embedResult.key !== embedRequestKey);
+  const embedHtml = !loading && embedResult.key === embedRequestKey ? embedResult.html : null;
   const embedSrcDoc = useMemo(
     () => (embedHtml ? buildPinterestFrameSrcDoc(embedHtml) : null),
     [embedHtml],
@@ -112,33 +114,24 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   );
 
   useEffect(() => {
-    if (!safeBoardUrl) {
-      setLoading(false);
-      setEmbedHtml(null);
-      return;
-    }
+    if (!safeBoardUrl) return;
 
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
 
     api.moodboard
       .pinterestOembed(eventId, safeBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedResult({ key: embedRequestKey, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setEmbedResult({ key: embedRequestKey, html: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [eventId, safeBoardUrl]);
+  }, [embedRequestKey, eventId, safeBoardUrl]);
 
   return (
     <div className="mb-pinterest-card">
@@ -238,7 +231,7 @@ export default function MoodBoard() {
       .then(r => setPins(r.pins || []))
       .catch(() => toast('Failed to load mood board', 'error'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, toast]);
 
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setFile(null); setShowModal(true); }
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
