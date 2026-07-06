@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { clearToken, getUserInfo } from '../lib/auth';
 import { api } from '../lib/api';
@@ -7,6 +7,16 @@ import './Layout.css';
 const NAV_STATE_KEY = 'aam_nav_state';
 const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
 
+function getRouteEventId(pathname) {
+  const match = pathname.match(/^\/events\/([^/]+)(?:\/|$)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function getRouteEventSubpath(pathname) {
+  const match = pathname.match(/^\/events\/[^/]+\/(.+)$/);
+  return match ? match[1] : null;
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,7 +24,7 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [rememberedEventId, setRememberedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -54,12 +64,7 @@ export function Layout() {
   useEffect(() => {
     api.events.list()
       .then(r => {
-        const all = r.events || [];
-        setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
+        setEvents(r.events || []);
       })
       .catch(() => {});
   }, []);
@@ -82,9 +87,36 @@ export function Layout() {
     navigate('/');
   }
 
+  const routeEventId = useMemo(() => getRouteEventId(location.pathname), [location.pathname]);
+  const routeEventSubpath = useMemo(() => getRouteEventSubpath(location.pathname), [location.pathname]);
+
+  const activeEvent = useMemo(() => {
+    const routeEvent = routeEventId
+      ? events.find(ev => String(ev.id) === String(routeEventId))
+      : null;
+    const rememberedEvent = rememberedEventId
+      ? events.find(ev => String(ev.id) === String(rememberedEventId))
+      : null;
+    const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+
+    return routeEvent || rememberedEvent || defaultEvent;
+  }, [events, rememberedEventId, routeEventId]);
+
+  function rememberCurrentRouteEvent() {
+    if (routeEventId) setRememberedEventId(routeEventId);
+  }
+
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    if (!ev?.id) return;
+    setRememberedEventId(ev.id);
     setSwitcherOpen(false);
+    if (routeEventSubpath) {
+      navigate(`/events/${ev.id}/${routeEventSubpath}`);
+    }
+  }
+
+  function setActiveEvent(ev) {
+    selectEvent(typeof ev === 'function' ? ev(activeEvent) : ev);
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -269,7 +301,14 @@ export function Layout() {
                     to={to}
                     title={item.label}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                    onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
+                    onClick={(e) => {
+                      if (disabled) {
+                        e.preventDefault();
+                        return;
+                      }
+                      if (!String(to).startsWith('/events/')) rememberCurrentRouteEvent();
+                      setSidebarOpen(false);
+                    }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
                   >
                     <item.icon />
@@ -362,7 +401,7 @@ export function Layout() {
       <nav className="bottom-nav">
         <button
           className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => { rememberCurrentRouteEvent(); navigate('/dashboard'); }}
           aria-label="Home"
         >
           <BNavIconHome />
@@ -421,7 +460,7 @@ export function Layout() {
             <div className="profile-sheet-actions">
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/settings'); }}
               >
                 <span className="ps-icon">⚙️</span>
                 <span className="ps-label">Settings</span>
@@ -429,7 +468,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/guide'); }}
               >
                 <span className="ps-icon">📖</span>
                 <span className="ps-label">Feature Guide</span>
@@ -437,7 +476,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/support'); }}
               >
                 <span className="ps-icon">💬</span>
                 <span className="ps-label">Support</span>
@@ -474,7 +513,13 @@ export function Layout() {
                         <button
                           key={item.label}
                           className={`bottom-sheet-row ${active ? 'active' : ''}`}
-                          onClick={() => { if (!disabled) { setMoreOpen(false); navigate(item.to); } }}
+                          onClick={() => {
+                            if (!disabled) {
+                              if (!String(item.to).startsWith('/events/')) rememberCurrentRouteEvent();
+                              setMoreOpen(false);
+                              navigate(item.to);
+                            }
+                          }}
                           disabled={disabled}
                         >
                           <span className="bottom-sheet-row-icon">{item.icon}</span>
