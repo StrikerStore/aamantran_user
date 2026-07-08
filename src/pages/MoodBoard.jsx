@@ -104,31 +104,21 @@ function resolvePinHref(imageUrl) {
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const validBoardUrl = normalizePinterestUrl(boardUrl);
-  const [loadingUrl, setLoadingUrl] = useState(null);
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const [embedResult, setEmbedResult] = useState({ url: '', html: null });
 
   useEffect(() => {
-    if (!validBoardUrl) {
-      setLoadingUrl(null);
-      setEmbedHtml(null);
-      return;
-    }
+    if (!validBoardUrl) return;
 
     let cancelled = false;
-    setLoadingUrl(validBoardUrl);
-    setEmbedHtml(null);
 
     api.moodboard
       .pinterestOembed(eventId, validBoardUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setEmbedResult({ url: validBoardUrl, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingUrl(null);
+        if (!cancelled) setEmbedResult({ url: validBoardUrl, html: null });
       });
 
     return () => {
@@ -136,7 +126,8 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
     };
   }, [eventId, validBoardUrl]);
 
-  const loading = loadingUrl === validBoardUrl && Boolean(validBoardUrl);
+  const loading = Boolean(validBoardUrl) && embedResult.url !== validBoardUrl;
+  const embedHtml = !loading && embedResult.url === validBoardUrl ? embedResult.html : null;
   const previewSrcDoc = validBoardUrl ? pinterestSrcDoc({ embedHtml, boardUrl: validBoardUrl }) : '';
 
   return (
