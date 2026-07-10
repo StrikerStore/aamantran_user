@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api';
-import { getUserInfo } from '../lib/auth';
+import { getUserInfo, clearToken } from '../lib/auth';
 import { formatDate } from '../lib/utils';
 import { useToast } from '../components/ui/Toast';
 import './Settings.css';
@@ -15,6 +15,9 @@ export default function Settings() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [eventExpiry, setEventExpiry] = useState(activeEvent?.expiresAt || null);
   const phoneLocked = useMemo(() => Boolean(String(profile.phone || '').trim()), [profile.phone]);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setEventExpiry(activeEvent?.expiresAt || null);
@@ -55,6 +58,26 @@ export default function Settings() {
       toast(err.message, 'error');
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function deleteAccount(e) {
+    e.preventDefault();
+    if (!deletePassword.trim()) {
+      toast('Please enter your password to confirm', 'error');
+      return;
+    }
+    if (!window.confirm('This permanently deletes your account, invitations, guest lists and photos. This cannot be undone. Continue?')) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await api.profile.deleteAccount(deletePassword);
+      clearToken();
+      window.location.href = '/';
+    } catch (err) {
+      toast(err.message, 'error');
+      setDeleting(false);
     }
   }
 
@@ -127,6 +150,43 @@ export default function Settings() {
             </div>
           </div>
         )}
+
+        {/* Delete account (DPDP right to erasure) */}
+        <div className="card">
+          <div className="card-title">Delete Account</div>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+            Permanently delete your account and all personal data — invitations, guest lists,
+            RSVPs, photos and profile. Payment records are kept in de-identified form as
+            required by tax law. This cannot be undone.
+          </p>
+          {!showDelete ? (
+            <button type="button" className="btn btn-danger" onClick={() => setShowDelete(true)}>
+              Delete My Account
+            </button>
+          ) : (
+            <form onSubmit={deleteAccount}>
+              <div className="form-group">
+                <label className="form-label">Confirm your password</label>
+                <input
+                  className="form-input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="submit" className="btn btn-danger" disabled={deleting}>
+                  {deleting ? <span className="btn-spinner" /> : null}
+                  Permanently Delete
+                </button>
+                <button type="button" className="btn" onClick={() => { setShowDelete(false); setDeletePassword(''); }} disabled={deleting}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

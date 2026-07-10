@@ -143,6 +143,7 @@ export const api = {
 
   profile: {
     update: (body) => request('PATCH', '/api/user/profile', { body }),
+    deleteAccount: (password) => request('DELETE', '/api/user/me', { body: { password } }),
   },
 
   review: {
