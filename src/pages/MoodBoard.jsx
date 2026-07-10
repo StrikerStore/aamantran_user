@@ -114,37 +114,30 @@ function resolvePinHref(imageUrl) {
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const safePinterestUrl = getSafePinterestUrl(boardUrl);
-  const [loading, setLoading] = useState(Boolean(safePinterestUrl));
-  const [embedHtml, setEmbedHtml] = useState(null);
+  const requestKey = safePinterestUrl ? `${eventId}:${safePinterestUrl}` : null;
+  const [preview, setPreview] = useState({ requestKey: null, html: null });
+  const loading = Boolean(requestKey && preview.requestKey !== requestKey);
+  const embedHtml = preview.requestKey === requestKey ? preview.html : null;
 
   useEffect(() => {
-    if (!safePinterestUrl) {
-      setLoading(false);
-      setEmbedHtml(null);
-      return;
-    }
+    if (!requestKey) return;
 
     let cancelled = false;
-    setLoading(true);
-    setEmbedHtml(null);
 
     api.moodboard
       .pinterestOembed(eventId, safePinterestUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedHtml(r.html || null);
+        setPreview({ requestKey, html: r.html || null });
       })
       .catch(() => {
-        if (!cancelled) setEmbedHtml(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setPreview({ requestKey, html: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [eventId, safePinterestUrl]);
+  }, [eventId, requestKey, safePinterestUrl]);
 
   return (
     <div className="mb-pinterest-card">
