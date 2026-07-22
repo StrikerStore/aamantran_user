@@ -6,6 +6,7 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
+const ACTIVE_EVENT_KEY = 'aam_active_event';
 
 function eventRoute(pathname) {
   const match = pathname.match(/^\/events\/([^/]+)(\/.*)?$/);
@@ -24,7 +25,7 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(() => localStorage.getItem(ACTIVE_EVENT_KEY));
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -69,7 +70,15 @@ export function Layout() {
         const route = eventRoute(window.location.pathname);
         const fromRoute = route && all.find(ev => String(ev.id) === route.id);
         const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-        setSelectedEventId(fromRoute?.id ?? first?.id ?? null);
+        if (fromRoute) {
+          const id = String(fromRoute.id);
+          localStorage.setItem(ACTIVE_EVENT_KEY, id);
+          setSelectedEventId(id);
+        } else if (!localStorage.getItem(ACTIVE_EVENT_KEY) && first) {
+          const id = String(first.id);
+          localStorage.setItem(ACTIVE_EVENT_KEY, id);
+          setSelectedEventId(id);
+        }
       })
       .catch(() => {});
   }, []);
@@ -93,7 +102,7 @@ export function Layout() {
   }
 
   function selectEvent(ev) {
-    setSelectedEventId(ev.id);
+    setActiveEvent(ev);
     setSwitcherOpen(false);
     setMobileSwitcherOpen(false);
     const route = eventRoute(location.pathname);
@@ -106,19 +115,31 @@ export function Layout() {
   const routeEvent = route
     ? events.find(ev => String(ev.id) === route.id)
     : null;
-  const selectedEvent = events.find(ev => String(ev.id) === String(selectedEventId));
+  const rememberedEventId = route
+    ? route.id
+    : localStorage.getItem(ACTIVE_EVENT_KEY) || selectedEventId;
+  const selectedEvent = events.find(ev => String(ev.id) === String(rememberedEventId));
   const activeEvent = routeEvent
     || selectedEvent
     || events.find(ev => ev.inviteScope !== 'subset')
     || events[0]
     || null;
 
+  useEffect(() => {
+    if (routeEvent?.id != null) {
+      localStorage.setItem(ACTIVE_EVENT_KEY, String(routeEvent.id));
+    }
+  }, [routeEvent?.id]);
+
   function setActiveEvent(ev) {
-    setSelectedEventId(ev?.id ?? null);
+    const id = ev?.id != null ? String(ev.id) : null;
+    if (id) localStorage.setItem(ACTIVE_EVENT_KEY, id);
+    else localStorage.removeItem(ACTIVE_EVENT_KEY);
+    setSelectedEventId(id);
   }
 
   function rememberActiveEvent() {
-    if (activeEvent?.id != null) setSelectedEventId(activeEvent.id);
+    if (activeEvent) setActiveEvent(activeEvent);
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -275,7 +296,11 @@ export function Layout() {
                     {activeEvent?.id === ev.id && <span className="event-option-check">✓</span>}
                   </div>
                 ))}
-                <div className="event-switcher-add" onClick={() => { setSwitcherOpen(false); navigate('/onboarding'); }}>
+                <div className="event-switcher-add" onClick={() => {
+                  rememberActiveEvent();
+                  setSwitcherOpen(false);
+                  navigate('/onboarding');
+                }}>
                   <span>＋</span> Set Up New Event
                 </div>
               </div>
@@ -376,7 +401,11 @@ export function Layout() {
                     {activeEvent?.id === ev.id && <span className="event-option-check">✓</span>}
                   </div>
                 ))}
-                <div className="event-switcher-add" onClick={() => { setMobileSwitcherOpen(false); navigate('/onboarding'); }}>
+                <div className="event-switcher-add" onClick={() => {
+                  rememberActiveEvent();
+                  setMobileSwitcherOpen(false);
+                  navigate('/onboarding');
+                }}>
                   <span>＋</span> Set Up New Event
                 </div>
               </div>
@@ -394,7 +423,10 @@ export function Layout() {
         </header>
 
         <main className="page-content page-fade">
-          <Outlet context={{ activeEvent, setActiveEvent, events, setEvents }} />
+          <Outlet
+            key={routeEvent?.id != null ? String(routeEvent.id) : 'global'}
+            context={{ activeEvent, setActiveEvent, events, setEvents }}
+          />
         </main>
       </div>
 

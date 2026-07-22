@@ -52,7 +52,7 @@ function escapeHtmlAttribute(value) {
 }
 
 function pinterestFrameDocument(embedHtml, pinterestUrl) {
-  const fallback = embedHtml ? '' : `
+  const content = embedHtml || `
     <a
       href="${escapeHtmlAttribute(pinterestUrl)}"
       data-pin-do="${pinDoForUrl(pinterestUrl)}"
@@ -60,7 +60,6 @@ function pinterestFrameDocument(embedHtml, pinterestUrl) {
       data-pin-scale-height="280"
       data-pin-scale-width="80"
     ></a>
-    <script async defer src="https://assets.pinterest.com/js/pinit.js"></script>
   `;
 
   return `<!doctype html>
@@ -76,7 +75,10 @@ function pinterestFrameDocument(embedHtml, pinterestUrl) {
           iframe { max-width: 100% !important; border: 0; }
         </style>
       </head>
-      <body>${embedHtml || fallback}</body>
+      <body>
+        ${content}
+        <script async defer src="https://assets.pinterest.com/js/pinit.js"></script>
+      </body>
     </html>`;
 }
 
