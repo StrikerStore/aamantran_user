@@ -26,10 +26,6 @@ function useMobileMoodLayout() {
   return mobile;
 }
 
-function pinDoForUrl(url) {
-  return String(url).toLowerCase().includes('/pin/') ? 'embedPin' : 'embedBoard';
-}
-
 function normalizePinterestUrl(value) {
   try {
     const url = new URL(String(value).trim());
@@ -43,43 +39,31 @@ function normalizePinterestUrl(value) {
   }
 }
 
-function escapeHtmlAttribute(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+function directPinterestEmbedUrl(pinterestUrl) {
+  try {
+    const url = new URL(pinterestUrl);
+    const pinId = url.pathname.match(/^\/pin\/(\d+)(?:\/|$)/)?.[1];
+    return pinId
+      ? `https://assets.pinterest.com/ext/embed.html?id=${encodeURIComponent(pinId)}`
+      : null;
+  } catch {
+    return null;
+  }
 }
 
-function pinterestFrameDocument(embedHtml, pinterestUrl) {
-  const content = embedHtml || `
-    <a
-      href="${escapeHtmlAttribute(pinterestUrl)}"
-      data-pin-do="${pinDoForUrl(pinterestUrl)}"
-      data-pin-board-width="100%"
-      data-pin-scale-height="280"
-      data-pin-scale-width="80"
-    ></a>
-  `;
-
-  return `<!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <base target="_blank">
-        <style>
-          html, body { margin: 0; padding: 0; background: transparent; overflow-x: hidden; }
-          body { display: flex; justify-content: center; min-height: 180px; }
-          body > * { max-width: 100% !important; }
-          iframe { max-width: 100% !important; border: 0; }
-        </style>
-      </head>
-      <body>
-        ${content}
-        <script async defer src="https://assets.pinterest.com/js/pinit.js"></script>
-      </body>
-    </html>`;
+function extractPinterestEmbedUrl(html) {
+  if (!html || typeof DOMParser === 'undefined') return null;
+  const doc = new DOMParser().parseFromString(String(html), 'text/html');
+  const src = doc.querySelector('iframe')?.getAttribute('src');
+  if (!src) return null;
+  try {
+    const url = new URL(src, 'https://assets.pinterest.com');
+    return url.protocol === 'https:' && url.hostname === 'assets.pinterest.com'
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Image / upload URLs may be relative to the API origin */
@@ -95,30 +79,32 @@ function resolvePinHref(imageUrl) {
 
 function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
   const pinterestUrl = normalizePinterestUrl(boardUrl);
+  const directEmbedUrl = pinterestUrl ? directPinterestEmbedUrl(pinterestUrl) : null;
   const requestKey = `${eventId}:${pinterestUrl || ''}`;
-  const [embedResult, setEmbedResult] = useState({ key: null, html: null });
+  const [embedResult, setEmbedResult] = useState({ key: null, url: null });
 
   useEffect(() => {
-    if (!pinterestUrl) return undefined;
+    if (!pinterestUrl || directEmbedUrl) return undefined;
     let cancelled = false;
 
     api.moodboard
       .pinterestOembed(eventId, pinterestUrl)
       .then((r) => {
         if (cancelled) return;
-        setEmbedResult({ key: requestKey, html: r.html || null });
+        setEmbedResult({ key: requestKey, url: extractPinterestEmbedUrl(r.html) });
       })
       .catch(() => {
-        if (!cancelled) setEmbedResult({ key: requestKey, html: null });
+        if (!cancelled) setEmbedResult({ key: requestKey, url: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [eventId, pinterestUrl, requestKey]);
+  }, [directEmbedUrl, eventId, pinterestUrl, requestKey]);
 
-  const loading = Boolean(pinterestUrl) && embedResult.key !== requestKey;
-  const embedHtml = embedResult.key === requestKey ? embedResult.html : null;
+  const loading = Boolean(pinterestUrl && !directEmbedUrl) && embedResult.key !== requestKey;
+  const embedUrl = directEmbedUrl
+    || (embedResult.key === requestKey ? embedResult.url : null);
 
   return (
     <div className="mb-pinterest-card">
@@ -138,19 +124,23 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
             <p className="mb-pinterest-loading-text">Loading Pinterest preview…</p>
           </div>
         )}
-        {!loading && pinterestUrl && (
+        {!loading && embedUrl && (
           <div className="mb-pinterest-viewport">
             <iframe
               className="mb-pinterest-embed"
               title={caption ? `Pinterest preview: ${caption}` : 'Pinterest preview'}
-              sandbox="allow-scripts allow-popups"
-              srcDoc={pinterestFrameDocument(embedHtml, pinterestUrl)}
+              sandbox="allow-scripts allow-same-origin allow-popups"
+              src={embedUrl}
             />
           </div>
         )}
-        {!loading && !pinterestUrl && (
+        {!loading && !embedUrl && (
           <div className="mb-pinterest-loading">
-            <p className="mb-pinterest-loading-text">This Pinterest URL is invalid or no longer supported.</p>
+            <p className="mb-pinterest-loading-text">
+              {pinterestUrl
+                ? 'Pinterest preview is unavailable. Use the link below to open it.'
+                : 'This Pinterest URL is invalid or no longer supported.'}
+            </p>
           </div>
         )}
       </div>
