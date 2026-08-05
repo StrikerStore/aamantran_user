@@ -100,20 +100,23 @@
   text-align: center;
 }
 
-.mb-pinterest-embed span,
-.mb-pinterest-embed div {
-  max-width: 100%;
-}
-
-.mb-pinterest-embed iframe {
+.mb-pinterest-embed-frame {
   width: 100% !important;
   max-width: 100% !important;
-  min-height: 200px !important;
+  min-height: 240px !important;
+  height: min(280px, 42vh);
   max-height: none !important;
   border: 0 !important;
   border-radius: var(--r-sm);
   display: block;
   margin: 0 auto;
+}
+
+.mb-pinterest-invalid {
+  padding: 24px 14px;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  text-align: center;
 }
 
 .mb-pinterest-widget-host {
@@ -159,8 +162,9 @@
     max-height: min(240px, 38vh);
   }
 
-  .mb-pinterest-embed iframe {
+  .mb-pinterest-embed-frame {
     min-height: 160px !important;
+    height: min(240px, 38vh);
   }
 }
 
@@ -176,14 +180,14 @@
 }
 
 /* ── Pin grid: uniform tiles, many visible at once ── */
-.masonry-grid {
+.mb-board-layout .masonry-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
   gap: 8px;
   align-items: start;
 }
 
-.masonry-pin-link {
+.mb-board-layout .masonry-pin-link {
   display: block;
   border-radius: var(--r-lg);
   text-decoration: none;
@@ -191,15 +195,15 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.masonry-pin-link--tap {
+.mb-board-layout .masonry-pin-link--tap {
   cursor: zoom-in;
 }
 
-.masonry-pin-link--tap:active .masonry-img {
+.mb-board-layout .masonry-pin-link--tap:active .masonry-img {
   filter: brightness(0.94);
 }
 
-.masonry-pin {
+.mb-board-layout .masonry-pin {
   position: relative;
   border-radius: var(--r-md);
   overflow: hidden;
@@ -209,7 +213,7 @@
   max-height: min(200px, 36vh);
 }
 
-.masonry-img {
+.mb-board-layout .masonry-img {
   width: 100%;
   height: 100%;
   display: block;
@@ -218,7 +222,7 @@
   transition: filter var(--t-base);
 }
 
-.masonry-overlay {
+.mb-board-layout .masonry-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.62) 0%, transparent 58%);
@@ -232,26 +236,26 @@
   pointer-events: none;
 }
 
-.masonry-overlay .masonry-delete {
+.mb-board-layout .masonry-overlay .masonry-delete {
   pointer-events: auto;
 }
 
-.masonry-pin-link:not(.masonry-pin-link--tap):hover .masonry-overlay {
+.mb-board-layout .masonry-pin-link:not(.masonry-pin-link--tap):hover .masonry-overlay {
   opacity: 1;
 }
 
-.masonry-pin-link:not(.masonry-pin-link--tap):hover .masonry-img {
+.mb-board-layout .masonry-pin-link:not(.masonry-pin-link--tap):hover .masonry-img {
   filter: brightness(0.92);
 }
 
 /* Mobile: overlay hints always slightly visible (no hover) */
 @media (max-width: 900px) {
-  .masonry-overlay {
+  .mb-board-layout .masonry-overlay {
     opacity: 1;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.45) 0%, transparent 45%);
   }
 
-  .masonry-caption {
+  .mb-board-layout .masonry-caption {
     font-size: 0.72rem;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -259,25 +263,25 @@
     overflow: hidden;
   }
 
-  .masonry-pin {
+  .mb-board-layout .masonry-pin {
     max-height: min(176px, 34vh);
     aspect-ratio: 1 / 1;
   }
 
-  .masonry-grid {
+  .mb-board-layout .masonry-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
 }
 
 @media (max-width: 380px) {
-  .masonry-grid {
+  .mb-board-layout .masonry-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 901px) {
-  .masonry-grid {
+  .mb-board-layout .masonry-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 10px;
   }
@@ -287,12 +291,12 @@
     gap: 8px;
   }
 
-  .masonry-pin {
+  .mb-board-layout .masonry-pin {
     max-height: min(210px, 32vh);
   }
 }
 
-.masonry-cat {
+.mb-board-layout .masonry-cat {
   align-self: flex-start;
   font-size: 0.62rem;
   font-weight: 700;
@@ -303,14 +307,14 @@
   margin-bottom: 4px;
 }
 
-.masonry-caption {
+.mb-board-layout .masonry-caption {
   font-size: 0.76rem;
   color: #fff;
   margin: 0;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-.masonry-delete {
+.mb-board-layout .masonry-delete {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -329,7 +333,7 @@
   z-index: 2;
 }
 
-.masonry-delete:hover {
+.mb-board-layout .masonry-delete:hover {
   background: var(--red);
 }
 
