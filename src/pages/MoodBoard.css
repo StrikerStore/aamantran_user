@@ -100,20 +100,28 @@
   text-align: center;
 }
 
-.mb-pinterest-embed span,
-.mb-pinterest-embed div {
-  max-width: 100%;
-}
-
-.mb-pinterest-embed iframe {
+.mb-pinterest-embed-frame {
   width: 100% !important;
-  max-width: 100% !important;
-  min-height: 200px !important;
-  max-height: none !important;
+  min-height: 220px !important;
   border: 0 !important;
   border-radius: var(--r-sm);
   display: block;
   margin: 0 auto;
+  background: transparent;
+}
+
+.mb-pinterest-invalid {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
 }
 
 .mb-pinterest-widget-host {
@@ -159,7 +167,7 @@
     max-height: min(240px, 38vh);
   }
 
-  .mb-pinterest-embed iframe {
+  .mb-pinterest-embed-frame {
     min-height: 160px !important;
   }
 }
