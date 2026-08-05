@@ -10,11 +10,14 @@ const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const eventRouteMatch = location.pathname.match(/^\/events\/([^/]+)(\/.*)?$/);
+  const routeEventId = eventRouteMatch?.[1] || null;
+  const routeEventSuffix = eventRouteMatch?.[2] || '';
   const info = getUserInfo();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -56,10 +59,6 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
@@ -82,9 +81,22 @@ export function Layout() {
     navigate('/');
   }
 
+  const routeEvent = routeEventId
+    ? events.find(ev => String(ev.id) === routeEventId) || null
+    : null;
+  const selectedEventFromList = selectedEvent
+    ? events.find(ev => ev.id === selectedEvent.id) || null
+    : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const activeEvent = routeEventId ? routeEvent : (selectedEventFromList || defaultEvent);
+
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEvent(ev);
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+    if (routeEventId && String(ev.id) !== routeEventId) {
+      navigate(`/events/${ev.id}${routeEventSuffix}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -354,7 +366,7 @@ export function Layout() {
         </header>
 
         <main className="page-content page-fade">
-          <Outlet context={{ activeEvent, setActiveEvent, events, setEvents }} />
+          <Outlet context={{ activeEvent, setActiveEvent: setSelectedEvent, events, setEvents }} />
         </main>
       </div>
 
