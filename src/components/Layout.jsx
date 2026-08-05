@@ -7,6 +7,16 @@ import './Layout.css';
 const NAV_STATE_KEY = 'aam_nav_state';
 const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
 
+function getRouteEventId(pathname) {
+  const match = /^\/events\/([^/]+)/.exec(pathname);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,13 +24,17 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const switcherRef = useRef(null);
   const mobileSwitcherRef = useRef(null);
+  const routeEventId = getRouteEventId(location.pathname);
+  const routeEvent = routeEventId ? events.find(ev => String(ev.id) === routeEventId) : null;
+  const activeEvent = routeEvent || selectedEvent;
+  const setActiveEvent = setSelectedEvent;
 
   // Collapsible sidebar group state — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -56,10 +70,13 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
+        setSelectedEvent(prev => {
+          if (prev) {
+            const refreshed = all.find(ev => ev.id === prev.id);
+            if (refreshed) return refreshed;
+          }
+          return all.find(ev => ev.inviteScope !== 'subset') || all[0] || null;
+        });
       })
       .catch(() => {});
   }, []);
@@ -83,8 +100,12 @@ export function Layout() {
   }
 
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEvent(ev);
     setSwitcherOpen(false);
+    if (routeEventId && String(ev.id) !== routeEventId) {
+      const nextPath = location.pathname.replace(/^\/events\/[^/]+/, `/events/${encodeURIComponent(String(ev.id))}`);
+      navigate(`${nextPath}${location.search || ''}${location.hash || ''}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
