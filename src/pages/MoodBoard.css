@@ -100,12 +100,7 @@
   text-align: center;
 }
 
-.mb-pinterest-embed span,
-.mb-pinterest-embed div {
-  max-width: 100%;
-}
-
-.mb-pinterest-embed iframe {
+.mb-pinterest-embed-frame {
   width: 100% !important;
   max-width: 100% !important;
   min-height: 200px !important;
@@ -118,6 +113,14 @@
 
 .mb-pinterest-widget-host {
   min-height: 180px;
+  width: 100%;
+}
+
+.mb-pinterest-invalid {
+  padding: 24px 12px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
   width: 100%;
 }
 
