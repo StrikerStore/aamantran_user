@@ -13,11 +13,10 @@ import './WhatsAppShare.css';
  *   people           — array of EventPerson (all people)
  *   schemaPeopleRoles — array of { role, label, required } from template schema
  *   functions        — array of ceremony functions
- *   venues           — array of venue objects
  *   partialUrl       — (optional) partial invite URL if a paired subset exists
  *   eventId          — event ID for persisting the share image via media API
  */
-export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], functions = [], venues = [], partialUrl = null, eventId }) {
+export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], functions = [], partialUrl = null, eventId }) {
   const toast = useToast();
   const [imageFile, setImageFile] = useState(null);   // local File (before upload)
   const [imagePreview, setImagePreview] = useState(null);   // URL for display
@@ -35,10 +34,17 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
   useEffect(() => {
     if (!eventId) return;
     api.media.list(eventId).then(r => {
-      const shareMedia = (r.media || []).find(m => m.slotKey === 'wa_share_image');
+      const shareMedia = (r.media || [])
+        .map((media, index) => ({ media, index }))
+        .filter(({ media }) => media.slotKey === 'wa_share_image')
+        .sort((a, b) => {
+          const at = Date.parse(a.media.updatedAt || a.media.createdAt || '') || 0;
+          const bt = Date.parse(b.media.updatedAt || b.media.createdAt || '') || 0;
+          return (bt - at) || (b.index - a.index);
+        })[0];
       if (shareMedia) {
-        setImagePreview(shareMedia.url);
-        setSavedMediaId(shareMedia.id);
+        setImagePreview(shareMedia.media.url);
+        setSavedMediaId(shareMedia.media.id);
       }
     }).catch(() => { });
   }, [eventId]);
@@ -81,17 +87,14 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
 
     // Show local preview immediately
     const localUrl = URL.createObjectURL(file);
+    const previousPreview = imagePreview;
+    const previousMediaId = savedMediaId;
     setImagePreview(localUrl);
     setImageFile(file);
 
     if (!eventId) return;
     setUploading(true);
     try {
-      // Remove previous persisted image
-      if (savedMediaId) {
-        await api.media.remove(eventId, savedMediaId).catch(() => { });
-        setSavedMediaId(null);
-      }
       const fd = new FormData();
       fd.append('file', file);
       fd.append('type', 'photo');
@@ -102,9 +105,16 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
       setImagePreview(r.media.url);
       setImageFile(null);
       setSavedMediaId(r.media.id);
+      if (previousMediaId && previousMediaId !== r.media.id) {
+        await api.media.remove(eventId, previousMediaId).catch(() => { });
+      }
       toast('Share image saved!', 'success');
-    } catch {
-      // Keep local preview if upload fails
+    } catch (err) {
+      URL.revokeObjectURL(localUrl);
+      setImagePreview(previousPreview);
+      setImageFile(null);
+      setSavedMediaId(previousMediaId);
+      toast(err?.message || 'Could not save share image', 'error');
     } finally {
       setUploading(false);
     }
