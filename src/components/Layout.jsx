@@ -7,6 +7,14 @@ import './Layout.css';
 const NAV_STATE_KEY = 'aam_nav_state';
 const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
 
+function decodePathPart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,7 +22,8 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [createdEvent, setCreatedEvent] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -56,10 +65,6 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
@@ -82,9 +87,35 @@ export function Layout() {
     navigate('/');
   }
 
+  const eventRouteMatch = location.pathname.match(/^\/events\/([^/]+)(?:\/([^/?#]+))?/);
+  const routeEventId = eventRouteMatch?.[1] ? decodePathPart(eventRouteMatch[1]) : null;
+  const routeSubPath = eventRouteMatch?.[2] || null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const routeEvent = routeEventId
+    ? events.find(ev => String(ev.id) === String(routeEventId)) || null
+    : null;
+  const selectedEvent = selectedEventId
+    ? events.find(ev => String(ev.id) === String(selectedEventId))
+      || (createdEvent && String(createdEvent.id) === String(selectedEventId) ? createdEvent : null)
+    : null;
+  const activeEvent = routeEvent || selectedEvent || defaultEvent;
+
+  function setActiveEvent(ev) {
+    setSelectedEventId(ev?.id || null);
+    setCreatedEvent(ev || null);
+  }
+
+  function rememberActiveRouteEvent() {
+    if (routeEventId) setSelectedEventId(routeEventId);
+    if (routeEvent) setCreatedEvent(routeEvent);
+  }
+
   function selectEvent(ev) {
     setActiveEvent(ev);
     setSwitcherOpen(false);
+    if (routeSubPath) {
+      navigate(`/events/${ev.id}/${routeSubPath}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -269,7 +300,13 @@ export function Layout() {
                     to={to}
                     title={item.label}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                    onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
+                    onClick={(e) => {
+                      if (disabled) e.preventDefault();
+                      else {
+                        if (!String(to).startsWith('/events/')) rememberActiveRouteEvent();
+                        setSidebarOpen(false);
+                      }
+                    }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
                   >
                     <item.icon />
@@ -362,7 +399,7 @@ export function Layout() {
       <nav className="bottom-nav">
         <button
           className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => { rememberActiveRouteEvent(); navigate('/dashboard'); }}
           aria-label="Home"
         >
           <BNavIconHome />
@@ -421,7 +458,7 @@ export function Layout() {
             <div className="profile-sheet-actions">
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                onClick={() => { rememberActiveRouteEvent(); setProfileOpen(false); navigate('/settings'); }}
               >
                 <span className="ps-icon">⚙️</span>
                 <span className="ps-label">Settings</span>
@@ -429,7 +466,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+                onClick={() => { rememberActiveRouteEvent(); setProfileOpen(false); navigate('/guide'); }}
               >
                 <span className="ps-icon">📖</span>
                 <span className="ps-label">Feature Guide</span>
@@ -437,7 +474,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+                onClick={() => { rememberActiveRouteEvent(); setProfileOpen(false); navigate('/support'); }}
               >
                 <span className="ps-icon">💬</span>
                 <span className="ps-label">Support</span>
@@ -474,7 +511,13 @@ export function Layout() {
                         <button
                           key={item.label}
                           className={`bottom-sheet-row ${active ? 'active' : ''}`}
-                          onClick={() => { if (!disabled) { setMoreOpen(false); navigate(item.to); } }}
+                          onClick={() => {
+                            if (!disabled) {
+                              if (!String(item.to).startsWith('/events/')) rememberActiveRouteEvent();
+                              setMoreOpen(false);
+                              navigate(item.to);
+                            }
+                          }}
                           disabled={disabled}
                         >
                           <span className="bottom-sheet-row-icon">{item.icon}</span>
