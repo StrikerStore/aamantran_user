@@ -14,7 +14,7 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -28,6 +28,14 @@ export function Layout() {
       return JSON.parse(localStorage.getItem(NAV_STATE_KEY) || '{}');
     } catch { return {}; }
   });
+
+  const eventRouteMatch = location.pathname.match(/^\/events\/([^/]+)(?:\/([^/]+))?/);
+  const routeEventId = eventRouteMatch?.[1] ? decodeURIComponent(eventRouteMatch[1]) : null;
+  const routeEventSection = eventRouteMatch?.[2] || null;
+  const routeEvent = routeEventId ? events.find(ev => String(ev.id) === routeEventId) : null;
+  const selectedEvent = selectedEventId ? events.find(ev => String(ev.id) === String(selectedEventId)) : null;
+  const defaultEvent = events.find(ev => ev.inviteScope !== 'subset') || events[0] || null;
+  const activeEvent = routeEvent || selectedEvent || defaultEvent;
 
   function toggleGroup(section) {
     setCollapsed(prev => {
@@ -56,10 +64,6 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
       })
       .catch(() => {});
   }, []);
@@ -82,9 +86,21 @@ export function Layout() {
     navigate('/');
   }
 
+  function rememberCurrentRouteEvent() {
+    if (routeEvent) setSelectedEventId(routeEvent.id);
+  }
+
+  function setActiveEvent(nextEvent) {
+    const resolved = typeof nextEvent === 'function' ? nextEvent(activeEvent) : nextEvent;
+    setSelectedEventId(resolved?.id ?? null);
+  }
+
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEventId(ev.id);
     setSwitcherOpen(false);
+    if (routeEventSection) {
+      navigate(`/events/${ev.id}/${routeEventSection}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();
@@ -269,7 +285,14 @@ export function Layout() {
                     to={to}
                     title={item.label}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                    onClick={(e) => { if (disabled) e.preventDefault(); else setSidebarOpen(false); }}
+                    onClick={(e) => {
+                      if (disabled) {
+                        e.preventDefault();
+                      } else {
+                        rememberCurrentRouteEvent();
+                        setSidebarOpen(false);
+                      }
+                    }}
                     style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : {}}
                   >
                     <item.icon />
@@ -421,7 +444,7 @@ export function Layout() {
             <div className="profile-sheet-actions">
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/settings'); }}
               >
                 <span className="ps-icon">⚙️</span>
                 <span className="ps-label">Settings</span>
@@ -429,7 +452,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/guide'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/guide'); }}
               >
                 <span className="ps-icon">📖</span>
                 <span className="ps-label">Feature Guide</span>
@@ -437,7 +460,7 @@ export function Layout() {
               </button>
               <button
                 className="profile-sheet-row"
-                onClick={() => { setProfileOpen(false); navigate('/support'); }}
+                onClick={() => { rememberCurrentRouteEvent(); setProfileOpen(false); navigate('/support'); }}
               >
                 <span className="ps-icon">💬</span>
                 <span className="ps-label">Support</span>
@@ -474,7 +497,7 @@ export function Layout() {
                         <button
                           key={item.label}
                           className={`bottom-sheet-row ${active ? 'active' : ''}`}
-                          onClick={() => { if (!disabled) { setMoreOpen(false); navigate(item.to); } }}
+                          onClick={() => { if (!disabled) { rememberCurrentRouteEvent(); setMoreOpen(false); navigate(item.to); } }}
                           disabled={disabled}
                         >
                           <span className="bottom-sheet-row-icon">{item.icon}</span>
