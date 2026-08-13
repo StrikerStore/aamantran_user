@@ -628,16 +628,34 @@ export default function GenerateInvitation() {
     }));
   }
 
+  function venueWritePayload(source) {
+    const payload = {
+      name: source.name,
+      address: source.address || '',
+      mapUrl: source.mapUrl || '',
+      city: source.city || '',
+      state: source.state || '',
+    };
+    if (source.lat != null && source.lat !== '') payload.lat = source.lat;
+    if (source.lng != null && source.lng !== '') payload.lng = source.lng;
+    return payload;
+  }
+
   async function saveVenue() {
-    if (!venueForm.name) { toast('Venue name is required', 'error'); return; }
+    // The inline form binds to `editingVenue` while editing and `venueForm` when adding.
+    // Submitting venueForm during edit either blocked the save (empty add form) or
+    // overwrote the venue with leftover add-form values.
+    const source = editingVenue || venueForm;
+    if (!String(source.name || '').trim()) { toast('Venue name is required', 'error'); return; }
     setSavingVenue(true);
     try {
+      const payload = venueWritePayload(source);
       if (editingVenue) {
-        const r = await api.venues.update(id, editingVenue.id, venueForm);
+        const r = await api.venues.update(id, editingVenue.id, payload);
         setVenues(v => v.map(x => x.id === editingVenue.id ? r.venue : x));
         setEditingVenue(null);
       } else {
-        const r = await api.venues.add(id, venueForm);
+        const r = await api.venues.add(id, payload);
         setVenues(v => [...v, r.venue]);
       }
       setVenueForm({ name: '', address: '', mapUrl: '', city: '', state: '' });
@@ -823,7 +841,13 @@ export default function GenerateInvitation() {
       if (r.event.pairedEvent) {
         setPartialEnabled(true);
         setPartialSlug(r.event.pairedEvent.slug);
-        setPartialFnIds(new Set((r.event.pairedEvent.functions || []).map(f => f.id)));
+        // pairedFunctionIds are the MAIN event's function IDs. pairedEvent.functions
+        // use different copy IDs — storing those unchecks every partial-invite box
+        // and later updatePartial/publish calls send IDs that do not match.
+        const mainIds = r.event.pairedEvent.pairedFunctionIds;
+        if (Array.isArray(mainIds) && mainIds.length > 0) {
+          setPartialFnIds(new Set(mainIds));
+        }
       }
       setShowCelebration(true);
     } catch (err) {
