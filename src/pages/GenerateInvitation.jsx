@@ -590,6 +590,16 @@ export default function GenerateInvitation() {
         if (fn._isNew) {
           const r = await api.functions.add(id, payload);
           setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
+          // Keep partial-invite ticks when the temp _cid becomes a real id.
+          // Without this, Save All unchecks newly added ceremonies and publish
+          // silently drops them from the guest-facing partial invite.
+          setPartialFnIds(prev => {
+            if (!prev.has(fn._cid)) return prev;
+            const next = new Set(prev);
+            next.delete(fn._cid);
+            if (r.function.id) next.add(r.function.id);
+            return next;
+          });
         } else {
           const r = await api.functions.update(id, fn.id, payload);
           setFunctions(prev => prev.map(f => f.id === fn.id ? r.function : f));
@@ -612,7 +622,12 @@ export default function GenerateInvitation() {
     try {
       if (!fn._isNew) await api.functions.remove(id, fn.id);
       setFunctions(f => f.filter(x => x.id !== fn.id && x._cid !== fn._cid));
-      setPartialFnIds(prev => { const next = new Set(prev); next.delete(fn.id); return next; });
+      setPartialFnIds(prev => {
+        const next = new Set(prev);
+        if (fn.id) next.delete(fn.id);
+        if (fn._cid) next.delete(fn._cid);
+        return next;
+      });
       setDeletingFn(null);
     } catch (err) {
       toast(err.message, 'error');
@@ -794,27 +809,27 @@ export default function GenerateInvitation() {
 
   // ── PUBLISH ──────────────────────────────────────────────
   async function handlePublish() {
-    if (partialEnabled && partialFnIds.size === 0) {
-      toast('Select at least one function for the partial invite, or disable partial invite.', 'error');
+    const selectedIds = partialEnabled
+      ? functions
+          .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
+          .map((f) => f.id)
+      : [];
+    if (partialEnabled && selectedIds.length === 0) {
+      toast('Select at least one saved function for the partial invite, or disable partial invite.', 'error');
       return;
     }
     setPublishing(true);
     try {
       // If a paired invite already exists, push current partial selection first.
       if (event.invitePairId && partialEnabled) {
-        const selectedIds = functions
-          .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
-          .map((f) => f.id);
-        if (selectedIds.length > 0) {
-          await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
-        }
+        await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
       }
 
       const body = {
         slugFull: slugFull || undefined,
         createPartial: partialEnabled && !event.invitePairId,
         partialSlug: partialEnabled ? partialSlug : undefined,
-        partialFunctionIds: partialEnabled ? [...partialFnIds].filter(k => !String(k).startsWith('new-')) : undefined,
+        partialFunctionIds: partialEnabled ? selectedIds : undefined,
       };
       await api.events.publish(id, body);
       // Reload event to get updated slug, inviteScope, pairedEvent
