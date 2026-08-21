@@ -47,3 +47,30 @@ export function getUserInfo() {
   const t = getToken();
   return t ? decodeJWT(t) : null;
 }
+
+/**
+ * Adopt a session handed over in the URL fragment (`#session=<jwt>`), used by
+ * the admin Testing page to open this app already signed in as the master
+ * testing account.
+ *
+ * The fragment is used rather than a query string because it is never sent to
+ * the server and never appears in a Referer header. It is stripped from the URL
+ * immediately, and stored in sessionStorage so it dies with the tab.
+ *
+ * Only accepts an unexpired token; anything else is discarded silently.
+ * Must run before React renders, or RequireAuth will redirect first.
+ */
+export function consumeSessionHandoff() {
+  const hash = window.location.hash || '';
+  const match = hash.match(/(?:^#|&)session=([^&]+)/);
+  if (!match) return false;
+
+  const token = decodeURIComponent(match[1]);
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  const payload = decodeJWT(token);
+  if (!payload || isExpired(token) || payload.role !== 'user') return false;
+
+  saveToken(token, false); // sessionStorage — ends with the tab
+  return true;
+}
