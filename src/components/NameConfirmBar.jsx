@@ -1,28 +1,20 @@
-import { useState } from 'react';
-import { api } from '../lib/api';
-import { useToast } from './ui/Toast';
 import { Modal } from './ui/Modal';
 import './NameConfirmBar.css';
 
 /**
- * NameConfirmBar — shown in People section of Generate/Edit invitation forms.
+ * NameConfirmBar — status banner shown in the People section of the build panel.
+ *
+ * Confirming is no longer done here: the "Next: Venues" button owns that gate and
+ * raises <ConfirmNamesModal /> itself. This component only reports the state.
  *
  * Props:
- *   event       — full event object
- *   onConfirmed — callback when names are confirmed (receives updated event)
- *   people      — current people list
+ *   event  — full event object
+ *   people — current people list
  */
-export function NameConfirmBar({ event, onConfirmed, people = [] }) {
-  const toast = useToast();
-  const [loading, setLoading] = useState(false);
-  const [showDialog, setShowDialog] = useState(false);
-
+export function NameConfirmBar({ event, people = [] }) {
   if (!event) return null;
 
-  const frozen = event.namesAreFrozen;
-  const hasNames = people.length > 0;
-
-  if (frozen) {
+  if (event.namesAreFrozen) {
     return (
       <div className="name-confirm-bar frozen">
         <span className="ncb-icon">🔒</span>
@@ -34,73 +26,63 @@ export function NameConfirmBar({ event, onConfirmed, people = [] }) {
     );
   }
 
+  const hasNames = people.length > 0;
+
   return (
-    <>
-      <div className={`name-confirm-bar ${hasNames ? 'pending' : 'empty'}`}>
-        <span className="ncb-icon">{hasNames ? '⚠️' : '👤'}</span>
-        <div className="ncb-text">
-          <strong>{hasNames ? 'Confirm your names' : 'Add people first'}</strong>
-          <span>
-            {hasNames
-              ? 'Once confirmed, names are permanently locked. Publishing requires confirmation.'
-              : 'Add at least one person before confirming names.'}
-          </span>
-        </div>
-        <button
-          className="btn btn-primary btn-sm"
-          disabled={!hasNames}
-          onClick={() => setShowDialog(true)}
-        >
-          Confirm Names
-        </button>
+    <div className={`name-confirm-bar ${hasNames ? 'pending' : 'empty'}`}>
+      <span className="ncb-icon">{hasNames ? '⚠️' : '👤'}</span>
+      <div className="ncb-text">
+        <strong>{hasNames ? 'Check your names' : 'Add people first'}</strong>
+        <span>
+          {hasNames
+            ? 'Names lock permanently when you continue to Venues.'
+            : 'Fill in the names below, then continue to Venues to lock them in.'}
+        </span>
       </div>
-
-      {showDialog && (
-        <Modal
-          title="Confirm Names"
-          onClose={() => setShowDialog(false)}
-          footer={
-            <>
-              <button className="btn btn-secondary" onClick={() => setShowDialog(false)}>Cancel</button>
-              <button className="btn btn-primary" disabled={loading} onClick={handleConfirm}>
-                {loading ? <span className="btn-spinner" /> : null}
-                Yes, Confirm Names
-              </button>
-            </>
-          }
-        >
-          <div style={{ padding: '8px 0' }}>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.6 }}>
-              You are about to confirm the following names. <strong>This cannot be undone</strong> — names will be permanently locked.
-            </p>
-            <div className="ncb-names-list">
-              {people.map(p => (
-                <div key={p.id} className="ncb-name-row">
-                  <span className="ncb-name-role">{p.role}</span>
-                  <span className="ncb-name-value">{p.name}</span>
-                </div>
-              ))}
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '16px' }}>
-              After confirmation, you can still edit all other details. To change names, raise a support ticket.
-            </p>
-          </div>
-        </Modal>
-      )}
-    </>
+    </div>
   );
+}
 
-  async function handleConfirm() {
-    setLoading(true);
-    try {
-      await api.events.confirmNames(event.id);
-      toast('Names confirmed and locked!', 'success');
-      setShowDialog(false);
-      onConfirmed?.({ ...event, namesAreFrozen: true });
-    } catch (err) {
-      toast(err.message || 'Failed to confirm names', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }
+/**
+ * ConfirmNamesModal — final read-through before names are permanently locked.
+ *
+ * Props:
+ *   rows      — [{ key, role, name }] to display (draft values, not yet saved)
+ *   loading   — disables the confirm button while saving
+ *   onCancel  — close without confirming
+ *   onConfirm — save people, freeze names, then advance
+ */
+export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConfirm }) {
+  return (
+    <Modal
+      title="Confirm Names"
+      onClose={onCancel}
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onCancel}>Go back</button>
+          <button className="btn btn-primary" disabled={loading} onClick={onConfirm}>
+            {loading ? <span className="btn-spinner" /> : null}
+            Confirm &amp; Continue
+          </button>
+        </>
+      }
+    >
+      <div style={{ padding: '8px 0' }}>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.6 }}>
+          You are about to confirm the following names. <strong>This cannot be undone</strong> — names will be permanently locked.
+        </p>
+        <div className="ncb-names-list">
+          {rows.map(r => (
+            <div key={r.key} className="ncb-name-row">
+              <span className="ncb-name-role">{r.role}</span>
+              <span className="ncb-name-value">{r.name}</span>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '16px' }}>
+          After confirmation, you can still edit all other details. To change names, raise a support ticket.
+        </p>
+      </div>
+    </Modal>
+  );
 }

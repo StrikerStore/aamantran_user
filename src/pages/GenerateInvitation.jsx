@@ -5,7 +5,7 @@ import { Select } from '../components/ui/Select';
 import { parseGoogleMapsUrl, formatDate } from '../lib/utils';
 import { toHtmlDateInputValue } from '../utils/dateNormalize';
 import { getInviteBaseUrl } from '../lib/config';
-import { NameConfirmBar } from '../components/NameConfirmBar';
+import { NameConfirmBar, ConfirmNamesModal } from '../components/NameConfirmBar';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import { PageSkeleton } from '../components/ui/Skeleton';
@@ -275,6 +275,9 @@ export default function GenerateInvitation() {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('people');
+  // Wizard gating: index of the furthest tab the user may open. Tabs past it are locked.
+  const [unlockedIdx, setUnlockedIdx] = useState(0);
+  const [confirmingNames, setConfirmingNames] = useState(false);
   // Collapsing tab header: shrink to just the active tab once scrolled past it
   const [tabsCondensed, setTabsCondensed] = useState(false);
   const [tabsExpanded, setTabsExpanded] = useState(false);
@@ -452,6 +455,59 @@ export default function GenerateInvitation() {
     setPeopleInputs(next);
   }, [hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole]);
 
+  // ── Wizard gating ────────────────────────────────────────
+  // The furthest reachable tab is derived from what is already saved, so a
+  // returning user picks up where they left off without any server state.
+  const derivedUnlockedIdx = useMemo(() => {
+    if (!event) return 0;
+    if (event.isPublished) return SECTIONS.length - 1;
+
+    // Tabs that refuse to hand over the baton until they are filled in.
+    const blocked = {
+      people: !(hasSchemaPeopleRoles
+        ? schemaPeopleRoles.every(r => !r.required || String(peopleByRole[r.role]?.name || '').trim())
+        : people.length > 0),
+      functions: !(functions.length > 0 && functions.every(f => f.name && f.date && !f._isNew)),
+    };
+    let blockingLimit = 0;
+    while (blockingLimit < SECTIONS.length - 1 && !blocked[SECTIONS[blockingLimit].id]) blockingLimit++;
+
+    // Reveal one tab at a time: stop just past the last tab that holds data,
+    // otherwise every optional tab would unlock at once.
+    const hasContent = {
+      people: !blocked.people,
+      venues: venues.length > 0,
+      functions: !blocked.functions,
+      media: media.length > 0,
+      custom: customFields.some(f => String(f.fieldValue || '').trim()),
+      social: !!(instagramUrl || socialYoutubeUrl || websiteUrl),
+      language: false,
+      publish: false,
+    };
+    let lastFilled = -1;
+    SECTIONS.forEach((s, i) => { if (hasContent[s.id]) lastFilled = i; });
+
+    return Math.min(blockingLimit, lastFilled + 1);
+  }, [event, hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole, people, functions,
+      venues, media, customFields, instagramUrl, socialYoutubeUrl, websiteUrl]);
+
+  const progressKey = id ? `aamantran:buildProgress:${id}` : null;
+
+  // Raise the frontier only — never lower it, or adding a blank ceremony card
+  // would re-lock the tabs behind the user mid-edit.
+  useEffect(() => {
+    let stored = 0;
+    if (progressKey) {
+      try { stored = Number(localStorage.getItem(progressKey)) || 0; } catch { /* private mode */ }
+    }
+    setUnlockedIdx(prev => Math.max(prev, derivedUnlockedIdx, stored));
+  }, [derivedUnlockedIdx, progressKey]);
+
+  useEffect(() => {
+    if (!progressKey || unlockedIdx <= 0) return;
+    try { localStorage.setItem(progressKey, String(unlockedIdx)); } catch { /* private mode */ }
+  }, [progressKey, unlockedIdx]);
+
   // Watch a sentinel above the tab strip: once it scrolls under the topbar the
   // header condenses to the active tab; scrolling back to the top expands it.
   useEffect(() => {
@@ -474,13 +530,91 @@ export default function GenerateInvitation() {
 
   const frozen = event.namesAreFrozen;
 
+  // ── WIZARD NAVIGATION ───────────────────────────────────
+  const activeIdx = SECTIONS.findIndex(s => s.id === activeSection);
+  const nextSection = SECTIONS[activeIdx + 1];
+
+  // Names the user is about to lock in — drafts, since nothing is saved yet.
+  const draftNameRows = hasSchemaPeopleRoles
+    ? schemaPeopleRoles
+        .filter(r => String(peopleInputs[r.role] || '').trim())
+        .map(r => ({ key: r.role, role: r.label, name: String(peopleInputs[r.role]).trim() }))
+    : people.map(p => ({ key: p.id, role: p.role, name: p.name }));
+
+  // Only People and Ceremonies hold the user back; the rest are optional.
+  const nextDisabled =
+    activeSection === 'people'
+      ? (hasSchemaPeopleRoles
+          ? schemaPeopleRoles.some(r => r.required && !String(peopleInputs[r.role] || '').trim())
+          : people.length === 0)
+      : activeSection === 'functions'
+        ? functions.length === 0 || functions.some(f => !f.name || !f.date)
+        : false;
+
+  const savingActive = savingPerson || savingAllFns || savingVenue || savingFields
+    || savingGuestFeatures || savingLang;
+
+  function goToSection(sectionId) {
+    const idx = SECTIONS.findIndex(s => s.id === sectionId);
+    if (idx < 0 || idx > unlockedIdx) return;
+    setActiveSection(sectionId);
+    setTabsExpanded(false);
+  }
+
+  function advanceTo(sectionId) {
+    const idx = SECTIONS.findIndex(s => s.id === sectionId);
+    if (idx < 0) return;
+    setUnlockedIdx(prev => Math.max(prev, idx));
+    setActiveSection(sectionId);
+    setTabsExpanded(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /** "Next" is the save button: persist this tab, then reveal the following one. */
+  async function handleNext() {
+    if (!nextSection) return;
+
+    // People is gated by the permanent name freeze — confirm before moving on.
+    if (activeSection === 'people' && !frozen) { setConfirmingNames(true); return; }
+
+    let ok = true;
+    switch (activeSection) {
+      // A half-typed venue would otherwise be lost on the way out.
+      case 'venues':    if (editingVenue || venueForm.name.trim()) ok = await saveVenue(); break;
+      case 'functions': ok = await saveAllFunctions(); break;
+      case 'custom':    ok = await saveCustomFields(); break;
+      case 'social':    ok = await saveGuestFeatures(); break;
+      case 'language':  ok = await saveLanguage(); break;
+      // People (already frozen) and Media persist as you go — nothing to flush.
+      default: break;
+    }
+    if (ok) advanceTo(nextSection.id);
+  }
+
+  async function confirmNamesAndAdvance() {
+    if (!(await savePeopleBySchema())) return;
+    setSavingPerson(true);
+    try {
+      await api.events.confirmNames(event.id);
+      setEvent(e => ({ ...e, namesAreFrozen: true }));
+      toast('Names confirmed and locked!', 'success');
+      setConfirmingNames(false);
+      advanceTo('venues');
+    } catch (err) {
+      toast(err.message || 'Failed to confirm names', 'error');
+    } finally {
+      setSavingPerson(false);
+    }
+  }
+
   // ── PEOPLE ──────────────────────────────────────────────
+  /** @returns {Promise<boolean>} true when everything persisted */
   async function savePeopleBySchema() {
-    if (!hasSchemaPeopleRoles) return;
+    if (!hasSchemaPeopleRoles) return true;
     const missingRequired = schemaPeopleRoles.find((r) => r.required && !String(peopleInputs[r.role] || '').trim());
     if (missingRequired) {
       toast(`"${missingRequired.label}" is required`, 'error');
-      return;
+      return false;
     }
     setSavingPerson(true);
     try {
@@ -510,8 +644,10 @@ export default function GenerateInvitation() {
       }
       setPeople(nextPeople);
       toast('People saved!', 'success');
+      return true;
     } catch (err) {
       toast(err.message, 'error');
+      return false;
     } finally {
       setSavingPerson(false);
     }
@@ -543,41 +679,13 @@ export default function GenerateInvitation() {
     });
   }
 
-  async function saveFn(fn) {
-    if (!fn.name || !fn.date) { toast('Name and date are required', 'error'); return; }
-    const key = fn._cid || fn.id;
-    const sortOrder = Math.max(0, functions.findIndex(f => (f._cid || f.id) === key));
-    setSavingFnId(key);
-    try {
-      const payload = { name: fn.name, date: fn.date, startTime: fn.startTime || undefined, venueId: fn.venueId || undefined, venueName: fn.venueName || undefined, venueAddress: fn.venueAddress || undefined, venueMapUrl: fn.venueMapUrl || undefined, dressCode: fn.dressCode || undefined, notes: fn.notes || undefined, sortOrder };
-      if (fn._isNew) {
-        const r = await api.functions.add(id, payload);
-        setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
-        // Transition partial selection from _cid to real id
-        setPartialFnIds(prev => {
-          if (!prev.has(fn._cid)) return prev;
-          const next = new Set(prev);
-          next.delete(fn._cid);
-          if (r.function.id) next.add(r.function.id);
-          return next;
-        });
-      } else {
-        const r = await api.functions.update(id, fn.id, payload);
-        setFunctions(prev => prev.map(f => f.id === fn.id ? r.function : f));
-      }
-    } catch (err) {
-      throw err; // re-throw so saveAllFunctions can collect errors
-    } finally {
-      setSavingFnId(null);
-    }
-  }
-
+  /** @returns {Promise<boolean>} true when every ceremony persisted */
   async function saveAllFunctions() {
     // Validate all functions first
     const invalid = functions.filter(fn => !fn.name || !fn.date);
     if (invalid.length > 0) {
       toast(`${invalid.length} function(s) are missing a name or date`, 'error');
-      return;
+      return false;
     }
     setSavingAllFns(true);
     const errors = [];
@@ -590,11 +698,19 @@ export default function GenerateInvitation() {
         if (fn._isNew) {
           const r = await api.functions.add(id, payload);
           setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
+          // Carry the partial-invite tick over from the client-side _cid to the real id
+          setPartialFnIds(prev => {
+            if (!prev.has(fn._cid)) return prev;
+            const next = new Set(prev);
+            next.delete(fn._cid);
+            if (r.function.id) next.add(r.function.id);
+            return next;
+          });
         } else {
           const r = await api.functions.update(id, fn.id, payload);
           setFunctions(prev => prev.map(f => f.id === fn.id ? r.function : f));
         }
-      } catch (err) {
+      } catch {
         errors.push(fn.name || 'Untitled');
       } finally {
         setSavingFnId(null);
@@ -603,9 +719,10 @@ export default function GenerateInvitation() {
     setSavingAllFns(false);
     if (errors.length > 0) {
       toast(`Failed to save: ${errors.join(', ')}`, 'error');
-    } else {
-      toast('All functions saved!', 'success');
+      return false;
     }
+    toast('All functions saved!', 'success');
+    return true;
   }
 
   async function removeFn(fn) {
@@ -628,12 +745,16 @@ export default function GenerateInvitation() {
     }));
   }
 
+  /** @returns {Promise<boolean>} true when the venue persisted */
   async function saveVenue() {
-    if (!venueForm.name) { toast('Venue name is required', 'error'); return; }
+    if (editingVenue ? !editingVenue.name : !venueForm.name) {
+      toast('Venue name is required', 'error');
+      return false;
+    }
     setSavingVenue(true);
     try {
       if (editingVenue) {
-        const r = await api.venues.update(id, editingVenue.id, venueForm);
+        const r = await api.venues.update(id, editingVenue.id, editingVenue);
         setVenues(v => v.map(x => x.id === editingVenue.id ? r.venue : x));
         setEditingVenue(null);
       } else {
@@ -642,8 +763,10 @@ export default function GenerateInvitation() {
       }
       setVenueForm({ name: '', address: '', mapUrl: '', city: '', state: '' });
       toast('Saved!', 'success');
+      return true;
     } catch (err) {
       toast(err.message, 'error');
+      return false;
     } finally {
       setSavingVenue(false);
     }
@@ -721,6 +844,7 @@ export default function GenerateInvitation() {
     });
   }
 
+  /** @returns {Promise<boolean>} true when the fields persisted */
   async function saveCustomFields() {
     setSavingFields(true);
     try {
@@ -732,10 +856,7 @@ export default function GenerateInvitation() {
           fieldType: field.type || 'text',
         };
       });
-      if (!rows.length) {
-        toast('No custom fields on this template.', 'success');
-        return;
-      }
+      if (!rows.length) return true;
       const r = await api.customFields.upsert(id, { fields: rows });
       if (Array.isArray(r.fields)) {
         setCustomFields(r.fields.map((f) => ({
@@ -745,8 +866,10 @@ export default function GenerateInvitation() {
         })));
       }
       toast('Custom fields saved!', 'success');
+      return true;
     } catch (err) {
       toast(err.message, 'error');
+      return false;
     } finally {
       setSavingFields(false);
     }
@@ -759,8 +882,10 @@ export default function GenerateInvitation() {
       await api.events.update(id, { language });
       setEvent(e => ({ ...e, language }));
       toast('Language saved!', 'success');
+      return true;
     } catch (err) {
       toast(err.message, 'error');
+      return false;
     } finally {
       setSavingLang(false);
     }
@@ -785,8 +910,10 @@ export default function GenerateInvitation() {
         guestNotesEnabled,
       }));
       toast('Links and guest options saved!', 'success');
+      return true;
     } catch (err) {
       toast(err.message, 'error');
+      return false;
     } finally {
       setSavingGuestFeatures(false);
     }
@@ -946,24 +1073,29 @@ export default function GenerateInvitation() {
 
         {/* Section tabs */}
         <div className="section-tabs">
-          {SECTIONS.map(s => (
-            <button
-              key={s.id}
-              className={`section-tab ${activeSection === s.id ? 'active' : ''} ${sectionComplete[s.id] ? 'done' : ''}`}
-              onClick={() => {
-                // In the condensed state, tapping the lone active tab reveals the rest
-                if (tabsCondensed && !tabsExpanded && activeSection === s.id) { setTabsExpanded(true); return; }
-                setActiveSection(s.id);
-                setTabsExpanded(false);
-              }}
-            >
-              {s.label}
-              {sectionComplete[s.id] && <span className="tab-check">✓</span>}
-              {!sectionComplete[s.id] && (s.id === 'people' || s.id === 'functions') && (
-                <span className="tab-required">Required</span>
-              )}
-            </button>
-          ))}
+          {SECTIONS.map((s, i) => {
+            const locked = i > unlockedIdx;
+            return (
+              <button
+                key={s.id}
+                className={`section-tab ${activeSection === s.id ? 'active' : ''} ${sectionComplete[s.id] ? 'done' : ''} ${locked ? 'locked' : ''}`}
+                disabled={locked}
+                title={locked ? 'Finish the steps before this one to unlock it' : undefined}
+                onClick={() => {
+                  // In the condensed state, tapping the lone active tab reveals the rest
+                  if (tabsCondensed && !tabsExpanded && activeSection === s.id) { setTabsExpanded(true); return; }
+                  goToSection(s.id);
+                }}
+              >
+                {s.label}
+                {locked && <span className="tab-lock">🔒</span>}
+                {!locked && sectionComplete[s.id] && <span className="tab-check">✓</span>}
+                {!locked && !sectionComplete[s.id] && (s.id === 'people' || s.id === 'functions') && (
+                  <span className="tab-required">Required</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -972,11 +1104,7 @@ export default function GenerateInvitation() {
         {/* ── PEOPLE ── */}
         {activeSection === 'people' && (
           <div className="card">
-            <NameConfirmBar
-              event={event}
-              onConfirmed={updated => setEvent(updated)}
-              people={people}
-            />
+            <NameConfirmBar event={event} people={people} />
 
             <div className="section-header">
               <div className="section-title">People</div>
@@ -1059,12 +1187,6 @@ export default function GenerateInvitation() {
                     </div>
                   );
                 })}
-                <div className="inline-form-actions">
-                  <button className="btn btn-primary btn-sm" disabled={savingPerson} onClick={savePeopleBySchema}>
-                    {savingPerson ? <span className="btn-spinner" /> : null}
-                    Save People
-                  </button>
-                </div>
               </div>
             )}
 
@@ -1093,7 +1215,7 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add the bride, groom, and family members.</div>
               </div>
             )}
-          <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
+          <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1114,17 +1236,6 @@ export default function GenerateInvitation() {
                   </div>
                 )}
               </div>
-              {functions.length > 0 && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  disabled={savingAllFns}
-                  onClick={saveAllFunctions}
-                  title="Save all ceremonies at once"
-                >
-                  {savingAllFns ? <span className="btn-spinner" /> : '💾'}
-                  Save All Functions
-                </button>
-              )}
             </div>
 
             {functions.length === 0 ? (
@@ -1177,7 +1288,7 @@ export default function GenerateInvitation() {
                         {venues.length === 0 ? (
                           <div className="fn-venue-empty">
                             No venues added yet —{' '}
-                            <button className="btn-link" onClick={() => setActiveSection('venues')}>add a venue first</button>
+                            <button className="btn-link" onClick={() => goToSection('venues')}>add a venue first</button>
                           </div>
                         ) : (
                           <Select
@@ -1260,7 +1371,25 @@ export default function GenerateInvitation() {
                 })}
               </div>
             )}
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
+            <SectionNav
+              sections={SECTIONS}
+              activeSection={activeSection}
+              onBack={goToSection}
+              onNext={handleNext}
+              nextDisabled={nextDisabled}
+              saving={savingActive}
+              extra={functions.length > 0 && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  disabled={savingAllFns || nextDisabled}
+                  onClick={saveAllFunctions}
+                  title="Save all ceremonies without leaving this step"
+                >
+                  {savingAllFns ? <span className="btn-spinner" /> : '💾'}
+                  Save All
+                </button>
+              )}
+            />
           </div>
         )}
 
@@ -1341,7 +1470,7 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add venue(s) for your ceremonies.</div>
               </div>
             )}
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1458,7 +1587,7 @@ export default function GenerateInvitation() {
                 )}
               </>
             )}
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1519,13 +1648,9 @@ export default function GenerateInvitation() {
                     </div>
                   );
                 })}
-                <button className="btn btn-primary" disabled={savingFields} onClick={saveCustomFields}>
-                  {savingFields ? <span className="btn-spinner" /> : null}
-                  Save Custom Fields
-                </button>
               </>
             )}
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1581,11 +1706,7 @@ export default function GenerateInvitation() {
                 Show guest notes / wishes on invitation
               </label>
             </div>
-            <button className="btn btn-primary" disabled={savingGuestFeatures} onClick={saveGuestFeatures}>
-              {savingGuestFeatures ? <span className="btn-spinner" /> : null}
-              Save links & options
-            </button>
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1606,11 +1727,7 @@ export default function GenerateInvitation() {
                 </label>
               ))}
             </div>
-            <button className="btn btn-primary" style={{ marginTop: 20 }} disabled={savingLang} onClick={saveLanguage}>
-              {savingLang ? <span className="btn-spinner" /> : null}
-              Save Language
-            </button>
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onNavigate={setActiveSection} />
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1622,9 +1739,9 @@ export default function GenerateInvitation() {
 
               {/* Pre-flight checklist */}
               <div className="preflight-list">
-                <PreflyItem ok={people.length > 0} label="At least one person added" onClick={!people.length ? () => setActiveSection('people') : null} />
-                <PreflyItem ok={frozen} label="Names confirmed" onClick={!frozen ? () => setActiveSection('people') : null} />
-                <PreflyItem ok={functions.length > 0} label="At least one ceremony added" onClick={!functions.length ? () => setActiveSection('functions') : null} />
+                <PreflyItem ok={people.length > 0} label="At least one person added" onClick={!people.length ? () => goToSection('people') : null} />
+                <PreflyItem ok={frozen} label="Names confirmed" onClick={!frozen ? () => goToSection('people') : null} />
+                <PreflyItem ok={functions.length > 0} label="At least one ceremony added" onClick={!functions.length ? () => goToSection('functions') : null} />
                 <PreflyItem ok={event.isPublished} label="Invitation published" />
               </div>
 
@@ -1798,7 +1915,7 @@ export default function GenerateInvitation() {
 
               {!frozen && (
                 <div className="publish-note">
-                  ⚠️ Confirm your names in <button className="btn-link" onClick={() => setActiveSection('people')}>People & Names</button> before publishing.
+                  ⚠️ Confirm your names in <button className="btn-link" onClick={() => goToSection('people')}>People & Names</button> before publishing.
                 </div>
               )}
 
@@ -1845,6 +1962,14 @@ export default function GenerateInvitation() {
       </div>
 
       {/* Confirm modals */}
+      {confirmingNames && (
+        <ConfirmNamesModal
+          rows={draftNameRows}
+          loading={savingPerson}
+          onCancel={() => setConfirmingNames(false)}
+          onConfirm={confirmNamesAndAdvance}
+        />
+      )}
       {deletingPerson && (
         <ConfirmModal
           title="Remove Person"
@@ -1949,20 +2074,33 @@ function PreflyItem({ ok, label, onClick }) {
   );
 }
 
-function SectionNav({ sections, activeSection, onNavigate }) {
+/**
+ * Footer nav. "Next" doubles as the tab's save button — it persists the section
+ * and only then unlocks the following one. `extra` sits just left of it.
+ */
+function SectionNav({ sections, activeSection, onBack, onNext, nextDisabled, saving, extra }) {
   const idx = sections.findIndex(s => s.id === activeSection);
   const prev = sections[idx - 1];
   const next = sections[idx + 1];
   return (
     <div className="section-nav-footer">
       {prev
-        ? <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(prev.id)}>← {prev.short}</button>
+        ? <button className="btn btn-ghost btn-sm" onClick={() => onBack(prev.id)}>← {prev.short}</button>
         : <span />}
-      {next && (
-        <button className="btn btn-primary btn-sm" onClick={() => onNavigate(next.id)}>
-          Next: {next.short} →
-        </button>
-      )}
+      <div className="section-nav-actions">
+        {extra}
+        {next && (
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={nextDisabled || saving}
+            onClick={onNext}
+            title={nextDisabled ? 'Fill in the required fields to continue' : undefined}
+          >
+            {saving ? <span className="btn-spinner" /> : null}
+            Next: {next.short} →
+          </button>
+        )}
+      </div>
     </div>
   );
 }
