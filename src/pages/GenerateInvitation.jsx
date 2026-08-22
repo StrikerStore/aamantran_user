@@ -310,6 +310,7 @@ export default function GenerateInvitation() {
 
   // Social links + RSVP / guest notes toggles (template supplies icons; URLs from here)
   const [instagramUrl, setInstagramUrl] = useState('');
+  const [instagramHashtag, setInstagramHashtag] = useState('');
   const [socialYoutubeUrl, setSocialYoutubeUrl] = useState('');
   const [rsvpEnabled, setRsvpEnabled] = useState(true);
   const [guestNotesEnabled, setGuestNotesEnabled] = useState(true);
@@ -344,6 +345,7 @@ export default function GenerateInvitation() {
       setMedia(ev.media || []);
       setLanguage(ev.language || 'en');
       setInstagramUrl(ev.instagramUrl || '');
+      setInstagramHashtag(ev.instagramHashtag || '');
       setSocialYoutubeUrl(ev.socialYoutubeUrl || '');
       setRsvpEnabled(ev.rsvpEnabled !== false);
       setGuestNotesEnabled(ev.guestNotesEnabled !== false);
@@ -504,7 +506,7 @@ export default function GenerateInvitation() {
       functions: !blocked.functions,
       media: media.length > 0,
       custom: customFields.some(f => String(f.fieldValue || '').trim()),
-      social: !!(instagramUrl || socialYoutubeUrl),
+      social: !!(instagramUrl || instagramHashtag || socialYoutubeUrl),
       language: false,
       publish: false,
     };
@@ -513,7 +515,7 @@ export default function GenerateInvitation() {
 
     return Math.min(blockingLimit, lastFilled + 1);
   }, [event, hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole, people, functions,
-      venues, media, customFields, instagramUrl, socialYoutubeUrl]);
+      venues, media, customFields, instagramUrl, instagramHashtag, socialYoutubeUrl]);
 
   const progressKey = id ? `aamantran:buildProgress:${id}` : null;
 
@@ -959,6 +961,7 @@ export default function GenerateInvitation() {
     try {
       await api.events.update(id, {
         instagramUrl: instagramUrl.trim() || null,
+        instagramHashtag: instagramHashtag.trim().replace(/^#+/, '') || null,
         socialYoutubeUrl: socialYoutubeUrl.trim() || null,
         rsvpEnabled,
         guestNotesEnabled,
@@ -966,6 +969,7 @@ export default function GenerateInvitation() {
       setEvent((e) => ({
         ...e,
         instagramUrl: instagramUrl.trim() || null,
+        instagramHashtag: instagramHashtag.trim().replace(/^#+/, '') || null,
         socialYoutubeUrl: socialYoutubeUrl.trim() || null,
         rsvpEnabled,
         guestNotesEnabled,
@@ -1738,6 +1742,18 @@ export default function GenerateInvitation() {
                 value={instagramUrl}
                 onChange={(e) => setInstagramUrl(e.target.value)}
               />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Instagram Hashtag</label>
+              <input
+                className="form-input"
+                placeholder="e.g. PriyaWedsRahul"
+                value={instagramHashtag}
+                onChange={(e) => setInstagramHashtag(e.target.value)}
+              />
+              <div className="form-hint">
+                Shown on the invite as <strong>#{instagramHashtag.trim().replace(/^#+/, '') || 'PriyaWedsRahul'}</strong> — type it without the #.
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">YouTube URL</label>
