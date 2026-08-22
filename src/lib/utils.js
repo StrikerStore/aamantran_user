@@ -54,6 +54,18 @@ export function slugify(str) {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * Build a WhatsApp share link.
+ *
+ * Deliberately NOT wa.me: that shortlink 302s to api.whatsapp.com and replaces
+ * every non-ASCII character with U+FFFD on the way, so emoji in the message
+ * arrive as "�". Sending %F0%9F%8E%89 (🎉) comes back as %EF%BF%BD. Linking to
+ * the redirect target directly leaves the text untouched.
+ */
+export function whatsappShareUrl(text) {
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+}
+
 /** Extract lat/lng from a Google Maps URL */
 export function parseGoogleMapsUrl(url) {
   if (!url) return null;

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
-import { parseGoogleMapsUrl, formatDate, slugify } from '../lib/utils';
+import { parseGoogleMapsUrl, formatDate, slugify, whatsappShareUrl } from '../lib/utils';
 import { toHtmlDateInputValue } from '../utils/dateNormalize';
 import { getInviteBaseUrl } from '../lib/config';
 import { NameConfirmBar, ConfirmNamesModal } from '../components/NameConfirmBar';
@@ -2128,7 +2128,7 @@ export default function GenerateInvitation() {
               {event.slug && (
                 <a
                   className="btn btn-primary"
-                  href={`https://wa.me/?text=${encodeURIComponent(`You're invited! View our wedding invitation: ${getInviteBaseUrl()}/i/${event.slug}`)}`}
+                  href={whatsappShareUrl(`You're invited! View our wedding invitation: ${getInviteBaseUrl()}/i/${event.slug}`)}
                   target="_blank"
                   rel="noreferrer"
                 >

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getInviteBaseUrl } from '../lib/config';
-import { copyToClipboard } from '../lib/utils';
+import { copyToClipboard, whatsappShareUrl } from '../lib/utils';
 import { useToast } from './ui/Toast';
 import { api } from '../lib/api';
 import './WhatsAppShare.css';
@@ -144,7 +144,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
         if (err.name !== 'AbortError') toast('Share failed', 'error');
       }
     } else {
-      window.open(`https://wa.me/?text=${encodeURIComponent(messageText)}`, '_blank');
+      window.open(whatsappShareUrl(messageText), '_blank');
       if (shareFile) {
         const a = document.createElement('a');
         a.href = imagePreview || URL.createObjectURL(shareFile);
