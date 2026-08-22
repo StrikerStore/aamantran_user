@@ -5,8 +5,8 @@ import App from './App.jsx'
 import { ToastProvider } from './components/ui/Toast.jsx'
 import { consumeSessionHandoff } from './lib/auth'
 
-// Must run before render: RequireAuth/RequireGuest read the token during the
-// first paint, so adopting the handed-over session later would redirect first.
+// Start hash parse + server verify before render. App waits on the promise
+// so RequireAuth/RequireGuest do not redirect with a stale session.
 consumeSessionHandoff()
 
 createRoot(document.getElementById('root')).render(

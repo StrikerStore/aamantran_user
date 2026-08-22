@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { isAuthenticated } from './lib/auth';
+import { getSessionHandoffPromise, isAuthenticated } from './lib/auth';
 import { Layout } from './components/Layout';
 import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
@@ -31,6 +32,20 @@ function RequireGuest({ children }) {
 }
 
 export default function App() {
+  const [handoffReady, setHandoffReady] = useState(() => !getSessionHandoffPromise());
+
+  useEffect(() => {
+    const pending = getSessionHandoffPromise();
+    if (!pending) return undefined;
+    let cancelled = false;
+    pending.finally(() => {
+      if (!cancelled) setHandoffReady(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!handoffReady) return null;
+
   return (
     <BrowserRouter>
       <Routes>
