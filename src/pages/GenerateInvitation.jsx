@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useOutletContext, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
-import { parseGoogleMapsUrl, formatDate } from '../lib/utils';
+import { parseGoogleMapsUrl, formatDate, slugify } from '../lib/utils';
 import { toHtmlDateInputValue } from '../utils/dateNormalize';
 import { getInviteBaseUrl } from '../lib/config';
 import { NameConfirmBar, ConfirmNamesModal } from '../components/NameConfirmBar';
@@ -989,6 +989,20 @@ export default function GenerateInvitation() {
     if (partialEnabled && partialFnIds.size === 0) {
       toast('Select at least one function for the partial invite, or disable partial invite.', 'error');
       return;
+    }
+    // Only meaningful while the pair is still being created — once it exists the
+    // partial slug is fixed and the field is ignored.
+    if (partialEnabled && !event.invitePairId) {
+      const mainSlug = slugify(slugFull || event.slug);
+      const pSlug = slugify(partialSlug || `${event.slug}-partial`);
+      if (!pSlug) {
+        toast('Enter a link for the partial invite.', 'error');
+        return;
+      }
+      if (pSlug === mainSlug) {
+        toast('The partial invite link must be different from the full invite link.', 'error');
+        return;
+      }
     }
     setPublishing(true);
     try {
