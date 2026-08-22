@@ -430,6 +430,44 @@ export default function GenerateInvitation() {
       }));
   }, [templateSchema]);
 
+  // Roles follow a prefix convention: "bride_father" hangs off "bride". That lets us
+  // group parents under the person they belong to without hard-coding weddings —
+  // principals first, then each principal's dependents, in that order.
+  const peopleRoleGroups = useMemo(() => {
+    const roles = schemaPeopleRoles;
+    const ownerOf = (r) => roles.reduce((best, o) => (
+      o.role !== r.role && r.role.startsWith(`${o.role}_`) && (!best || o.role.length > best.role.length)
+        ? o : best
+    ), null);
+
+    // Walk up to the top-level person, so a chained role still lands in one group.
+    const rootOf = (r) => {
+      let cur = r;
+      for (let hops = 0; hops < roles.length; hops++) {
+        const owner = ownerOf(cur);
+        if (!owner) return cur;
+        cur = owner;
+      }
+      return cur;
+    };
+
+    const principals = roles.filter((r) => !ownerOf(r));
+    const groups = principals.map((p) => ({
+      principal: p,
+      dependents: roles.filter((r) => r !== p && rootOf(r).role === p.role),
+    }));
+    const grouped = new Set(groups.flatMap((g) => [g.principal, ...g.dependents]));
+    const orphans = roles.filter((r) => !grouped.has(r));
+
+    return {
+      groups,
+      principals,
+      // Render/save order: every principal, then their dependents, then anything
+      // that did not fit the convention.
+      ordered: [...principals, ...groups.flatMap((g) => g.dependents), ...orphans],
+    };
+  }, [schemaPeopleRoles]);
+
   const mediaSlotsNorm = useMemo(() => normalizeMediaSlots(templateSchema), [templateSchema]);
 
   const refreshMedia = useCallback(async () => {
@@ -530,16 +568,51 @@ export default function GenerateInvitation() {
 
   const frozen = event.namesAreFrozen;
 
+  // ── PEOPLE FORM LAYOUT ──────────────────────────────────
+  const firstNameOf = (full) => String(full || '').trim().split(/\s+/)[0] || '';
+
+  /** "Bride's Father" reads as "Priya's Father" once the bride has a name. */
+  function dependentLabel(roleDef, principal) {
+    const owner = firstNameOf(peopleInputs[principal.role]);
+    const suffix = roleDef.role.slice(principal.role.length + 1).replace(/_/g, ' ').trim();
+    if (!owner || !suffix) return roleDef.label;
+    return `${owner}'s ${suffix.replace(/\b\w/g, (c) => c.toUpperCase())}`;
+  }
+
+  const principalRoles = new Set(peopleRoleGroups.principals.map(r => r.role));
+  const principalsNamed = peopleRoleGroups.principals.length > 0
+    && peopleRoleGroups.principals.every(r => String(peopleInputs[r.role] || '').trim());
+  // Parents stay out of the way until the couple is named — but never hide
+  // names that already exist.
+  const showDependents = principalsNamed
+    || peopleRoleGroups.ordered.some(r => !principalRoles.has(r.role) && String(peopleInputs[r.role] || '').trim());
+
+  const roleRank = (role) => {
+    const i = peopleRoleGroups.ordered.findIndex(r => r.role === role);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  const orderedPeople = [...people].sort((a, b) => roleRank(a.role) - roleRank(b.role));
+
+  /** Label for a saved person — personalised where the role has an owner. */
+  function savedRoleLabel(role) {
+    for (const g of peopleRoleGroups.groups) {
+      if (g.principal.role === role) return g.principal.label;
+      const dep = g.dependents.find(d => d.role === role);
+      if (dep) return dependentLabel(dep, g.principal);
+    }
+    return schemaPeopleRoles.find(r => r.role === role)?.label || role.replace(/_/g, ' ');
+  }
+
   // ── WIZARD NAVIGATION ───────────────────────────────────
   const activeIdx = SECTIONS.findIndex(s => s.id === activeSection);
   const nextSection = SECTIONS[activeIdx + 1];
 
   // Names the user is about to lock in — drafts, since nothing is saved yet.
   const draftNameRows = hasSchemaPeopleRoles
-    ? schemaPeopleRoles
+    ? peopleRoleGroups.ordered
         .filter(r => String(peopleInputs[r.role] || '').trim())
         .map(r => ({ key: r.role, role: r.label, name: String(peopleInputs[r.role]).trim() }))
-    : people.map(p => ({ key: p.id, role: p.role, name: p.name }));
+    : orderedPeople.map(p => ({ key: p.id, role: p.role, name: p.name }));
 
   // Only People and Ceremonies hold the user back; the rest are optional.
   const nextDisabled =
@@ -619,7 +692,9 @@ export default function GenerateInvitation() {
     setSavingPerson(true);
     try {
       let nextPeople = [...people];
-      for (const roleDef of schemaPeopleRoles) {
+      // sortOrder follows the grouped order, so the saved list and the rendered
+      // invitation both read couple-first, then parents.
+      for (const [sortOrder, roleDef] of peopleRoleGroups.ordered.entries()) {
         const role = roleDef.role;
         const nextName = String(peopleInputs[role] || '').trim();
         const existing = nextPeople.find((p) => p.role === role);
@@ -632,13 +707,17 @@ export default function GenerateInvitation() {
         if (!nextName) continue;
 
         if (existing) {
-          if (String(existing.name || '').trim() !== nextName) {
+          // A frozen required name is rejected outright by the backend, so don't
+          // even reorder it — older events have every sortOrder sitting at 0.
+          const editable = !(frozen && roleDef.required);
+          const changed = String(existing.name || '').trim() !== nextName || existing.sortOrder !== sortOrder;
+          if (changed && editable) {
             // Pass required flag so backend allows optional-name edits after freeze
-            const r = await api.people.update(id, existing.id, { role, name: nextName, required: roleDef.required });
+            const r = await api.people.update(id, existing.id, { role, name: nextName, sortOrder, required: roleDef.required });
             nextPeople = nextPeople.map((p) => (p.id === existing.id ? r.person : p));
           }
         } else {
-          const r = await api.people.add(id, { role, name: nextName });
+          const r = await api.people.add(id, { role, name: nextName, sortOrder });
           nextPeople = [...nextPeople, r.person];
         }
       }
@@ -1165,37 +1244,50 @@ export default function GenerateInvitation() {
                   <div className="form-label">Role</div>
                   <div className="form-label">Full Name</div>
                 </div>
-                {schemaPeopleRoles.map((roleDef) => {
-                  const isLocked = frozen && roleDef.required;
-                  return (
-                    <div className="form-row" key={roleDef.role}>
-                      <div className="form-group">
-                        <div className="item-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {roleDef.label}
-                          {isLocked && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒</span>}
+                {peopleRoleGroups.principals.map((roleDef) => (
+                  <PersonNameRow
+                    key={roleDef.role}
+                    roleDef={roleDef}
+                    label={roleDef.label}
+                    locked={frozen && roleDef.required}
+                    value={peopleInputs[roleDef.role] || ''}
+                    onChange={(v) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: v }))}
+                  />
+                ))}
+
+                {/* Parents appear once the couple is named, labelled with their names. */}
+                {showDependents
+                  ? peopleRoleGroups.groups.filter(g => g.dependents.length > 0).map((g) => (
+                      <div className="people-group" key={g.principal.role}>
+                        <div className="people-group-title">
+                          {firstNameOf(peopleInputs[g.principal.role]) || g.principal.label}’s family
                         </div>
+                        {g.dependents.map((roleDef) => (
+                          <PersonNameRow
+                            key={roleDef.role}
+                            roleDef={roleDef}
+                            label={dependentLabel(roleDef, g.principal)}
+                            locked={frozen && roleDef.required}
+                            value={peopleInputs[roleDef.role] || ''}
+                            onChange={(v) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: v }))}
+                          />
+                        ))}
                       </div>
-                      <div className="form-group">
-                        <input
-                          className="form-input"
-                          placeholder={DEMO_NAMES[roleDef.role] || `e.g. ${roleDef.label} Name`}
-                          value={peopleInputs[roleDef.role] || ''}
-                          onChange={(e) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: e.target.value }))}
-                          disabled={isLocked}
-                        />
+                    ))
+                  : peopleRoleGroups.ordered.length > peopleRoleGroups.principals.length && (
+                      <div className="form-hint people-next-hint">
+                        Fill in {peopleRoleGroups.principals.map(r => r.label).join(' and ')} to add family names.
                       </div>
-                    </div>
-                  );
-                })}
+                    )}
               </div>
             )}
 
             {people.length > 0 ? (
               <div className="items-list" style={{ marginTop: 8 }}>
-                {people.map(p => (
+                {orderedPeople.map(p => (
                   <div key={p.id} className="item-row">
                     <div className="item-info">
-                      <span className="item-label">{p.role}</span>
+                      <span className="item-label">{savedRoleLabel(p.role)}</span>
                       <span className="item-name">{p.name}</span>
                     </div>
                     {!frozen && (
@@ -2057,6 +2149,29 @@ export default function GenerateInvitation() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PersonNameRow({ roleDef, label, locked, value, onChange }) {
+  return (
+    <div className="form-row">
+      <div className="form-group">
+        <div className="item-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {label}
+          {roleDef.required && <span className="req">*</span>}
+          {locked && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒</span>}
+        </div>
+      </div>
+      <div className="form-group">
+        <input
+          className="form-input"
+          placeholder={DEMO_NAMES[roleDef.role] || `e.g. ${roleDef.label} Name`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={locked}
+        />
+      </div>
     </div>
   );
 }
