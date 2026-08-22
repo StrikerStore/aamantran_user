@@ -47,7 +47,6 @@ function normalizeMediaSlots(fullSchema) {
 }
 
 function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest, toast, globalAssets = [] }) {
-  const [caption, setCaption] = useState('');
   const [busy, setBusy] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState('');
 
@@ -72,12 +71,11 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
     }
   }
 
-  async function uploadFile(file, cap) {
+  async function uploadFile(file) {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('slotKey', slot.key);
     fd.append('type', slot.type);
-    if (cap) fd.append('caption', cap);
     await api.media.upload(eventId, fd);
   }
 
@@ -95,7 +93,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
     setBusy(true);
     try {
       for (const f of batch) {
-        await uploadFile(f, caption.trim() || undefined);
+        await uploadFile(f);
         await refreshMedia();
       }
       toast('Uploaded!', 'success');
@@ -196,16 +194,6 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
           })()}
         </div>
       )}
-      <div className="form-group" style={{ marginBottom: 8 }}>
-        <label className="form-label">Caption (optional)</label>
-        <input
-          className="form-input"
-          placeholder="Optional note"
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          disabled={busy}
-        />
-      </div>
     </div>
   );
 }
@@ -302,7 +290,7 @@ export default function GenerateInvitation() {
 
   // Media
   const [media, setMedia] = useState([]);
-  const [mediaForm, setMediaForm] = useState({ type: 'photo', url: '', caption: '', file: null });
+  const [mediaForm, setMediaForm] = useState({ type: 'photo', url: '', file: null });
   const [savingMedia, setSavingMedia] = useState(false);
 
   // Custom fields
@@ -323,7 +311,6 @@ export default function GenerateInvitation() {
   // Social links + RSVP / guest notes toggles (template supplies icons; URLs from here)
   const [instagramUrl, setInstagramUrl] = useState('');
   const [socialYoutubeUrl, setSocialYoutubeUrl] = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
   const [rsvpEnabled, setRsvpEnabled] = useState(true);
   const [guestNotesEnabled, setGuestNotesEnabled] = useState(true);
   const [savingGuestFeatures, setSavingGuestFeatures] = useState(false);
@@ -358,7 +345,6 @@ export default function GenerateInvitation() {
       setLanguage(ev.language || 'en');
       setInstagramUrl(ev.instagramUrl || '');
       setSocialYoutubeUrl(ev.socialYoutubeUrl || '');
-      setWebsiteUrl(ev.websiteUrl || '');
       setRsvpEnabled(ev.rsvpEnabled !== false);
       setGuestNotesEnabled(ev.guestNotesEnabled !== false);
       // Parse full template schema object first (people/customFields/functionFields)
@@ -518,7 +504,7 @@ export default function GenerateInvitation() {
       functions: !blocked.functions,
       media: media.length > 0,
       custom: customFields.some(f => String(f.fieldValue || '').trim()),
-      social: !!(instagramUrl || socialYoutubeUrl || websiteUrl),
+      social: !!(instagramUrl || socialYoutubeUrl),
       language: false,
       publish: false,
     };
@@ -527,7 +513,7 @@ export default function GenerateInvitation() {
 
     return Math.min(blockingLimit, lastFilled + 1);
   }, [event, hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole, people, functions,
-      venues, media, customFields, instagramUrl, socialYoutubeUrl, websiteUrl]);
+      venues, media, customFields, instagramUrl, socialYoutubeUrl]);
 
   const progressKey = id ? `aamantran:buildProgress:${id}` : null;
 
@@ -869,10 +855,9 @@ export default function GenerateInvitation() {
         const fd = new FormData();
         fd.append('file', mediaForm.file);
         fd.append('type', mediaForm.type);
-        if (String(mediaForm.caption || '').trim()) fd.append('caption', String(mediaForm.caption).trim());
         const r = await api.media.upload(id, fd);
         setMedia((m) => [...m, r.media]);
-        setMediaForm({ type: 'photo', url: '', caption: '', file: null });
+        setMediaForm({ type: 'photo', url: '', file: null });
         toast('Added!', 'success');
       } catch (err) {
         toast(err.message, 'error');
@@ -890,10 +875,9 @@ export default function GenerateInvitation() {
       const r = await api.media.upload(id, {
         type: mediaForm.type,
         url: mediaForm.url.trim(),
-        caption: String(mediaForm.caption || '').trim() || undefined,
       });
       setMedia((m) => [...m, r.media]);
-      setMediaForm({ type: 'photo', url: '', caption: '', file: null });
+      setMediaForm({ type: 'photo', url: '', file: null });
       toast('Added!', 'success');
     } catch (err) {
       toast(err.message, 'error');
@@ -976,7 +960,6 @@ export default function GenerateInvitation() {
       await api.events.update(id, {
         instagramUrl: instagramUrl.trim() || null,
         socialYoutubeUrl: socialYoutubeUrl.trim() || null,
-        websiteUrl: websiteUrl.trim() || null,
         rsvpEnabled,
         guestNotesEnabled,
       });
@@ -984,7 +967,6 @@ export default function GenerateInvitation() {
         ...e,
         instagramUrl: instagramUrl.trim() || null,
         socialYoutubeUrl: socialYoutubeUrl.trim() || null,
-        websiteUrl: websiteUrl.trim() || null,
         rsvpEnabled,
         guestNotesEnabled,
       }));
@@ -1637,15 +1619,6 @@ export default function GenerateInvitation() {
                       />
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Caption (optional)</label>
-                    <input
-                      className="form-input"
-                      placeholder="Our engagement day"
-                      value={mediaForm.caption}
-                      onChange={(e) => setMediaForm((f) => ({ ...f, caption: e.target.value }))}
-                    />
-                  </div>
                   <div className="inline-form-actions">
                     <button type="button" className="btn btn-primary btn-sm" disabled={savingMedia} onClick={addMedia}>
                       {savingMedia ? <span className="btn-spinner" /> : null}
@@ -1753,7 +1726,7 @@ export default function GenerateInvitation() {
               <div className="section-title">Links & guest features</div>
             </div>
             <p className="page-subtitle" style={{ marginBottom: 16 }}>
-              Add Instagram, YouTube, or website links for guests. Your template HTML supplies the icons; this screen only sets the URLs.
+              Add Instagram or YouTube links for guests. Your template HTML supplies the icons; this screen only sets the URLs.
               Turn off RSVP or guest notes to hide those features on the live invite — templates should wrap RSVP and wish blocks with <strong>rsvp_enabled</strong> and <strong>guest_notes_enabled</strong> (see the template developer guide).
             </p>
             <div className="form-group">
@@ -1774,16 +1747,6 @@ export default function GenerateInvitation() {
                 placeholder="https://youtube.com/@yourchannel"
                 value={socialYoutubeUrl}
                 onChange={(e) => setSocialYoutubeUrl(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Website</label>
-              <input
-                className="form-input"
-                type="url"
-                placeholder="https://…"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
               />
             </div>
             <div className="form-group" style={{ marginTop: 20 }}>
