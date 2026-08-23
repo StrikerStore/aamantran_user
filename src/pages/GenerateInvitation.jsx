@@ -615,9 +615,23 @@ export default function GenerateInvitation() {
   const savingActive = savingPerson || savingAllFns || savingVenue || savingFields
     || savingGuestFeatures || savingLang;
 
-  function goToSection(sectionId) {
+  function peopleInputsDirty() {
+    return schemaPeopleRoles.some((r) => {
+      const draft = String(peopleInputs[r.role] || '').trim();
+      const saved = String(peopleByRole[r.role]?.name || '').trim();
+      return draft !== saved;
+    });
+  }
+
+  async function goToSection(sectionId) {
     const idx = SECTIONS.findIndex(s => s.id === sectionId);
     if (idx < 0 || idx > unlockedIdx) return;
+    if (sectionId === activeSection) return;
+    // After freeze, Next is no longer a confirm gate — optional-name edits
+    // still have to be written before the tab is abandoned.
+    if (activeSection === 'people' && frozen && peopleInputsDirty()) {
+      if (!(await savePeopleBySchema())) return;
+    }
     setActiveSection(sectionId);
     setTabsExpanded(false);
   }
@@ -640,13 +654,16 @@ export default function GenerateInvitation() {
 
     let ok = true;
     switch (activeSection) {
+      // Frozen required names stay locked; optional names (parents, etc.)
+      // are still editable and have no other save button.
+      case 'people':    if (peopleInputsDirty()) ok = await savePeopleBySchema(); break;
       // A half-typed venue would otherwise be lost on the way out.
       case 'venues':    if (editingVenue || venueForm.name.trim()) ok = await saveVenue(); break;
       case 'functions': ok = await saveAllFunctions(); break;
       case 'custom':    ok = await saveCustomFields(); break;
       case 'social':    ok = await saveGuestFeatures(); break;
       case 'language':  ok = await saveLanguage(); break;
-      // People (already frozen) and Media persist as you go — nothing to flush.
+      // Media persists as you go — nothing to flush.
       default: break;
     }
     if (ok) advanceTo(nextSection.id);
