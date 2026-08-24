@@ -1,18 +1,30 @@
-/* ── Collapsing sticky header (progress + section tabs) ── */
-.invite-scroll-sentinel { height: 1px; margin: 0; padding: 0; }
+/* ── Collapsing sticky header (progress + section tabs) ──
+   Split in two on purpose. The outer box owns the sticky position and keeps a
+   frozen height (set inline from the measured expanded height), so condensing
+   never shortens the document. Only the inner chrome shrinks. If the page got
+   shorter the browser would clamp the scroll position, which would flip the
+   state back and flicker forever.
+   The outer box must stay the sticky one — moving `sticky` to a wrapper would
+   clamp it to that wrapper's ~120px and the header would scroll away. */
+.invite-form-page { overflow-anchor: none; }
 
 .invite-sticky {
   position: sticky;
   top: 56px;
   z-index: 41;
-  background: var(--bg-base);
-  padding: 10px 0 4px;
   margin-bottom: 12px;
-  border-radius: 0 0 var(--r-md) var(--r-md);
-  transition: padding var(--t-base), box-shadow var(--t-base);
+  pointer-events: none;   /* the reserved band below the chrome is click-through */
 }
 @media (max-width: 900px) {
   .invite-sticky { top: 60px; }
+}
+
+.invite-sticky-inner {
+  background: var(--bg-base);
+  padding: 10px 0 4px;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  transition: padding var(--t-base), box-shadow var(--t-base);
+  pointer-events: auto;
 }
 
 /* ── Section Tabs ── */
@@ -51,12 +63,12 @@
 
 /* Condensed: shrink to just the active tab (top-left) once scrolled past.
    Everything animates — non-active tabs shrink+fade, the header text collapses. */
-.invite-sticky.condensed { padding: 6px 0 4px; box-shadow: 0 10px 16px -12px rgba(214,51,108,0.5); }
-.invite-sticky.condensed .invite-progress-wrap { margin-bottom: 8px; }
-.invite-sticky.condensed .invite-progress-header { max-height: 0; opacity: 0; margin-bottom: 0; }
-.invite-sticky.condensed .invite-progress-bar { height: 5px; }
-.invite-sticky.condensed .section-tabs { justify-content: flex-start; }
-.invite-sticky.condensed:not(.expanded) .section-tab:not(.active) {
+.invite-sticky-inner.condensed { padding: 6px 0 4px; box-shadow: 0 10px 16px -12px rgba(214,51,108,0.5); }
+.invite-sticky-inner.condensed .invite-progress-wrap { margin-bottom: 8px; }
+.invite-sticky-inner.condensed .invite-progress-header { max-height: 0; opacity: 0; margin-bottom: 0; }
+.invite-sticky-inner.condensed .invite-progress-bar { height: 5px; }
+.invite-sticky-inner.condensed .section-tabs { justify-content: flex-start; }
+.invite-sticky-inner.condensed:not(.expanded) .section-tab:not(.active) {
   min-width: 0;
   max-width: 0;
   padding-left: 0;
@@ -64,10 +76,10 @@
   opacity: 0;
   pointer-events: none;
 }
-.invite-sticky.condensed:not(.expanded) .section-tab.active {
+.invite-sticky-inner.condensed:not(.expanded) .section-tab.active {
   flex: 0 0 auto;
 }
-.invite-sticky.condensed:not(.expanded) .section-tab.active::after {
+.invite-sticky-inner.condensed:not(.expanded) .section-tab.active::after {
   content: '▾';
   margin-left: 8px;
   font-size: 0.7rem;

@@ -22,6 +22,12 @@ const SECTIONS = [
   { id: 'publish',   label: 'Preview & Publish', short: 'Publish'    },
 ];
 
+// Scroll offsets that collapse / restore the sticky tab header. Two separate
+// values on purpose: the gap between them is a dead band, so no scroll position
+// can toggle the header back and forth.
+const TABS_CONDENSE_AT = 96;
+const TABS_EXPAND_AT   = 32;
+
 /** @returns {null | { key: string, label: string, type: string, multiple: boolean, max: number, accept: string, allowUrl: boolean }[]} */
 function normalizeMediaSlots(fullSchema) {
   const list = fullSchema?.mediaSlots;
@@ -269,7 +275,11 @@ export default function GenerateInvitation() {
   // Collapsing tab header: shrink to just the active tab once scrolled past it
   const [tabsCondensed, setTabsCondensed] = useState(false);
   const [tabsExpanded, setTabsExpanded] = useState(false);
-  const stickySentinelRef = useRef(null);
+  // Height the sticky header reserves in the document. Frozen at the *expanded*
+  // height so condensing never shortens the page — see the ResizeObserver below.
+  const [stickySlotH, setStickySlotH] = useState(null);
+  const stickyInnerRef = useRef(null);
+  const tabsExpandedRef = useRef(false);
 
   // People
   const [people, setPeople] = useState([]);
@@ -534,22 +544,48 @@ export default function GenerateInvitation() {
     try { localStorage.setItem(progressKey, String(unlockedIdx)); } catch { /* private mode */ }
   }, [progressKey, unlockedIdx]);
 
-  // Watch a sentinel above the tab strip: once it scrolls under the topbar the
-  // header condenses to the active tab; scrolling back to the top expands it.
+  // The scroll listener reads this instead of `tabsExpanded` so it never has to
+  // re-subscribe when the user opens the strip.
+  useEffect(() => { tabsExpandedRef.current = tabsExpanded; }, [tabsExpanded]);
+
+  // Scroll position drives the collapse, with two thresholds (a Schmitt trigger).
+  // The dead band between them is what stops the header oscillating when it sits
+  // right at the boundary — a single threshold flickers there forever.
   useEffect(() => {
-    const el = stickySentinelRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        const stuck = !entry.isIntersecting;
-        setTabsCondensed(stuck);
-        if (!stuck) setTabsExpanded(false);
-      },
-      { rootMargin: '-58px 0px 0px 0px', threshold: 0 },
-    );
+    if (loading) return;
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      const y = window.scrollY;
+      if (y <= TABS_EXPAND_AT) { setTabsCondensed(false); setTabsExpanded(false); return; }
+      if (tabsExpandedRef.current) return;   // user opened the strip — hold it open
+      if (y > TABS_CONDENSE_AT) setTabsCondensed(true);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(read); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    read();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [loading]);
+
+  // Freeze the header's footprint at its expanded height. Condensing then shrinks
+  // only the painted box, never the document — if the page got shorter the browser
+  // would clamp the scroll position, which would flip the state back and loop.
+  useEffect(() => {
+    const el = stickyInnerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(() => {
+      // Only ever record the expanded height; the condensed one must not stick.
+      // Mid-expand frames are recorded too, but every path that un-condenses runs
+      // at scroll top, where a changing document height can't move the scroll.
+      if (tabsCondensed || tabsExpanded) return;
+      setStickySlotH(el.offsetHeight);
+    });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [loading]);
+  }, [loading, tabsCondensed, tabsExpanded]);
 
   if (loading) return <div className="page-fade" style={{ paddingTop: 8 }}><PageSkeleton stats={0} cards={3} /></div>;
   if (!event) return <div className="page-fade"><p>Event not found.</p></div>;
@@ -1124,10 +1160,13 @@ export default function GenerateInvitation() {
         </div>
       </div>
 
-      {/* Sentinel: when this scrolls under the topbar, the header condenses */}
-      <div ref={stickySentinelRef} className="invite-scroll-sentinel" aria-hidden="true" />
-
-      <div className={`invite-sticky${tabsCondensed ? ' condensed' : ''}${tabsExpanded ? ' expanded' : ''}`}>
+      {/* The outer box holds the sticky position and a frozen height; only the
+          inner chrome shrinks, so the document never changes length. */}
+      <div className="invite-sticky" style={stickySlotH ? { height: stickySlotH } : undefined}>
+       <div
+        ref={stickyInnerRef}
+        className={`invite-sticky-inner${tabsCondensed ? ' condensed' : ''}${tabsExpanded ? ' expanded' : ''}`}
+       >
         {/* Progress bar */}
         <div className="invite-progress-wrap">
           <div className="invite-progress-header">
@@ -1176,6 +1215,7 @@ export default function GenerateInvitation() {
             );
           })}
         </div>
+       </div>
       </div>
 
       <div className="invite-form-body">
