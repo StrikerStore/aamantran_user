@@ -631,12 +631,16 @@ export default function GenerateInvitation() {
   const activeIdx = SECTIONS.findIndex(s => s.id === activeSection);
   const nextSection = SECTIONS[activeIdx + 1];
 
-  // Names the user is about to lock in — drafts, since nothing is saved yet.
+  // Names the user is about to confirm — drafts, since nothing is saved yet.
+  // `locked` mirrors the freeze rule the rest of the page already uses
+  // (`frozen && roleDef.required`): only required roles lock, the rest stay
+  // editable afterwards. Without a schema we can't tell them apart, and the
+  // backend blocks every edit in that case, so treat them all as locked.
   const draftNameRows = hasSchemaPeopleRoles
     ? peopleRoleGroups.ordered
         .filter(r => String(peopleInputs[r.role] || '').trim())
-        .map(r => ({ key: r.role, role: r.label, name: String(peopleInputs[r.role]).trim() }))
-    : orderedPeople.map(p => ({ key: p.id, role: p.role, name: p.name }));
+        .map(r => ({ key: r.role, role: r.label, name: String(peopleInputs[r.role]).trim(), locked: r.required }))
+    : orderedPeople.map(p => ({ key: p.id, role: p.role, name: p.name, locked: true }));
 
   // Only People and Ceremonies hold the user back; the rest are optional.
   const nextDisabled =

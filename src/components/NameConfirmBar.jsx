@@ -20,7 +20,7 @@ export function NameConfirmBar({ event, people = [] }) {
         <span className="ncb-icon">🔒</span>
         <div className="ncb-text">
           <strong>Names confirmed</strong>
-          <span>Names are locked. To make changes, raise a support ticket.</span>
+          <span>The main names are locked — raise a support ticket to change those. The rest stay editable.</span>
         </div>
       </div>
     );
@@ -35,8 +35,8 @@ export function NameConfirmBar({ event, people = [] }) {
         <strong>{hasNames ? 'Check your names' : 'Add people first'}</strong>
         <span>
           {hasNames
-            ? 'Names lock permanently when you continue to Venues.'
-            : 'Fill in the names below, then continue to Venues to lock them in.'}
+            ? 'The main names lock permanently when you continue to Venues.'
+            : 'Fill in the names below, then continue to Venues to lock the main names in.'}
         </span>
       </div>
     </div>
@@ -44,15 +44,22 @@ export function NameConfirmBar({ event, people = [] }) {
 }
 
 /**
- * ConfirmNamesModal — final read-through before names are permanently locked.
+ * ConfirmNamesModal — final read-through before the main names are locked.
+ *
+ * Only rows flagged `locked` (the template's required roles) freeze on confirm;
+ * everything else stays editable, so the two are listed separately rather than
+ * presenting the whole list as permanent.
  *
  * Props:
- *   rows      — [{ key, role, name }] to display (draft values, not yet saved)
+ *   rows      — [{ key, role, name, locked }] to display (drafts, not yet saved)
  *   loading   — disables the confirm button while saving
  *   onCancel  — close without confirming
  *   onConfirm — save people, freeze names, then advance
  */
 export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConfirm }) {
+  const lockedRows   = rows.filter(r => r.locked);
+  const editableRows = rows.filter(r => !r.locked);
+
   return (
     <Modal
       title="Confirm Names"
@@ -68,19 +75,52 @@ export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConf
       }
     >
       <div style={{ padding: '8px 0' }}>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.6 }}>
-          You are about to confirm the following names. <strong>This cannot be undone</strong> — names will be permanently locked.
+        <p className="ncb-modal-intro">
+          {lockedRows.length > 0 ? (
+            <>Only the main names below get locked. <strong>This cannot be undone.</strong></>
+          ) : (
+            <>You are about to confirm the following names.</>
+          )}
         </p>
-        <div className="ncb-names-list">
-          {rows.map(r => (
-            <div key={r.key} className="ncb-name-row">
-              <span className="ncb-name-role">{r.role}</span>
-              <span className="ncb-name-value">{r.name}</span>
+
+        {lockedRows.length > 0 && (
+          <>
+            <div className="ncb-group-head locked">
+              <span className="ncb-group-icon">🔒</span>
+              <span>Locked permanently</span>
             </div>
-          ))}
-        </div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '16px' }}>
-          After confirmation, you can still edit all other details. To change names, raise a support ticket.
+            <div className="ncb-names-list locked">
+              {lockedRows.map(r => (
+                <div key={r.key} className="ncb-name-row">
+                  <span className="ncb-name-role">{r.role}</span>
+                  <span className="ncb-name-value">{r.name}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {editableRows.length > 0 && (
+          <>
+            <div className="ncb-group-head">
+              <span className="ncb-group-icon">✏️</span>
+              <span>You can still change these later</span>
+            </div>
+            <div className="ncb-names-list">
+              {editableRows.map(r => (
+                <div key={r.key} className="ncb-name-row">
+                  <span className="ncb-name-role">{r.role}</span>
+                  <span className="ncb-name-value">{r.name}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <p className="ncb-modal-note">
+          {lockedRows.length > 0
+            ? 'To change a locked name afterwards, raise a support ticket. Every other name and detail stays editable.'
+            : 'After confirmation, you can still edit all other details.'}
         </p>
       </div>
     </Modal>

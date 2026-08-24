@@ -45,12 +45,48 @@
 .name-confirm-bar.frozen .ncb-text strong { color: var(--green); }
 .name-confirm-bar.frozen .ncb-text span   { color: var(--green); opacity: 0.8; }
 
+/* ── Confirm Names modal ── */
+.ncb-modal-intro {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.ncb-modal-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 16px;
+  line-height: 1.5;
+}
+
+/* Heading over each group, so the locked names read as separate from the
+   ones that stay editable. */
+.ncb-group-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+/* Only a heading that follows a list needs the gap above it. */
+.ncb-names-list + .ncb-group-head { margin-top: 18px; }
+.ncb-group-head.locked { color: var(--rose-deep); }
+.ncb-group-icon { font-size: 0.85rem; letter-spacing: normal; }
+
 .ncb-names-list {
   background: var(--bg-elevated);
   border-radius: var(--r-md);
   overflow: hidden;
   border: 1px solid var(--border-subtle);
 }
+
+/* The locked group carries a touch more weight than the editable one. */
+.ncb-names-list.locked { border-color: var(--rose); }
+.ncb-names-list.locked .ncb-name-value { font-weight: 700; }
 
 .ncb-name-row {
   display: flex;
