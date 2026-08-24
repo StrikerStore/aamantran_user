@@ -55,6 +55,15 @@ function normalizeMediaSlots(fullSchema) {
 function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest, toast, globalAssets = [] }) {
   const [busy, setBusy] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState('');
+  // Single-file slots hide their pickers once filled and reveal them again
+  // behind an explicit "Change" button — the server replaces the old row.
+  const [replacing, setReplacing] = useState(false);
+
+  const isSingle = !slot.multiple;
+  const isFilled = slotItems.length >= slot.max;
+  // A filled single-file slot can still be overwritten; a filled multi slot cannot.
+  const locked = isFilled && !isSingle;
+  const showPickers = !isFilled || replacing;
 
   async function selectGlobalAsset() {
     const asset = globalAssets.find(a => a.id === selectedAssetId);
@@ -68,8 +77,9 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
         caption: asset.name
       });
       await refreshMedia();
-      toast('Added!', 'success');
+      toast(isFilled ? 'Music updated!' : 'Added!', 'success');
       setSelectedAssetId('');
+      setReplacing(false);
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -90,7 +100,8 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
     e.target.value = '';
     if (!files.length) return;
     const toAdd = slot.multiple ? files : files.slice(0, 1);
-    const room = slot.max - slotItems.length;
+    // Single-file slots always have room: the upload replaces what is there.
+    const room = isSingle ? 1 : slot.max - slotItems.length;
     if (room <= 0) {
       toast('This section is full — remove an item first', 'error');
       return;
@@ -103,6 +114,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
         await refreshMedia();
       }
       toast('Uploaded!', 'success');
+      setReplacing(false);
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -132,7 +144,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
                 <span className="item-label">{m.type}{m.caption ? ` — ${m.caption}` : ''}</span>
                 {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
                 {m.type === 'music' && (
-                  <div style={{ marginTop: 8, background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ marginTop: 8, width: '100%', background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)', boxSizing: 'border-box' }}>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>🎵 Background Music</div>
                     <audio
                       controls
@@ -152,28 +164,41 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
           ))}
         </div>
       )}
-      <div className="form-group" style={{ marginBottom: 8 }}>
-        <label className="form-label">Upload from device</label>
-        <input
-          type="file"
-          className="form-input"
-          accept={slot.accept}
-          multiple={slot.multiple}
-          disabled={busy || slotItems.length >= slot.max}
-          onChange={onPickFiles}
-        />
-      </div>
+      {isFilled && isSingle && !replacing && (
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={() => setReplacing(true)}
+          disabled={busy}
+        >
+          Change {slot.type === 'music' ? 'music' : slot.type === 'video' ? 'video' : 'photo'}
+        </button>
+      )}
 
-      {slot.key === 'background_music' && globalAssets.filter(a => a.type === 'bg_music').length > 0 && (
+      {showPickers && (
+        <div className="form-group" style={{ marginBottom: 8 }}>
+          <label className="form-label">{isFilled ? 'Upload a different file' : 'Upload from device'}</label>
+          <input
+            type="file"
+            className="form-input"
+            accept={slot.accept}
+            multiple={slot.multiple}
+            disabled={busy || locked}
+            onChange={onPickFiles}
+          />
+        </div>
+      )}
+
+      {showPickers && slot.key === 'background_music' && globalAssets.filter(a => a.type === 'bg_music').length > 0 && (
         <div className="form-group" style={{ marginBottom: 12, marginTop: 12 }}>
-          <label className="form-label">Or choose pre-added music</label>
+          <label className="form-label">{isFilled ? 'Or choose a different track' : 'Or choose pre-added music'}</label>
           <div style={{ display: 'flex', gap: 8 }}>
             <Select
               className="form-select"
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
               value={selectedAssetId}
               onChange={e => setSelectedAssetId(e.target.value)}
-              disabled={busy || slotItems.length >= slot.max}
+              disabled={busy || locked}
             >
               <option value="">— Select a track —</option>
               {globalAssets.filter(a => a.type === 'bg_music').map(a => (
@@ -183,9 +208,9 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
             <button
               className="btn btn-secondary"
               onClick={selectGlobalAsset}
-              disabled={!selectedAssetId || busy || slotItems.length >= slot.max}
+              disabled={!selectedAssetId || busy || locked}
             >
-              Add
+              {isFilled ? 'Replace' : 'Add'}
             </button>
           </div>
           {selectedAssetId && (() => {
@@ -199,6 +224,17 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
             );
           })()}
         </div>
+      )}
+
+      {isFilled && isSingle && replacing && (
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={() => { setReplacing(false); setSelectedAssetId(''); }}
+          disabled={busy}
+        >
+          Cancel
+        </button>
       )}
     </div>
   );

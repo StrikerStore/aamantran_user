@@ -570,6 +570,9 @@
   .section-tabs { gap: 2px; }
   .section-tab { font-size: 0.7rem; padding: 6px 8px; }
   .item-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  /* Stacked rows size their children to content — without this the audio player
+     collapses to its ~300px intrinsic width instead of filling the card. */
+  .item-info { width: 100%; }
   .item-actions { align-self: flex-end; }
   .section-nav-footer { flex-wrap: wrap; }
   .section-nav-actions { flex: 1; justify-content: flex-end; }
