@@ -837,7 +837,22 @@ export default function GenerateInvitation() {
       const key = fn._cid || fn.id;
       setSavingFnId(key);
       try {
-        const payload = { name: fn.name, date: fn.date, startTime: fn.startTime || undefined, venueId: fn.venueId || undefined, venueName: fn.venueName || undefined, venueAddress: fn.venueAddress || undefined, venueMapUrl: fn.venueMapUrl || undefined, dressCode: fn.dressCode || undefined, notes: fn.notes || undefined, sortOrder: idx };
+        // Empty optional fields must be `null`, not `undefined`. JSON.stringify
+        // drops undefined keys, and the backend PATCH only writes fields that
+        // are present — so `|| undefined` silently kept the previous venue,
+        // start time, and dress code after the user cleared them.
+        const payload = {
+          name: fn.name,
+          date: fn.date,
+          startTime: fn.startTime || null,
+          venueId: fn.venueId || null,
+          venueName: fn.venueName || null,
+          venueAddress: fn.venueAddress || null,
+          venueMapUrl: fn.venueMapUrl || null,
+          dressCode: fn.dressCode || null,
+          notes: fn.notes || null,
+          sortOrder: idx,
+        };
         if (fn._isNew) {
           const r = await api.functions.add(id, payload);
           setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
