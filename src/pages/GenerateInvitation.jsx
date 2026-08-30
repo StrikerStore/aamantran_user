@@ -1130,8 +1130,17 @@ export default function GenerateInvitation() {
   async function handleUnpublish() {
     setConfirmUnpublish(false);
     try {
+      // Publish writes isPublished on both pair members; unpublish is
+      // per-event. Take the subset down first so a failed second call
+      // cannot leave the partial slug publicly reachable.
+      const pairId = event.pairedEvent?.id;
+      if (pairId) await api.events.unpublish(pairId);
       await api.events.unpublish(id);
-      setEvent(e => ({ ...e, isPublished: false }));
+      setEvent(e => ({
+        ...e,
+        isPublished: false,
+        pairedEvent: e.pairedEvent ? { ...e.pairedEvent, isPublished: false } : e.pairedEvent,
+      }));
       toast('Invitation unpublished', 'info');
     } catch (err) {
       toast(err.message, 'error');
@@ -2174,7 +2183,9 @@ export default function GenerateInvitation() {
       {confirmUnpublish && (
         <ConfirmModal
           title="Unpublish Invitation"
-          message="This will hide your invitation from guests. You can re-publish at any time."
+          message={event.pairedEvent
+            ? 'This will hide your full and partial invitation links from guests. You can re-publish at any time.'
+            : 'This will hide your invitation from guests. You can re-publish at any time.'}
           confirmText="Unpublish"
           onConfirm={handleUnpublish}
           onCancel={() => setConfirmUnpublish(false)}
