@@ -296,6 +296,17 @@ const LANGUAGES = [
   { code: 'pa', label: 'Punjabi' },
 ];
 
+/** Order-independent id-list equality. */
+function sameIdSet(a = [], b = []) {
+  const left = new Set(a);
+  const right = new Set(b);
+  if (left.size !== right.size) return false;
+  for (const id of left) {
+    if (!right.has(id)) return false;
+  }
+  return true;
+}
+
 export default function GenerateInvitation() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -1082,15 +1093,10 @@ export default function GenerateInvitation() {
     }
     setPublishing(true);
     try {
-      // If a paired invite already exists, push current partial selection first.
-      if (event.invitePairId && partialEnabled) {
-        const selectedIds = functions
-          .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
-          .map((f) => f.id);
-        if (selectedIds.length > 0) {
-          await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
-        }
-      }
+      // Recreating the pair's ceremonies wipes RSVPs on those rows (backend
+      // deleteMany + Function→Rsvp cascade). Only push when the checkbox set
+      // actually changed.
+      await syncPartialFunctionsIfSelectionChanged();
 
       const body = {
         slugFull: slugFull || undefined,
@@ -1138,17 +1144,25 @@ export default function GenerateInvitation() {
     }
   }
 
+  /**
+   * Push checkbox changes to the paired subset. Skips when the selected main
+   * function IDs already match the pair — updatePartial deletes and recreates
+   * subset functions, which cascade-deletes guest RSVPs on that invite.
+   */
+  async function syncPartialFunctionsIfSelectionChanged() {
+    if (!event.invitePairId || !partialEnabled) return;
+    const selectedIds = functions
+      .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
+      .map((f) => f.id);
+    if (selectedIds.length === 0) return;
+    const pairedIds = event.pairedEvent?.pairedFunctionIds || [];
+    if (sameIdSet(selectedIds, pairedIds)) return;
+    await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
+  }
+
   async function refreshEvent() {
     try {
-      // Refresh should also sync partial selection changes made via checkboxes.
-      if (event.invitePairId && partialEnabled) {
-        const selectedIds = functions
-          .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
-          .map((f) => f.id);
-        if (selectedIds.length > 0) {
-          await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
-        }
-      }
+      await syncPartialFunctionsIfSelectionChanged();
 
       const r = await api.events.get(id);
       setEvent(r.event);
