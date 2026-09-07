@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { getUserInfo, clearToken } from '../lib/auth';
 import { formatDate } from '../lib/utils';
 import { useToast } from '../components/ui/Toast';
+import PhoneField from '../components/PhoneField';
 import './Settings.css';
 
 export default function Settings() {
@@ -11,7 +12,11 @@ export default function Settings() {
   const info = getUserInfo();
   const { activeEvent } = useOutletContext() || {};
 
-  const [profile, setProfile] = useState({ email: info?.email || '', phone: '' });
+  // The dial code is held separately because that is how the backend stores it.
+  // Sending only `phone` made the server fall back to +91 and then reject the
+  // number against the Indian-mobile rule, so an international couple could not
+  // save a contact number at all.
+  const [profile, setProfile] = useState({ email: info?.email || '', phone: '', phoneCountryCode: '+91' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [eventExpiry, setEventExpiry] = useState(activeEvent?.expiresAt || null);
   const phoneLocked = useMemo(() => Boolean(String(profile.phone || '').trim()), [profile.phone]);
@@ -35,6 +40,8 @@ export default function Settings() {
           ...p,
           email: user.email || p.email || '',
           phone: user.phone || p.phone || '',
+          // Without this a saved US number renders as 4155550123 with no +1.
+          phoneCountryCode: user.phoneCountryCode || p.phoneCountryCode || '+91',
         }));
       })
       .catch(() => {});
@@ -52,7 +59,10 @@ export default function Settings() {
     }
     setSavingProfile(true);
     try {
-      await api.profile.update({ phone: profile.phone.trim() });
+      await api.profile.update({
+        phone: profile.phone.trim(),
+        phoneCountryCode: profile.phoneCountryCode,
+      });
       toast('Contact number saved!', 'success');
     } catch (err) {
       toast(err.message, 'error');
@@ -107,13 +117,14 @@ export default function Settings() {
             </div>
             <div className="form-group">
               <label className="form-label">Contact Number</label>
-              <input
-                className="form-input"
-                type="tel"
-                placeholder="+91 9876543210"
-                value={profile.phone}
+              <PhoneField
+                countryCode={profile.phoneCountryCode}
+                number={profile.phone}
+                placeholder="9876543210"
                 disabled={phoneLocked}
-                onChange={e => setProfile(f => ({ ...f, phone: e.target.value }))}
+                onChange={({ countryCode, number }) =>
+                  setProfile(f => ({ ...f, phoneCountryCode: countryCode, phone: number }))
+                }
               />
               <div className="form-hint">
                 {phoneLocked
