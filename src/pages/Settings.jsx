@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getUserInfo, clearToken } from '../lib/auth';
@@ -19,7 +19,11 @@ export default function Settings() {
   const [profile, setProfile] = useState({ email: info?.email || '', phone: '', phoneCountryCode: '+91' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [eventExpiry, setEventExpiry] = useState(activeEvent?.expiresAt || null);
-  const phoneLocked = useMemo(() => Boolean(String(profile.phone || '').trim()), [profile.phone]);
+  // Write-once lock must follow the number already persisted on the account.
+  // Deriving it from the draft `profile.phone` disables the field and unmounts
+  // Save as soon as the first digit is typed, so the number can never be submitted.
+  const [savedPhone, setSavedPhone] = useState('');
+  const phoneLocked = Boolean(String(savedPhone || '').trim());
   const [showDelete, setShowDelete] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -36,10 +40,12 @@ export default function Settings() {
     api.auth.me()
       .then(r => {
         const user = r?.user || {};
+        const persistedPhone = String(user.phone || '').trim();
+        setSavedPhone(persistedPhone);
         setProfile(p => ({
           ...p,
           email: user.email || p.email || '',
-          phone: user.phone || p.phone || '',
+          phone: persistedPhone || p.phone || '',
           // Without this a saved US number renders as 4155550123 with no +1.
           phoneCountryCode: user.phoneCountryCode || p.phoneCountryCode || '+91',
         }));
@@ -59,10 +65,17 @@ export default function Settings() {
     }
     setSavingProfile(true);
     try {
-      await api.profile.update({
+      const res = await api.profile.update({
         phone: profile.phone.trim(),
         phoneCountryCode: profile.phoneCountryCode,
       });
+      const persistedPhone = String(res?.user?.phone || profile.phone).trim();
+      setSavedPhone(persistedPhone);
+      setProfile(p => ({
+        ...p,
+        phone: persistedPhone,
+        phoneCountryCode: res?.user?.phoneCountryCode || p.phoneCountryCode,
+      }));
       toast('Contact number saved!', 'success');
     } catch (err) {
       toast(err.message, 'error');
