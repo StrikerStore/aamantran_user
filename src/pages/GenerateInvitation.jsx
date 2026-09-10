@@ -871,8 +871,28 @@ export default function GenerateInvitation() {
   async function removeFn(fn) {
     try {
       if (!fn._isNew) await api.functions.remove(id, fn.id);
-      setFunctions(f => f.filter(x => x.id !== fn.id && x._cid !== fn._cid));
-      setPartialFnIds(prev => { const next = new Set(prev); next.delete(fn.id); return next; });
+
+      // A function is identified by `_cid` until it is saved and by `id`
+      // afterwards -- never both at once. The previous filter compared the two
+      // fields independently and kept a row only if BOTH differed, so for every
+      // sibling the absent field compared `undefined !== undefined` -> false and
+      // the whole row was dropped. Deleting one ceremony wiped every other one
+      // in the same state.
+      //
+      // Comparing a single resolved key is the idiom already used for saving
+      // and for React keys further down this file.
+      const key = fn._cid || fn.id;
+      setFunctions(f => f.filter(x => (x._cid || x.id) !== key));
+
+      // The partial-invite tick is keyed by whichever id the row had when it was
+      // ticked, so clear both: an unsaved row ticked under its `_cid` would
+      // otherwise linger in the set, leaving a phantom selection behind.
+      setPartialFnIds(prev => {
+        const next = new Set(prev);
+        next.delete(fn.id);
+        next.delete(fn._cid);
+        return next;
+      });
       setDeletingFn(null);
     } catch (err) {
       toast(err.message, 'error');
