@@ -8,6 +8,8 @@ import './Support.css';
 
 /** How often an open thread checks for new messages. */
 const POLL_MS = 5000;
+/** Treat the reader as "following along" within this many px of the bottom. */
+const NEAR_BOTTOM_PX = 80;
 
 export default function Support() {
   const toast = useToast();
@@ -22,6 +24,9 @@ export default function Support() {
   const [replying, setReplying] = useState(false);
   // Poll bookkeeping: an in-flight guard and the newest message timestamp seen.
   const poll = useRef({ inFlight: false, since: null });
+  const threadRef = useRef(null);
+  // Whether this thread has had its one unconditional jump to the newest message.
+  const didInitialScroll = useRef(false);
 
   useEffect(() => {
     api.tickets.list().then(r => setTickets(r.tickets || [])).catch(() => {}).finally(() => setLoading(false));
@@ -47,6 +52,36 @@ export default function Support() {
       setCreating(false);
     }
   }
+
+  /**
+   * Open the thread at the bottom, and keep it there while it is being followed.
+   *
+   * The modal itself is the scroller (`.modal` carries max-height + overflow),
+   * not `.modal-body`, so the header scrolls away with the content.
+   *
+   * Opening on the first message meant every visit to a long thread started with
+   * a scroll down past history to reach the reply box and the message you
+   * actually came to read.
+   */
+  useEffect(() => {
+    if (!viewing?.id) return;
+    const box = threadRef.current?.closest('.modal');
+    if (!box) return;
+
+    if (!didInitialScroll.current) {
+      didInitialScroll.current = true;
+      // After paint: the thread has not been laid out yet on this tick, so
+      // scrollHeight would still be the previous ticket's - or zero.
+      requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
+      return;
+    }
+
+    // An arriving message only pulls the view down if the reader is already at
+    // the bottom; someone scrolled up reading history is left where they are.
+    const distanceFromBottom = box.scrollHeight - box.scrollTop - box.clientHeight;
+    if (distanceFromBottom > NEAR_BOTTOM_PX) return;
+    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+  }, [viewing?.id, viewing?.messages?.length]);
 
   // Newest createdAt in a message list, as an ISO string, or `fallback`.
   function newestAt(messages, fallback = null) {
@@ -160,7 +195,7 @@ export default function Support() {
         <div className="card">
           <div className="tickets-list">
             {tickets.map(t => (
-              <div key={t.id} className="ticket-row" onClick={() => { setViewing(t); setReplyText(''); }}>
+              <div key={t.id} className="ticket-row" onClick={() => { setViewing(t); setReplyText(''); didInitialScroll.current = false; }}>
                 <div className="ticket-info">
                   <div className="ticket-subject">{t.subject}</div>
                   <div className="ticket-meta">
@@ -218,7 +253,7 @@ export default function Support() {
         <Modal title={viewing.subject} onClose={() => setViewing(null)} size="lg" footer={
           <button className="btn btn-secondary" onClick={() => setViewing(null)}>Close</button>
         }>
-          <div className="ticket-thread">
+          <div className="ticket-thread" ref={threadRef}>
             {viewing.messages?.map(m => (
               <div key={m.id} className={`thread-msg ${m.senderRole}`}>
                 <div className="thread-role">{m.senderRole === 'user' ? 'You' : 'Support'}</div>
