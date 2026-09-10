@@ -15,6 +15,8 @@ export default function Support() {
   const [showNew, setShowNew] = useState(false);
   const [newForm, setNewForm] = useState({ subject: '', message: '', relatedToEvent: false });
   const [creating, setCreating] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
 
   useEffect(() => {
     api.tickets.list().then(r => setTickets(r.tickets || [])).catch(() => {}).finally(() => setLoading(false));
@@ -38,6 +40,29 @@ export default function Support() {
       toast(err.message, 'error');
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function sendReply(e) {
+    e.preventDefault();
+    const text = replyText.trim();
+    if (!text || replying) return;
+    setReplying(true);
+    try {
+      const r = await api.tickets.reply(viewing.id, text);
+      // Append locally rather than refetching: the modal is already showing the
+      // thread, and the server has told us exactly what it stored.
+      const appended = { ...viewing, status: r.status ?? viewing.status, messages: [...(viewing.messages || []), r.message] };
+      setViewing(appended);
+      // Keep the row behind the modal in step, so the message count and the
+      // status badge do not lie once the modal closes.
+      setTickets(list => list.map(t => (t.id === appended.id ? appended : t)));
+      setReplyText('');
+      toast(r.reopened ? 'Reply sent - ticket reopened' : 'Reply sent', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setReplying(false);
     }
   }
 
@@ -66,7 +91,7 @@ export default function Support() {
         <div className="card">
           <div className="tickets-list">
             {tickets.map(t => (
-              <div key={t.id} className="ticket-row" onClick={() => setViewing(t)}>
+              <div key={t.id} className="ticket-row" onClick={() => { setViewing(t); setReplyText(''); }}>
                 <div className="ticket-info">
                   <div className="ticket-subject">{t.subject}</div>
                   <div className="ticket-meta">
@@ -133,9 +158,32 @@ export default function Support() {
               </div>
             ))}
           </div>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 16 }}>
-            Our team will reply via email. You can also check back here.
-          </p>
+          <form className="ticket-reply" onSubmit={sendReply}>
+            <label className="ticket-reply-label" htmlFor="ticket-reply-box">Write a reply</label>
+            <textarea
+              id="ticket-reply-box"
+              className="ticket-reply-box"
+              rows={3}
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
+              placeholder="Type your message..."
+              maxLength={5000}
+              disabled={replying}
+              /* Enter sends, Shift+Enter makes a new line - the convention in
+                 every chat box, and this thread reads as one. */
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) sendReply(e); }}
+            />
+            <div className="ticket-reply-actions">
+              <span className="ticket-reply-hint">
+                {viewing.status === 'resolved'
+                  ? 'This ticket is resolved - replying will reopen it.'
+                  : "We'll also email you when support responds."}
+              </span>
+              <button type="submit" className="btn btn-primary" disabled={replying || !replyText.trim()}>
+                {replying ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>

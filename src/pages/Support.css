@@ -56,3 +56,59 @@
 .thread-role { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
 .thread-body { font-size: 0.875rem; color: var(--text-primary); white-space: pre-wrap; line-height: 1.5; }
 .thread-time { font-size: 0.72rem; color: var(--text-muted); }
+
+/* Reply box
+   Sits under the thread inside the view modal. Separated by a rule rather than
+   a card so it reads as the end of the conversation - the place you type next -
+   instead of a detached form. */
+.ticket-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ticket-reply-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ticket-reply-box {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  resize: vertical;
+  min-height: 72px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ticket-reply-box:focus { border-color: var(--border-gold); }
+.ticket-reply-box:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.ticket-reply-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket-reply-hint { font-size: 0.75rem; color: var(--text-muted); }
+
+@media (max-width: 560px) {
+  /* The hint wraps to two lines on a narrow screen and shoves the button off
+     the row, so they stack and the button spans the width instead. */
+  .ticket-reply-actions { flex-direction: column; align-items: stretch; }
+  .ticket-reply-hint { order: 2; }
+}

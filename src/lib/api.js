@@ -139,6 +139,7 @@ export const api = {
     list:   ()         => request('GET',  '/api/user/tickets'),
     create: (body)     => request('POST', '/api/user/tickets', { body }),
     get:    (id)       => request('GET',  `/api/user/tickets/${id}`),
+    reply:  (id, message) => request('POST', `/api/user/tickets/${id}/reply`, { body: { message } }),
   },
 
   profile: {
