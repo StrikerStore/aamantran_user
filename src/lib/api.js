@@ -140,6 +140,10 @@ export const api = {
     create: (body)     => request('POST', '/api/user/tickets', { body }),
     get:    (id)       => request('GET',  `/api/user/tickets/${id}`),
     reply:  (id, message) => request('POST', `/api/user/tickets/${id}/reply`, { body: { message } }),
+    // Cheap poll for an open thread. `since` is an ISO timestamp; omitting it
+    // returns the whole thread.
+    messages: (id, since) =>
+      request('GET', `/api/user/tickets/${id}/messages${since ? `?since=${encodeURIComponent(since)}` : ''}`),
   },
 
   profile: {

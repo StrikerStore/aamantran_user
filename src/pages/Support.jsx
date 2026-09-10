@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatRelative } from '../lib/utils';
 import { useToast } from '../components/ui/Toast';
 import { Modal } from '../components/ui/Modal';
 import './Support.css';
+
+/** How often an open thread checks for new messages. */
+const POLL_MS = 5000;
 
 export default function Support() {
   const toast = useToast();
@@ -17,6 +20,8 @@ export default function Support() {
   const [creating, setCreating] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [replying, setReplying] = useState(false);
+  // Poll bookkeeping: an in-flight guard and the newest message timestamp seen.
+  const poll = useRef({ inFlight: false, since: null });
 
   useEffect(() => {
     api.tickets.list().then(r => setTickets(r.tickets || [])).catch(() => {}).finally(() => setLoading(false));
@@ -42,6 +47,70 @@ export default function Support() {
       setCreating(false);
     }
   }
+
+  // Newest createdAt in a message list, as an ISO string, or `fallback`.
+  function newestAt(messages, fallback = null) {
+    let best = fallback ? new Date(fallback).getTime() : -Infinity;
+    let iso = fallback;
+    for (const m of messages || []) {
+      const t = new Date(m.createdAt).getTime();
+      if (t > best) { best = t; iso = m.createdAt; }
+    }
+    return iso;
+  }
+
+  /**
+   * Keep the open thread current without a page reload.
+   *
+   * Deliberately keyed on the ticket ID, not the whole `viewing` object: each
+   * merge produces a new object, so depending on `viewing` would tear down and
+   * restart the interval on every incoming message.
+   */
+  useEffect(() => {
+    const id = viewing?.id;
+    if (!id) return;
+    poll.current = { inFlight: false, since: newestAt(viewing.messages) };
+
+    const tick = async () => {
+      // A thread left open in a background tab must not poll all night.
+      if (document.visibilityState !== 'visible') return;
+      // A slow response must not let requests stack up behind it.
+      if (poll.current.inFlight) return;
+      poll.current.inFlight = true;
+      try {
+        const r = await api.tickets.messages(id, poll.current.since);
+        const incoming = r.messages || [];
+        poll.current.since = newestAt(incoming, poll.current.since);
+        const apply = (t) => {
+          if (!t || t.id !== id) return t;
+          // Merge by id, never by count: this is what makes the sender's own
+          // optimistic append safe when the poll returns that message again,
+          // and it survives two messages sharing a millisecond, which a
+          // `createdAt >` filter alone would skip.
+          const seen = new Set((t.messages || []).map(m => m.id));
+          const added = incoming.filter(m => !seen.has(m.id));
+          const status = r.status ?? t.status;
+          if (!added.length && status === t.status) return t; // unchanged — keep identity
+          return { ...t, status, messages: [...(t.messages || []), ...added] };
+        };
+        setViewing(apply);
+        setTickets(list => list.map(t => (t.id === id ? apply(t) : t)));
+      } catch {
+        // Transient failure; the next tick retries. Not worth a toast.
+      } finally {
+        poll.current.inFlight = false;
+      }
+    };
+
+    tick(); // the list behind the modal may be minutes old — catch up on open
+    const timer = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewing?.id]);
 
   async function sendReply(e) {
     e.preventDefault();
