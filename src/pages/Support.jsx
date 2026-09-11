@@ -27,6 +27,10 @@ export default function Support() {
   const threadRef = useRef(null);
   // Whether this thread has had its one unconditional jump to the newest message.
   const didInitialScroll = useRef(false);
+  // Latest open ticket id — sendReply reads this after await so a ticket switch
+  // mid-flight cannot wipe the draft the user is already typing in the new thread.
+  const viewingIdRef = useRef(null);
+  viewingIdRef.current = viewing?.id;
 
   useEffect(() => {
     api.tickets.list().then(r => setTickets(r.tickets || [])).catch(() => {}).finally(() => setLoading(false));
@@ -95,6 +99,26 @@ export default function Support() {
   }
 
   /**
+   * Append unseen messages onto a ticket without dropping ones that landed
+   * while a reply POST was in flight. Merge is by id (so a poll echoing the
+   * sender's own message is a no-op) and the result is ordered by createdAt
+   * (so a slower poll cannot append an earlier support reply below the
+   * customer's later one).
+   */
+  function mergeThread(ticket, { incoming = [], status } = {}) {
+    if (!ticket) return ticket;
+    const messages = ticket.messages || [];
+    const seen = new Set(messages.map(m => m.id).filter(Boolean));
+    const added = incoming.filter(m => m && m.id && !seen.has(m.id));
+    const nextStatus = status ?? ticket.status;
+    if (!added.length && nextStatus === ticket.status) return ticket;
+    const nextMessages = added.length
+      ? [...messages, ...added].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      : messages;
+    return { ...ticket, status: nextStatus, messages: nextMessages };
+  }
+
+  /**
    * Keep the open thread current without a page reload.
    *
    * Deliberately keyed on the ticket ID, not the whole `viewing` object: each
@@ -116,18 +140,7 @@ export default function Support() {
         const r = await api.tickets.messages(id, poll.current.since);
         const incoming = r.messages || [];
         poll.current.since = newestAt(incoming, poll.current.since);
-        const apply = (t) => {
-          if (!t || t.id !== id) return t;
-          // Merge by id, never by count: this is what makes the sender's own
-          // optimistic append safe when the poll returns that message again,
-          // and it survives two messages sharing a millisecond, which a
-          // `createdAt >` filter alone would skip.
-          const seen = new Set((t.messages || []).map(m => m.id));
-          const added = incoming.filter(m => !seen.has(m.id));
-          const status = r.status ?? t.status;
-          if (!added.length && status === t.status) return t; // unchanged — keep identity
-          return { ...t, status, messages: [...(t.messages || []), ...added] };
-        };
+        const apply = (t) => (t && t.id === id ? mergeThread(t, { incoming, status: r.status }) : t);
         setViewing(apply);
         setTickets(list => list.map(t => (t.id === id ? apply(t) : t)));
       } catch {
@@ -150,18 +163,21 @@ export default function Support() {
   async function sendReply(e) {
     e.preventDefault();
     const text = replyText.trim();
-    if (!text || replying) return;
+    const ticketId = viewing?.id;
+    if (!text || !ticketId || replying) return;
     setReplying(true);
     try {
-      const r = await api.tickets.reply(viewing.id, text);
-      // Append locally rather than refetching: the modal is already showing the
-      // thread, and the server has told us exactly what it stored.
-      const appended = { ...viewing, status: r.status ?? viewing.status, messages: [...(viewing.messages || []), r.message] };
-      setViewing(appended);
-      // Keep the row behind the modal in step, so the message count and the
-      // status badge do not lie once the modal closes.
-      setTickets(list => list.map(t => (t.id === appended.id ? appended : t)));
-      setReplyText('');
+      const r = await api.tickets.reply(ticketId, text);
+      // Merge into whatever the poll wrote while this POST was in flight.
+      // Spreading the `viewing` snapshot from before the await would drop a
+      // support reply the poll had already applied, and because `since` had
+      // already advanced past that reply, the next poll would never restore it.
+      const apply = (t) => (t && t.id === ticketId
+        ? mergeThread(t, { incoming: r.message ? [r.message] : [], status: r.status })
+        : t);
+      setViewing(apply);
+      setTickets(list => list.map(t => (t.id === ticketId ? apply(t) : t)));
+      if (viewingIdRef.current === ticketId) setReplyText('');
       toast(r.reopened ? 'Reply sent - ticket reopened' : 'Reply sent', 'success');
     } catch (err) {
       toast(err.message, 'error');
