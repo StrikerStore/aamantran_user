@@ -6,6 +6,22 @@ import './Layout.css';
 
 const NAV_STATE_KEY = 'aam_nav_state';
 const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
+const EVENT_ROUTE_RE = /^\/events\/([^/]+)(?:\/([^/]+))?/;
+const EVENT_SECTIONS = new Set([
+  'generate',
+  'edit',
+  'guests',
+  'wishes',
+  'tasks',
+  'inventory',
+  'budget',
+  'vendors',
+  'timeline',
+  'moodboard',
+  'gifts',
+  'photos',
+  'share',
+]);
 
 export function Layout() {
   const navigate = useNavigate();
@@ -14,7 +30,7 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem(SIDEBAR_RAIL_KEY) === '1');
   const [events, setEvents] = useState([]);
-  const [activeEvent, setActiveEvent] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileSwitcherOpen, setMobileSwitcherOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -56,10 +72,7 @@ export function Layout() {
       .then(r => {
         const all = r.events || [];
         setEvents(all);
-        if (all.length && !activeEvent) {
-          const first = all.find(ev => ev.inviteScope !== 'subset') || all[0];
-          setActiveEvent(first);
-        }
+        setSelectedEventId(prev => prev || String((all.find(ev => ev.inviteScope !== 'subset') || all[0])?.id || ''));
       })
       .catch(() => {});
   }, []);
@@ -82,9 +95,27 @@ export function Layout() {
     navigate('/');
   }
 
+  const eventRouteMatch = location.pathname.match(EVENT_ROUTE_RE);
+  const routeEventId = eventRouteMatch ? decodeURIComponent(eventRouteMatch[1]) : '';
+  const routeSection = eventRouteMatch ? eventRouteMatch[2] : '';
+  const routeEvent = routeEventId ? events.find(ev => String(ev.id) === routeEventId) || null : null;
+  const fallbackEvent = events.find(ev => String(ev.id) === selectedEventId)
+    || events.find(ev => ev.inviteScope !== 'subset')
+    || events[0]
+    || null;
+  const activeEvent = routeEventId ? routeEvent : fallbackEvent;
+
+  function setActiveEvent(ev) {
+    setSelectedEventId(ev?.id ? String(ev.id) : '');
+  }
+
   function selectEvent(ev) {
-    setActiveEvent(ev);
+    setSelectedEventId(String(ev.id));
     setSwitcherOpen(false);
+    setMobileSwitcherOpen(false);
+    if (routeSection && EVENT_SECTIONS.has(routeSection)) {
+      navigate(`/events/${ev.id}/${routeSection}`);
+    }
   }
 
   const initial  = (info?.username?.[0] || 'U').toUpperCase();

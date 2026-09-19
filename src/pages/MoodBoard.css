@@ -100,12 +100,7 @@
   text-align: center;
 }
 
-.mb-pinterest-embed span,
-.mb-pinterest-embed div {
-  max-width: 100%;
-}
-
-.mb-pinterest-embed iframe {
+.mb-pinterest-embed {
   width: 100% !important;
   max-width: 100% !important;
   min-height: 200px !important;
@@ -114,6 +109,14 @@
   border-radius: var(--r-sm);
   display: block;
   margin: 0 auto;
+}
+
+.mb-pinterest-invalid {
+  padding: 24px 14px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .mb-pinterest-widget-host {
@@ -159,7 +162,7 @@
     max-height: min(240px, 38vh);
   }
 
-  .mb-pinterest-embed iframe {
+  .mb-pinterest-embed {
     min-height: 160px !important;
   }
 }
