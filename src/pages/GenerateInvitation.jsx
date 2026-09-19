@@ -631,14 +631,6 @@ export default function GenerateInvitation() {
   // ── PEOPLE FORM LAYOUT ──────────────────────────────────
   const firstNameOf = (full) => String(full || '').trim().split(/\s+/)[0] || '';
 
-  /** "Bride's Father" reads as "Priya's Father" once the bride has a name. */
-  function dependentLabel(roleDef, principal) {
-    const owner = firstNameOf(peopleInputs[principal.role]);
-    const suffix = roleDef.role.slice(principal.role.length + 1).replace(/_/g, ' ').trim();
-    if (!owner || !suffix) return roleDef.label;
-    return `${owner}'s ${suffix.replace(/\b\w/g, (c) => c.toUpperCase())}`;
-  }
-
   const principalRoles = new Set(peopleRoleGroups.principals.map(r => r.role));
   const principalsNamed = peopleRoleGroups.principals.length > 0
     && peopleRoleGroups.principals.every(r => String(peopleInputs[r.role] || '').trim());
@@ -653,13 +645,12 @@ export default function GenerateInvitation() {
   };
   const orderedPeople = [...people].sort((a, b) => roleRank(a.role) - roleRank(b.role));
 
-  /** Label for a saved person — personalised where the role has an owner. */
+  /**
+   * Label for a saved person — always the template's own "Form label".
+   * Labels are never generated from the entered names: whatever the template
+   * author typed in admin is what the couple sees, here and in the form below.
+   */
   function savedRoleLabel(role) {
-    for (const g of peopleRoleGroups.groups) {
-      if (g.principal.role === role) return g.principal.label;
-      const dep = g.dependents.find(d => d.role === role);
-      if (dep) return dependentLabel(dep, g.principal);
-    }
     return schemaPeopleRoles.find(r => r.role === role)?.label || role.replace(/_/g, ' ');
   }
 
@@ -1364,7 +1355,8 @@ export default function GenerateInvitation() {
                   />
                 ))}
 
-                {/* Parents appear once the couple is named, labelled with their names. */}
+                {/* Parents appear once the couple is named; each field keeps the
+                    template's own label, only the group heading uses the name. */}
                 {showDependents
                   ? peopleRoleGroups.groups.filter(g => g.dependents.length > 0).map((g) => (
                       <div className="people-group" key={g.principal.role}>
@@ -1375,7 +1367,7 @@ export default function GenerateInvitation() {
                           <PersonNameRow
                             key={roleDef.role}
                             roleDef={roleDef}
-                            label={dependentLabel(roleDef, g.principal)}
+                            label={roleDef.label}
                             locked={frozen && roleDef.required}
                             value={peopleInputs[roleDef.role] || ''}
                             onChange={(v) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: v }))}
