@@ -716,13 +716,17 @@ export default function GenerateInvitation() {
 
     let ok = true;
     switch (activeSection) {
+      // Once names are confirmed the required ones are locked, but optional
+      // names (parents and the like) stay editable — and they live only in
+      // peopleInputs until saved, so they must be flushed here like any tab.
+      case 'people':    ok = await savePeopleBySchema(); break;
       // A half-typed venue would otherwise be lost on the way out.
       case 'venues':    if (editingVenue || venueForm.name.trim()) ok = await saveVenue(); break;
       case 'functions': ok = await saveAllFunctions(); break;
       case 'custom':    ok = await saveCustomFields(); break;
       case 'social':    ok = await saveGuestFeatures(); break;
       case 'language':  ok = await saveLanguage(); break;
-      // People (already frozen) and Media persist as you go — nothing to flush.
+      // Media uploads persist as they happen — nothing to flush.
       default: break;
     }
     if (ok) advanceTo(nextSection.id);
@@ -756,6 +760,7 @@ export default function GenerateInvitation() {
     setSavingPerson(true);
     try {
       let nextPeople = [...people];
+      let wrote = false;
       // sortOrder follows the grouped order, so the saved list and the rendered
       // invitation both read couple-first, then parents.
       for (const [sortOrder, roleDef] of peopleRoleGroups.ordered.entries()) {
@@ -766,6 +771,7 @@ export default function GenerateInvitation() {
         if (existing && !nextName && !roleDef.required) {
           await api.people.remove(id, existing.id);
           nextPeople = nextPeople.filter((p) => p.id !== existing.id);
+          wrote = true;
           continue;
         }
         if (!nextName) continue;
@@ -776,17 +782,20 @@ export default function GenerateInvitation() {
           const editable = !(frozen && roleDef.required);
           const changed = String(existing.name || '').trim() !== nextName || existing.sortOrder !== sortOrder;
           if (changed && editable) {
-            // Pass required flag so backend allows optional-name edits after freeze
-            const r = await api.people.update(id, existing.id, { role, name: nextName, sortOrder, required: roleDef.required });
+            // The server decides from the template which roles are locked; the
+            // client never has to vouch for it.
+            const r = await api.people.update(id, existing.id, { role, name: nextName, sortOrder });
             nextPeople = nextPeople.map((p) => (p.id === existing.id ? r.person : p));
+            wrote = true;
           }
         } else {
           const r = await api.people.add(id, { role, name: nextName, sortOrder });
           nextPeople = [...nextPeople, r.person];
+          wrote = true;
         }
       }
       setPeople(nextPeople);
-      toast('People saved!', 'success');
+      if (wrote) toast('People saved!', 'success');
       return true;
     } catch (err) {
       toast(err.message, 'error');
