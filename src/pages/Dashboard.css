@@ -419,3 +419,32 @@
   .event-cards { grid-template-columns: 1fr; gap: 8px; }
   .event-card { min-height: 56px; padding: 10px 12px; }
 }
+
+/* Live Home: three quick actions — Share · Edit · Take offline */
+.dash-quick-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.dash-quick {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 60px; padding: 8px 6px; border-radius: 14px; border: 1.5px solid var(--border-default);
+  background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 700;
+  text-align: center; text-decoration: none; cursor: pointer; transition: transform 90ms ease, background-color var(--t-fast);
+}
+.dash-quick:hover { text-decoration: none; background: var(--bg-elevated); }
+.dash-quick:active { transform: scale(0.97); }
+.dash-quick.is-primary { background: var(--gold); border-color: var(--gold); color: #fff; }
+.dash-quick.is-primary:hover { background: var(--gold-light); }
+.dash-quick.is-danger { color: var(--red); border-color: var(--coral); }
+
+/* Wishes on Home */
+.dash-wish-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dash-wish-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.dash-wish { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--bg-elevated); }
+.dash-wish-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.dash-wish-head span { color: var(--text-muted); font-size: 12px; }
+.dash-wish-msg { color: var(--text-secondary); font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.dash-wishes-empty { display: flex; align-items: flex-start; gap: 8px; color: var(--text-muted); }
+
+/* Links are never cut off: they wrap on phones */
+@media (max-width: 900px) {
+  .dash-url-bar { align-items: flex-start; }
+  .dash-url-text { white-space: normal; word-break: break-all; overflow: visible; text-overflow: clip; font-size: 13px; line-height: 18px; }
+}

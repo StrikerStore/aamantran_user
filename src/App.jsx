@@ -5,8 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import GenerateInvitation from './pages/GenerateInvitation';
 import EditInvitation from './pages/EditInvitation';
-import GuestManager from './pages/GuestManager';
-import WishManager from './pages/WishManager';
+import GuestsHub, { WishesRedirect } from './pages/GuestsHub';
 import Settings from './pages/Settings';
 import Support from './pages/Support';
 import Review from './pages/Review';
@@ -43,8 +42,8 @@ export default function App() {
           <Route path="/dashboard"  element={<Dashboard />} />
           <Route path="/events/:id/generate"  element={<GenerateInvitation />} />
           <Route path="/events/:id/edit"      element={<EditInvitation />} />
-          <Route path="/events/:id/guests"    element={<GuestManager />} />
-          <Route path="/events/:id/wishes"    element={<WishManager />} />
+          <Route path="/events/:id/guests"    element={<GuestsHub />} />
+          <Route path="/events/:id/wishes"    element={<WishesRedirect />} />
           <Route path="/events/:id/tasks"     element={<Tasks />} />
           <Route path="/events/:id/inventory" element={<Inventory />} />
           <Route path="/events/:id/budget"    element={<Budget />} />

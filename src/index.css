@@ -823,3 +823,17 @@ input, select, textarea { font-family: inherit; }
   .section-header { flex-direction: column; align-items: stretch; }
   .section-header .search-field { max-width: none !important; }
 }
+
+/* ── Segmented tabs (e.g. Guests | Wishes) ── */
+.seg-tabs {
+  display: flex; gap: 4px; padding: 4px; margin-bottom: 16px; max-width: 420px;
+  background: var(--bg-elevated); border-radius: 14px; box-shadow: var(--shadow-sm);
+}
+.seg-tab {
+  flex: 1; min-width: 0; min-height: 40px; border: none; border-radius: 10px; background: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--text-secondary);
+  transition: background-color var(--t-fast), color var(--t-fast);
+}
+.seg-tab.active { background: var(--bg-surface); color: var(--rose-deep); box-shadow: var(--shadow-sm); }
+@media (max-width: 900px) { .seg-tabs { max-width: none; margin-bottom: 12px; } }

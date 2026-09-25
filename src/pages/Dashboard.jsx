@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate, Link } from 'react-router-dom';
 import {
   Copy, Share2, PencilLine, Sparkles, Eye, Check, ChevronRight, Users, CalendarHeart, Image as ImageIcon,
-  Radio, X, ShoppingBag, LifeBuoy, PartyPopper,
+  Radio, X, ShoppingBag, LifeBuoy, PartyPopper, CloudOff, MessageCircleHeart,
 } from 'lucide-react';
 import { api } from '../lib/api';
-import { formatDate, countdown } from '../lib/utils';
+import { formatDate, countdown, formatRelative } from '../lib/utils';
 import { getInviteBaseUrl, WEBSITE_URL } from '../lib/config';
 import { eventTitle, liveLabel } from '../lib/event';
 import { useToast } from '../components/ui/Toast';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/Modal';
 import { PageSkeleton } from '../components/ui/Skeleton';
 import './Dashboard.css';
 
@@ -31,10 +32,13 @@ function countdownText(date) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { activeEvent, events = [], setActiveEvent, eventsLoaded = true } = useOutletContext() || {};
+  const { activeEvent, events = [], setActiveEvent, refreshEvents, eventsLoaded = true } = useOutletContext() || {};
 
   const [stats, setStats] = useState(null);
   const [eventDetail, setEventDetail] = useState(null);
+  const [wishes, setWishes] = useState([]);
+  const [confirmOffline, setConfirmOffline] = useState(false);
+  const [goingOffline, setGoingOffline] = useState(false);
   const [welcomeHidden, setWelcomeHidden] = useState(() => readFlag(WELCOME_KEY));
 
   const displayEvents = events.filter(ev => ev.inviteScope !== 'subset');
@@ -45,13 +49,29 @@ export default function Dashboard() {
     Promise.all([
       api.events.stats(activeEvent.id).catch(() => ({ stats: null })),
       api.events.get(activeEvent.id),
-    ]).then(([sr, er]) => {
+      api.wishes.list(activeEvent.id).catch(() => ({ wishes: [] })),
+    ]).then(([sr, er, wr]) => {
       if (!live) return;
       setStats(sr.stats);
       setEventDetail(er.event);
+      setWishes(wr.wishes || []);
     }).catch(() => {});
     return () => { live = false; };
   }, [activeEvent?.id]);
+
+  async function takeOffline() {
+    setGoingOffline(true);
+    try {
+      await api.events.unpublish(activeEvent.id);
+      toast('Your invitation is offline. Put it back online from Edit anytime.', 'success');
+      setConfirmOffline(false);
+      await refreshEvents?.();
+    } catch (err) {
+      toast(err.message || 'We couldn’t take it offline. Try again.', 'error');
+    } finally {
+      setGoingOffline(false);
+    }
+  }
 
   function copy(url) {
     navigator.clipboard?.writeText(url)
@@ -133,6 +153,17 @@ export default function Dashboard() {
 
   return (
     <div className="page-fade">
+      {confirmOffline && (
+        <ConfirmModal
+          title="Take your invitation offline?"
+          message="Guests who open your link — and the link for selected ceremonies — will see a “not available” page. You can put it back online anytime from Edit."
+          confirmText="Take offline"
+          cancelText="Keep it online"
+          loading={goingOffline}
+          onConfirm={takeOffline}
+          onCancel={() => !goingOffline && setConfirmOffline(false)}
+        />
+      )}
 
       {/* ── First visit ── */}
       {showWelcome && (
@@ -200,16 +231,25 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="dash-hero-actions">
-          <Link to={primary.to} className="btn btn-primary">
-            <PrimaryIcon size={18} aria-hidden="true" /> {primary.label}
-          </Link>
-          {isLive && (
-            <Link to={buildBase} className="btn btn-secondary">
-              <PencilLine size={18} aria-hidden="true" /> Edit invitation
+        {isLive ? (
+          <div className="dash-quick-actions">
+            <Link to={`/events/${activeEvent.id}/share`} className="dash-quick is-primary">
+              <Share2 size={20} aria-hidden="true" /> Share
             </Link>
-          )}
-        </div>
+            <Link to={buildBase} className="dash-quick">
+              <PencilLine size={20} aria-hidden="true" /> Edit
+            </Link>
+            <button type="button" className="dash-quick is-danger" onClick={() => setConfirmOffline(true)}>
+              <CloudOff size={20} aria-hidden="true" /> Take offline
+            </button>
+          </div>
+        ) : (
+          <div className="dash-hero-actions">
+            <Link to={primary.to} className="btn btn-primary">
+              <PrimaryIcon size={18} aria-hidden="true" /> {primary.label}
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ── Getting ready (not live yet) ── */}
@@ -289,6 +329,37 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Wishes (live) ── */}
+      {isLive && (
+        <section className="card mb-24" aria-labelledby="wishes-title">
+          <div className="card-head-row">
+            <h2 className="card-title" id="wishes-title">Wishes</h2>
+            <Link to={`/events/${activeEvent.id}/guests?tab=wishes`} className="btn btn-ghost btn-sm">See all wishes <ChevronRight size={16} aria-hidden="true" /></Link>
+          </div>
+          {wishes.length === 0 ? (
+            <p className="dash-wishes-empty">
+              <MessageCircleHeart size={18} aria-hidden="true" /> No wishes yet — guests can leave you a message on your invitation.
+            </p>
+          ) : (
+            <>
+              <div className="reply-stats dash-wish-stats">
+                <div className="reply-stat"><strong>{wishes.length}</strong><span>Wishes</span></div>
+                <div className="reply-stat"><strong className="g-green">{wishes.filter(w => w.isApproved).length}</strong><span>Guests can see</span></div>
+                <div className="reply-stat"><strong>{wishes.length - wishes.filter(w => w.isApproved).length}</strong><span>Hidden</span></div>
+              </div>
+              <ul className="dash-wish-list">
+                {wishes.slice(0, 2).map(w => (
+                  <li key={w.id} className="dash-wish">
+                    <span className="dash-wish-head"><strong>{w.guestName || 'Guest'}</strong> <span>{formatRelative(w.createdAt)}</span></span>
+                    <span className="dash-wish-msg">“{w.message}”</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </section>
       )}

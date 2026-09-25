@@ -781,12 +781,18 @@ export default function GenerateInvitation() {
     // People is gated by the permanent name freeze — confirm before moving on.
     if (activeSection === 'people' && !frozen) { setConfirmingNames(true); return; }
     if (!(await saveActive())) return;
-    if (isLive) {
-      toast('Saved — your live invitation is updated.', 'success');
-      advanceTo('overview');
-      return;
-    }
+    if (isLive) toast('Saved — your live invitation is updated.', 'success');
     if (nextSection) advanceTo(nextSection.id);
+  }
+
+  /** "Save": keep what's on this step and stay here. */
+  async function handleSave() {
+    if (nextDisabled) { showFlowHint(nextHint); return; }
+    setFlowHint('');
+    // Names are confirmed (and locked) the first time they are saved.
+    if (activeSection === 'people' && !frozen) { setConfirmingNames(true); return; }
+    if (!(await saveActive())) return;
+    toast(isLive ? 'Saved — your live invitation is updated.' : 'Saved.', 'success');
   }
 
   async function confirmNamesAndAdvance() {
@@ -1361,20 +1367,6 @@ export default function GenerateInvitation() {
     });
   }
 
-  function barGoLive() {
-    if (!frozen) { showFlowHint('Confirm your names first — then you can go live.'); return; }
-    if (!ceremoniesReady) { showFlowHint('Give every ceremony a name and a date first — then you can go live.'); return; }
-    if (linkBlocked) { showFlowHint('Choose a link that’s free to go live.'); return; }
-    startGoLive();
-  }
-
-  const nextStep = sections[activeIdx + 1];
-  const barAction = activeSection === 'overview' ? null
-    : activeSection === 'publish' ? (isLive ? null : { label: 'Go live', onClick: barGoLive })
-    : isLive ? { label: 'Save', onClick: handleNext }
-    : nextStep ? { label: 'Next', onClick: handleNext }
-    : null;
-
   // Live invitation home: what is filled in, per area.
   const firstDate = eventMeta({ ...event, functions }).split(' · ').pop();
   const filledDetails = fieldSchema.filter(f => String(customFields.find(c => c.fieldKey === f.key)?.fieldValue || '').trim()).length;
@@ -1401,19 +1393,23 @@ export default function GenerateInvitation() {
           <button type="button" className="stepbar-icon" onClick={handleBack} aria-label={backLabel} title={backLabel} disabled={savingActive}>
             <ChevronLeft size={24} aria-hidden="true" />
           </button>
-          <button type="button" className="stepbar-title" onClick={() => setStepSheet(true)} aria-haspopup="dialog" aria-label={`${activeShort}. See all steps`}>
-            {activeSection !== 'overview' && <span className="stepbar-count">{stepNo}/{stepSections.length}</span>}
-            <span className="stepbar-name">{activeShort}</span>
-            <ChevronDown size={16} aria-hidden="true" className="stepbar-chev" />
+          <button
+            type="button"
+            className="stepbar-title"
+            onClick={() => setStepSheet(true)}
+            aria-haspopup="dialog"
+            aria-label={activeSection === 'overview' ? 'Overview. See all steps' : `Step ${stepNo} of ${stepSections.length}: ${activeShort}. See all steps`}
+          >
+            {activeSection !== 'overview' && <span className="stepbar-count">Step {stepNo} of {stepSections.length}</span>}
+            <span className="stepbar-name-row">
+              <span className="stepbar-name">{activeShort}</span>
+              <ChevronDown size={16} aria-hidden="true" className="stepbar-chev" />
+            </span>
           </button>
-          <button type="button" className="stepbar-icon" onClick={openPreview} disabled={loadingPreview} aria-label="Preview your invitation" title="Preview">
-            <Eye size={22} aria-hidden="true" />
+          <button type="button" className="stepbar-preview" onClick={openPreview} disabled={loadingPreview}>
+            {loadingPreview ? <span className="btn-spinner" aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            Preview
           </button>
-          {barAction ? (
-            <button type="button" className="stepbar-next" onClick={barAction.onClick} disabled={savingActive || publishing}>
-              {savingActive || publishing ? <span className="btn-spinner" aria-hidden="true" /> : barAction.label}
-            </button>
-          ) : <span className="stepbar-spacer" aria-hidden="true" />}
         </div>
         {!isEditMode && (
           <div className="stepbar-segments" role="progressbar" aria-label={`${mustDoneCount} of 3 must-do steps done`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -1649,7 +1645,7 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add the people your invitation is from.</div>
               </div>
             ))}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} onSave={handleSave} saving={savingActive} />
           </div>
         )}
 
@@ -1860,7 +1856,7 @@ export default function GenerateInvitation() {
               </div>
             )}
 
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} onSave={handleSave} saving={savingActive} />
           </div>
         )}
 
@@ -1971,7 +1967,7 @@ export default function GenerateInvitation() {
                 )}
               </>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} onSave={handleSave} saving={savingActive} />
           </div>
         )}
 
@@ -2044,7 +2040,7 @@ export default function GenerateInvitation() {
                 })}
               </>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} onSave={handleSave} saving={savingActive} />
           </div>
         )}
 
@@ -2124,7 +2120,7 @@ export default function GenerateInvitation() {
               </label>
             </div>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} onSave={handleSave} saving={savingActive} />
           </div>
         )}
 
@@ -2145,7 +2141,7 @@ export default function GenerateInvitation() {
                 </label>
               ))}
             </div>
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} onSave={handleSave} saving={savingActive} />
           </div>
         )}
 
@@ -2281,13 +2277,13 @@ export default function GenerateInvitation() {
                 </div>
               </div>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} onSave={handleSave} saving={savingActive} />
           </div>
         )}
       </div>
 
       {stepSheet && (
-        <Modal title="Steps" onClose={() => setStepSheet(false)}>
+        <Modal title={<>Steps <span className="steps-pct">{pct}% complete</span></>} onClose={() => setStepSheet(false)}>
           {!isEditMode && (
             <p className="steps-sheet-progress">
               <strong>{mustDoneCount} of 3 must-do steps done.</strong>{' '}
@@ -2558,36 +2554,36 @@ function PreflyItem({ ok, label, onClick, actionLabel = 'Fix', optional = false 
  * "Save & continue". Live invitation: "Back to overview" and "Save changes".
  * Every move saves first. When the main button is greyed out, `hint` says why.
  */
-function SectionNav({ sections, activeSection, onBack, onNext, saving, extra, isLive }) {
+function SectionNav({ sections, activeSection, onBack, onNext, onSave, saving, extra }) {
   if (activeSection === 'overview') return null;
   const idx = sections.findIndex(s => s.id === activeSection);
   const prev = sections[idx - 1];
   const next = sections[idx + 1];
-  const back = isLive ? sections.find(s => s.id === 'overview') : prev;
-  const showPrimary = isLive ? activeSection !== 'publish' : Boolean(next);
-  const primaryLabel = isLive ? 'Save changes' : next?.id === 'publish' ? 'Save & preview' : 'Save & continue';
+  // "Preview & go live" has its own Go live button and nothing to save
+  const canSave = activeSection !== 'publish';
   return (
     <div className="section-nav-footer">
-      <div className="section-nav-row">
-        {back
-          ? (
-            <button type="button" className="btn btn-ghost" onClick={() => onBack(back.id)} disabled={saving}>
-              <ArrowLeft size={18} aria-hidden="true" />
-              {isLive ? 'Back to overview' : 'Back'}
-            </button>
-          )
-          : <span />}
-        <div className="section-nav-actions">
-          {extra}
-          {showPrimary && (
-            <button type="button" className="btn btn-primary" disabled={saving} onClick={onNext}>
-              {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
-              {saving ? 'Saving…' : primaryLabel}
-              {!saving && !isLive && <ArrowRight size={18} aria-hidden="true" />}
-            </button>
-          )}
-        </div>
+      <div className="section-nav-row section-nav-three">
+        {prev ? (
+          <button type="button" className="btn btn-ghost section-nav-prev" onClick={() => onBack(prev.id)} disabled={saving} title={`Back to ${prev.label} (saves first)`}>
+            <ArrowLeft size={18} aria-hidden="true" />
+            {prev.id === 'overview' ? 'Overview' : 'Previous'}
+          </button>
+        ) : <span />}
+        {canSave ? (
+          <button type="button" className="btn btn-secondary section-nav-save" onClick={onSave} disabled={saving}>
+            {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        ) : <span />}
+        {next ? (
+          <button type="button" className="btn btn-primary section-nav-next" onClick={onNext} disabled={saving} title={`Save and go to ${next.label}`}>
+            Next
+            <ArrowRight size={18} aria-hidden="true" />
+          </button>
+        ) : <span />}
       </div>
+      {extra}
     </div>
   );
 }

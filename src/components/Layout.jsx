@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Home, Sparkles, PencilLine, Share2, Users, MessageCircleHeart, ListChecks, Clock3, Briefcase,
+  Home, Sparkles, PencilLine, Share2, Users, ListChecks, Clock3, Briefcase,
   Wallet, Package, Gift, Palette, Camera, BookOpen, LifeBuoy, Settings as SettingsIcon, Star,
   LogOut, Menu, ChevronDown, ChevronRight, Check, MoreHorizontal, ShoppingBag,
 } from 'lucide-react';
@@ -61,7 +61,8 @@ export function Layout() {
   // The invitation picked last (remembered across refreshes).
   const [chosenId, setChosenId] = useState(() => readStored(ACTIVE_EVENT_KEY, ''));
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  // Phone sheets: 'more' = planning, money & memories; 'profile' = account and help
+  const [sheet, setSheet] = useState(null);
   const [switchSheet, setSwitchSheet] = useState(false);   // phone: invitation switcher as a bottom sheet
   // Phone: the top bar slides away while scrolling down and returns on scroll up.
   // Remembered per page, so it is always shown again after moving to another page.
@@ -217,8 +218,7 @@ export function Layout() {
           ? { label: 'Edit invitation', icon: PencilLine, to: buildPath, needsEvent: true }
           : { label: 'Build invitation', icon: Sparkles, to: buildPath, needsEvent: true },
         { label: 'Share', icon: Share2, to: ePath('share'), needsEvent: true, needsLive: true },
-        { label: 'Guests', icon: Users, to: ePath('guests'), needsEvent: true },
-        { label: 'Wishes', icon: MessageCircleHeart, to: ePath('wishes'), needsEvent: true },
+        { label: 'Guests & wishes', icon: Users, to: ePath('guests'), needsEvent: true },
       ],
     },
     {
@@ -266,8 +266,8 @@ export function Layout() {
   const bottomActive = {
     home: path === '/dashboard',
     invite: /\/(generate|edit)$/.test(path),
-    guests: /\/guests$/.test(path),
-    more: !/^\/dashboard/.test(path) && !/\/(generate|edit|guests|share)$/.test(path),
+    guests: /\/(guests|wishes)$/.test(path),
+    more: !/^\/dashboard/.test(path) && !/\/(generate|edit|guests|wishes|share)$/.test(path) && !/^\/(guide|support|settings|review)/.test(path),
   };
 
   function renderEventList(onPick) {
@@ -298,7 +298,7 @@ export function Layout() {
   }
 
   return (
-    <div className={`app-shell${railCollapsed ? ' rail' : ''}${hiddenOnPath === location.pathname && !moreOpen && !switchSheet ? ' shell-top-hidden' : ''}${typing ? ' shell-typing' : ''}`}>
+    <div className={`app-shell${railCollapsed ? ' rail' : ''}${hiddenOnPath === location.pathname && !!sheet && !switchSheet ? ' shell-top-hidden' : ''}${typing ? ' shell-typing' : ''}`}>
       {/* Sidebar (desktop) */}
       <aside className="sidebar" aria-label="Main menu">
         <div className="sidebar-logo">
@@ -438,7 +438,7 @@ export function Layout() {
               <ChevronDown size={14} className="topbar-event-chev" aria-hidden="true" />
             </button>
           </div>
-          <button type="button" className="topbar-mobile-avatar" onClick={() => setMoreOpen(true)} aria-label="Menu and account">
+          <button type="button" className="topbar-mobile-avatar" onClick={() => setSheet('profile')} aria-label="Your account and help" aria-haspopup="dialog">
             {initial}
           </button>
         </header>
@@ -454,10 +454,10 @@ export function Layout() {
           type="button"
           className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
           aria-current={bottomActive.home ? 'page' : undefined}
-          aria-label="Home"
-          onClick={() => { setMoreOpen(false); navigate('/dashboard'); }}
+          onClick={() => { setSheet(null); navigate('/dashboard'); }}
         >
           <Home className="bnav-icon" aria-hidden="true" />
+          <span className="bnav-label">Home</span>
         </button>
         <button
           type="button"
@@ -495,9 +495,9 @@ export function Layout() {
         </button>
         <button
           type="button"
-          className={`bottom-nav-item ${bottomActive.more || moreOpen ? 'active' : ''}`}
-          onClick={() => setMoreOpen((o) => !o)}
-          aria-expanded={moreOpen}
+          className={`bottom-nav-item ${bottomActive.more || sheet === 'more' ? 'active' : ''}`}
+          onClick={() => setSheet((o) => (o === 'more' ? null : 'more'))}
+          aria-expanded={sheet === 'more'}
         >
           <MoreHorizontal className="bnav-icon" aria-hidden="true" />
           <span className="bnav-label">More</span>
@@ -511,61 +511,62 @@ export function Layout() {
         </Modal>
       )}
 
-      {/* Phone: More — everything else in one place, including your account */}
-      {moreOpen && (
+      {/* Phone: More (planning, money & items, memories) and Profile (account & help) */}
+      {sheet && (
         <>
-          <div className="bottom-sheet-overlay" onClick={() => setMoreOpen(false)} />
-          <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label="More">
+          <div className="bottom-sheet-overlay" onClick={() => setSheet(null)} />
+          <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label={sheet === 'profile' ? 'Your account and help' : 'More'}>
             <div className="bottom-sheet-handle" />
-            <div className="more-sheet-account">
-              <div className="profile-sheet-avatar" aria-hidden="true">{initial}</div>
-              <div className="profile-sheet-id">
-                <div className="profile-sheet-name">{username}</div>
-                <div className="profile-sheet-email">{info?.email || ''}</div>
-              </div>
-            </div>
-            <div className="bottom-sheet-sections">
-              {NAV.map((sec) => {
-                const items = sec.items.filter((it) => !['Home', 'Build invitation', 'Edit invitation', 'Share', 'Guests'].includes(it.label));
-                if (!items.length) return null;
-                return (
-                  <div key={sec.section} className="bottom-sheet-section">
-                    <div className="bottom-sheet-section-label">{sec.section}</div>
-                    <div className="bottom-sheet-section-items">
-                      {items.map((item) => {
-                        const reason = blockedReason(item);
-                        const active = item.to !== '#' && (path === item.to || path.startsWith(`${item.to}/`));
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            type="button"
-                            key={item.label}
-                            className={`bottom-sheet-row ${active ? 'active' : ''}${reason ? ' is-locked' : ''}`}
-                            aria-disabled={reason ? true : undefined}
-                            onClick={() => {
-                              if (reason) { toast(reason, 'info'); return; }
-                              setMoreOpen(false);
-                              navigate(item.to);
-                            }}
-                          >
-                            <span className="bottom-sheet-row-icon"><Icon size={20} aria-hidden="true" /></span>
-                            <span className="bottom-sheet-row-label">{item.label}</span>
-                            <ChevronRight size={18} className="bottom-sheet-row-chev" aria-hidden="true" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="bottom-sheet-section">
-                <div className="bottom-sheet-section-items">
-                  <button type="button" className="bottom-sheet-row profile-sheet-logout" onClick={() => { setMoreOpen(false); handleLogout(); }}>
-                    <span className="bottom-sheet-row-icon"><LogOut size={20} aria-hidden="true" /></span>
-                    <span className="bottom-sheet-row-label">Sign out</span>
-                  </button>
+            {sheet === 'profile' && (
+              <div className="more-sheet-account">
+                <div className="profile-sheet-avatar" aria-hidden="true">{initial}</div>
+                <div className="profile-sheet-id">
+                  <div className="profile-sheet-name">{username}</div>
+                  <div className="profile-sheet-email">{info?.email || ''}</div>
                 </div>
               </div>
+            )}
+            {sheet === 'more' && <div className="bottom-sheet-title">More</div>}
+            <div className="bottom-sheet-sections">
+              {NAV.filter((sec) => (sheet === 'profile' ? sec.section === 'Help & account' : !['Invitation', 'Help & account'].includes(sec.section))).map((sec) => (
+                <div key={sec.section} className="bottom-sheet-section">
+                  <div className="bottom-sheet-section-label">{sec.section}</div>
+                  <div className="bottom-sheet-section-items">
+                    {sec.items.map((item) => {
+                      const reason = blockedReason(item);
+                      const active = item.to !== '#' && (path === item.to || path.startsWith(`${item.to}/`));
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          type="button"
+                          key={item.label}
+                          className={`bottom-sheet-row ${active ? 'active' : ''}${reason ? ' is-locked' : ''}`}
+                          aria-disabled={reason ? true : undefined}
+                          onClick={() => {
+                            if (reason) { toast(reason, 'info'); return; }
+                            setSheet(null);
+                            navigate(item.to);
+                          }}
+                        >
+                          <span className="bottom-sheet-row-icon"><Icon size={20} aria-hidden="true" /></span>
+                          <span className="bottom-sheet-row-label">{item.label}</span>
+                          <ChevronRight size={18} className="bottom-sheet-row-chev" aria-hidden="true" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              {sheet === 'profile' && (
+                <div className="bottom-sheet-section">
+                  <div className="bottom-sheet-section-items">
+                    <button type="button" className="bottom-sheet-row profile-sheet-logout" onClick={() => { setSheet(null); handleLogout(); }}>
+                      <span className="bottom-sheet-row-icon"><LogOut size={20} aria-hidden="true" /></span>
+                      <span className="bottom-sheet-row-label">Sign out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>
