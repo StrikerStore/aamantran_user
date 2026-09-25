@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X } from 'lucide-react';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -9,7 +9,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * and returns to whatever opened it when it closes. Esc or a click on the
  * backdrop closes it.
  */
-export function Modal({ title, children, footer, onClose, size = 'md' }) {
+export function Modal({ title, children, footer, onClose, size = 'md', variant }) {
   const titleId = useId();
   const boxRef = useRef(null);
   // Latest onClose without re-running the open/close effect on every render
@@ -48,16 +48,17 @@ export function Modal({ title, children, footer, onClose, size = 'md' }) {
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
       <div
         ref={boxRef}
-        className={`modal ${size === 'lg' ? 'modal-lg' : ''}`}
+        className={`modal${size === 'lg' ? ' modal-lg' : ''}${variant === 'confirm' ? ' is-confirm' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
       >
+        <div className="modal-handle" aria-hidden="true" />
         <div className="modal-header">
           <h2 className="modal-title" id={titleId}>{title}</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} aria-hidden="true" />
+            <X size={24} aria-hidden="true" />
           </button>
         </div>
         <div className="modal-body">{children}</div>
@@ -68,31 +69,30 @@ export function Modal({ title, children, footer, onClose, size = 'md' }) {
 }
 
 /**
- * "Are you sure?" dialog. The title states the consequence ("Delete this
- * task?") and the confirm button repeats the action ("Delete task"), so the
- * couple never has to decode a generic "OK".
+ * "Are you sure?" dialog, Instagram style: the title states the consequence
+ * ("Delete this task?"), the message says what happens, and the actions are
+ * stacked full-width — the action itself first ("Delete task", red when it
+ * destroys something), then Cancel. `icon` is accepted for older call sites
+ * but not shown.
  */
 export function ConfirmModal({
-  title, message, icon, confirmText = 'Confirm', cancelText = 'Cancel',
+  title, message, confirmText = 'Confirm', cancelText = 'Cancel',
   confirmVariant = 'danger', loading = false, onConfirm, onCancel,
 }) {
-  const variantClass = confirmVariant === 'danger' ? 'btn-danger-solid' : `btn-${confirmVariant}`;
-  const shownIcon = icon === undefined
-    ? <AlertTriangle size={30} aria-hidden="true" />
-    : (typeof icon === 'string' ? <span aria-hidden="true">{icon}</span> : icon);
   return (
-    <Modal title={title} onClose={onCancel} footer={
-      <>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>{cancelText}</button>
-        <button type="button" className={`btn ${variantClass}`} onClick={onConfirm} disabled={loading}>
+    <Modal title={title} onClose={onCancel} variant="confirm">
+      {message && <p className="confirm-message">{message}</p>}
+      <div className="confirm-actions" style={{ margin: '20px -24px -20px' }}>
+        <button
+          type="button"
+          className={`confirm-action ${confirmVariant === 'danger' ? 'is-danger' : 'is-primary'}`}
+          onClick={onConfirm}
+          disabled={loading}
+        >
           {loading && <span className="btn-spinner" aria-hidden="true" />}
           {confirmText}
         </button>
-      </>
-    }>
-      <div className="confirm-body">
-        {shownIcon && <div className={`confirm-icon confirm-icon--${confirmVariant}`}>{shownIcon}</div>}
-        <p className="confirm-message">{message}</p>
+        <button type="button" className="confirm-action" onClick={onCancel} disabled={loading}>{cancelText}</button>
       </div>
     </Modal>
   );

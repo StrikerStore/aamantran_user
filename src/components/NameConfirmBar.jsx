@@ -1,6 +1,5 @@
 import { Modal } from './ui/Modal';
 import { Lock, AlertTriangle, UserPlus, PencilLine } from 'lucide-react';
-import './NameConfirmBar.css';
 
 /**
  * NameConfirmBar — status banner shown in the People section of the build panel.

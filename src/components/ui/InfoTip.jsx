@@ -40,7 +40,7 @@ export function InfoTip({ label, children, learnMore, align = 'start' }) {
         aria-controls={id}
         onClick={() => setOpen((v) => !v)}
       >
-        <Info size={16} aria-hidden="true" />
+        <Info size={20} aria-hidden="true" />
       </button>
       <span id={id} role="status" className={`infotip-pop infotip-pop--${align}${open ? ' is-open' : ''}`}>
         {open && (

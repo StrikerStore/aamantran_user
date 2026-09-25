@@ -37,7 +37,7 @@ export function ToastProvider({ children }) {
           const Icon = ICONS[t.type] || Info;
           return (
             <div key={t.id} className={`toast toast-${t.type}`}>
-              <span className="toast-icon"><Icon size={18} aria-hidden="true" /></span>
+              <span className="toast-icon"><Icon size={20} aria-hidden="true" /></span>
               <span className="toast-msg">{t.message}</span>
               <button type="button" className="toast-close" onClick={() => dismiss(t.id)} aria-label="Dismiss message">
                 <X size={16} aria-hidden="true" />

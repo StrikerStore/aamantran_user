@@ -88,11 +88,11 @@ export default function WishManager() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Guests can see</div>
-          <div className="stat-value" style={{ color: 'var(--green)' }}>{visibleCount}</div>
+          <div className="stat-value" style={{ color: 'var(--success)' }}>{visibleCount}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Hidden</div>
-          <div className="stat-value" style={{ color: 'var(--text-muted)' }}>{hiddenCount}</div>
+          <div className="stat-value" style={{ color: 'var(--text-2)' }}>{hiddenCount}</div>
         </div>
       </div>
 

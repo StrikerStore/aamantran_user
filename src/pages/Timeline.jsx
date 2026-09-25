@@ -152,7 +152,7 @@ export default function Timeline() {
                       <span className="timeline-title">{entry.title}</span>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(entry)} aria-label={`Edit “${entry.title}”`}><Pencil size={15} aria-hidden="true" /> Edit</button>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(entry)} aria-label={`Delete “${entry.title}”`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-text)' }} onClick={() => setDeleting(entry)} aria-label={`Delete “${entry.title}”`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
                       </div>
                     </div>
                     {entry.location && <div className="timeline-meta"><MapPin size={14} aria-hidden="true" /> {entry.location}</div>}

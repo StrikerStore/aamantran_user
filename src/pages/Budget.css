@@ -1,38 +1,19 @@
-.feat-shell + .card {
-  margin-top: 8px;
-}
-
-.budget-setup-row {
-  display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px;
-}
-.budget-currency { font-size: 1.2rem; font-weight: 700; color: var(--text-muted); }
-.budget-total-input { max-width: 200px !important; }
-
-.budget-summary {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px;
-}
-.budget-stat { display: flex; flex-direction: column; gap: 2px; }
-.budget-stat-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
-.budget-stat-val { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
-
-.budget-bar-wrap { margin-top: 4px; }
-.budget-bar {
-  height: 10px; background: var(--bg-overlay); border-radius: 99px;
-  overflow: hidden; display: flex;
-}
-.budget-bar-paid  { background: var(--green); border-radius: 99px 0 0 99px; transition: width 0.4s ease; }
-.budget-bar-spent { background: var(--gold);  transition: width 0.4s ease; }
-.budget-bar-labels { display: flex; gap: 16px; margin-top: 6px; font-size: 0.75rem; font-weight: 600; }
-
-/* Category breakdown */
-.budget-cat-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 0; border-bottom: 1px solid var(--border-subtle);
-}
-.budget-cat-row:last-child { border-bottom: none; }
-.budget-cat-name { width: 120px; flex-shrink: 0; font-size: 0.84rem; color: var(--text-secondary); }
-.budget-cat-bar-wrap { flex: 1; height: 6px; background: var(--bg-overlay); border-radius: 99px; overflow: hidden; }
-.budget-cat-bar { height: 100%; background: var(--gold); border-radius: 99px; transition: width 0.4s ease; }
-.budget-cat-amt { width: 80px; text-align: right; font-size: 0.84rem; font-weight: 700; color: var(--text-primary); }
-
-@media (max-width: 700px) { .budget-summary { grid-template-columns: repeat(2, 1fr); } }
+/* Budget — total, Instagram-style counts, thin bars, list of expenses */
+.budget-setup-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.budget-currency { font-size: var(--fs-md); font-weight: 700; }
+.budget-total-input { max-width: 220px; }
+.budget-summary { display: flex; justify-content: space-around; gap: 8px; margin-top: 16px; padding: 12px 0; border-top: 1px solid var(--separator); text-align: center; flex-wrap: wrap; }
+.budget-stat { display: flex; flex-direction: column-reverse; min-width: 64px; }
+.budget-stat-val { font-size: var(--fs-md); font-weight: 700; line-height: 20px; font-variant-numeric: tabular-nums; }
+.budget-stat-label { font-size: var(--fs-base); color: var(--text); }
+.budget-bar-wrap { margin-top: 8px; }
+.budget-bar { display: flex; height: 4px; border-radius: 2px; background: var(--separator); overflow: hidden; }
+.budget-bar-paid { background: var(--success); }
+.budget-bar-spent { background: var(--accent); }
+.budget-bar-labels { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: var(--fs-sm); flex-wrap: wrap; }
+.budget-cat-row { display: grid; grid-template-columns: minmax(80px, 140px) minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 40px; }
+.budget-cat-name { overflow-wrap: anywhere; }
+.budget-cat-bar-wrap { height: 4px; border-radius: 2px; background: var(--bg-3); overflow: hidden; }
+.budget-cat-bar { height: 100%; background: var(--text); }
+.budget-cat-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 767px) { .budget-total-input { max-width: none; flex: 1; } }

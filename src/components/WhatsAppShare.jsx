@@ -168,7 +168,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
   return (
     <div className="wa-share">
       <div className="wa-share-header">
-        <span className="wa-icon" aria-hidden="true"><MessageCircle size={20} /></span>
+        <span className="wa-icon" aria-hidden="true"><MessageCircle size={24} /></span>
         <h2>Send on WhatsApp</h2>
       </div>
 
@@ -186,7 +186,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
           </div>
         ) : (
           <button type="button" className="wa-upload-area" onClick={() => !uploading && fileRef.current?.click()}>
-            <span className="wa-upload-icon" aria-hidden="true"><ImagePlus size={28} /></span>
+            <span className="wa-upload-icon" aria-hidden="true"><ImagePlus size={24} /></span>
             <span>{uploading ? 'Uploading…' : 'Add a photo'}</span>
             <span className="wa-upload-hint">A couple photo or save-the-date card makes your message stand out.</span>
           </button>
@@ -221,7 +221,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
       {/* Editable message */}
       <div className="wa-section">
         <label className="wa-section-label" htmlFor="wa-message">Message</label>
-        <div className="form-hint" style={{ marginBottom: 6 }}>Edit it however you like.</div>
+        <div className="form-hint wa-hint">Edit it however you like.</div>
         <textarea
           id="wa-message"
           className="form-textarea wa-message"

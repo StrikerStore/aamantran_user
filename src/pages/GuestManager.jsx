@@ -92,7 +92,7 @@ export default function GuestManager() {
           </div>
           <div className="stat-card">
             <div className="stat-label">Coming</div>
-            <div className="stat-value" style={{ color: 'var(--green)' }}>{stats.rsvpCount}</div>
+            <div className="stat-value" style={{ color: 'var(--success)' }}>{stats.rsvpCount}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Times opened</div>
@@ -120,9 +120,9 @@ export default function GuestManager() {
                 {stats.perFunction.map(fn => (
                   <tr key={fn.id}>
                     <td data-label="Ceremony" style={{ fontWeight: 600 }}>{fn.name}</td>
-                    <td data-label="Coming" style={{ color: 'var(--green)' }}>{fn.attending}</td>
-                    <td data-label="Not coming" style={{ color: 'var(--red)' }}>{fn.notAttending}</td>
-                    <td data-label="No reply yet" style={{ color: 'var(--text-muted)' }}>{fn.pending}</td>
+                    <td data-label="Coming" style={{ color: 'var(--success)' }}>{fn.attending}</td>
+                    <td data-label="Not coming" style={{ color: 'var(--danger-text)' }}>{fn.notAttending}</td>
+                    <td data-label="No reply yet" style={{ color: 'var(--text-2)' }}>{fn.pending}</td>
                     <td data-label="Bringing extra">{fn.plusOnes}</td>
                   </tr>
                 ))}
@@ -184,8 +184,8 @@ export default function GuestManager() {
                   <tr key={g.id}>
                     <td data-label="Name" style={{ fontWeight: 600 }}>{g.name}</td>
                     <td data-label="Contact">
-                      {g.phone && <div style={{ fontSize: '0.8rem' }}>{g.phone}</div>}
-                      {g.email && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{g.email}</div>}
+                      {g.phone && <div style={{ fontSize: 'var(--fs-sm)' }}>{g.phone}</div>}
+                      {g.email && <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-2)' }}>{g.email}</div>}
                     </td>
                     <td data-label="Side">{g.side || '—'}</td>
                     <td data-label="Replies" className="guest-col-rsvp">
@@ -205,7 +205,7 @@ export default function GuestManager() {
                         <span className="guest-rsvp-empty">No reply yet</span>
                       )}
                     </td>
-                    <td data-label="First seen" style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{formatRelative(g.createdAt)}</td>
+                    <td data-label="First seen" style={{ color: 'var(--text-2)', fontSize: 'var(--fs-sm)' }}>{formatRelative(g.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

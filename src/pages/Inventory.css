@@ -1,81 +1,24 @@
-.inv-alert {
-  background: var(--rose-soft);
-  border: 1px solid var(--border-gold);
-  border-radius: var(--r-md);
-  padding: 9px 14px;
-  font-size: 0.82rem;
-  color: var(--gold);
-  font-weight: 600;
-  margin-bottom: 0;
-}
-
-/* Category chips (used inside .feat-hub) */
+/* Inventory — Instagram list rows: icon, name + details, status on the right */
+.inv-alert { display: flex; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--separator); color: var(--warning); font-weight: 600; }
 .inv-cat-tab {
-  padding: 6px 12px;
-  border-radius: 99px;
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  font-size: 0.76rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--t-fast);
-  white-space: nowrap;
+  position: relative; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 32px; padding: 0 12px; border: none; border-radius: var(--radius-sm);
+  background: var(--bg-3); color: var(--text); font-size: var(--fs-base); font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-.inv-cat-tab:hover { border-color: var(--gold); color: var(--gold); }
-.inv-cat-tab.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+.inv-cat-tab::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
+.inv-cat-tab.active { background: var(--text); color: #fff; }
 
-/* Item grid */
-.inv-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-top: 4px;
-}
-
+.inv-grid { display: flex; flex-direction: column; }
 .inv-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
-  padding: 14px;
-  cursor: pointer;
-  transition: box-shadow var(--t-fast), border-color var(--t-fast);
-  position: relative;
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px;
+  padding: 12px 0; border-bottom: 1px solid var(--separator);
 }
-.inv-card:hover { box-shadow: var(--shadow-sm); border-color: var(--border-default); }
-
-.inv-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.inv-card-icon { font-size: 1.4rem; }
-.inv-status-badge { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
-.inv-card-name { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-.inv-card-sub  { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
-.inv-card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
-.inv-reminder-badge {
-  display: inline-block; margin-top: 8px;
-  font-size: 0.68rem; font-weight: 700; color: var(--amber);
-  background: var(--lemon-soft); border-radius: 4px; padding: 2px 6px;
-}
-.inv-delete-btn {
-  position: absolute; top: 10px; right: 10px;
-  background: none; border: none; color: var(--text-muted);
-  font-size: 0.8rem; cursor: pointer; padding: 4px;
-  border-radius: var(--r-sm); opacity: 0;
-  transition: opacity var(--t-fast), color var(--t-fast);
-}
-.inv-card:hover .inv-delete-btn { opacity: 1; }
-.inv-delete-btn:hover { color: var(--red); }
-
-.modal-card-lg { max-width: 600px !important; }
-
-@media (max-width: 900px) { .inv-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 540px) { .inv-grid { grid-template-columns: 1fr; } }
-
-/* Revamp: visible Edit / Delete (hover-only delete was unreachable on touch) */
-.inv-card { cursor: default; display: flex; flex-direction: column; }
-.inv-card-icon { display: inline-flex; color: var(--rose-deep); }
-.inv-card-meta { display: flex; align-items: center; gap: 4px; }
-.inv-reminder-badge { display: inline-flex; align-items: center; gap: 4px; }
-.inv-card-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
-.inv-cat-tab { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
-.inv-alert { display: flex; align-items: center; gap: 8px; }
-.inv-status-badge { font-size: 0.75rem; }
+.inv-card-top { display: contents; }
+.inv-card-icon { grid-column: 1; grid-row: 1 / span 4; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--separator); display: flex; align-items: center; justify-content: center; color: var(--text); }
+.inv-status-badge { grid-column: 3; grid-row: 1; align-self: start; height: 20px; padding: 0 8px; border-radius: 4px; font-size: var(--fs-sm); font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap; }
+.inv-card-name { grid-column: 2; grid-row: 1; font-weight: 600; line-height: 18px; overflow-wrap: anywhere; }
+.inv-card-sub, .inv-card-meta, .inv-reminder-badge, .inv-card-actions { grid-column: 2 / span 2; }
+.inv-card-sub { font-size: var(--fs-sm); color: var(--text-2); }
+.inv-card-meta { display: flex; align-items: center; gap: 4px; font-size: var(--fs-sm); color: var(--text-2); }
+.inv-reminder-badge { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--warning); }
+.inv-card-actions { display: flex; flex-wrap: wrap; gap: 0 4px; margin: 4px 0 0 -8px; }

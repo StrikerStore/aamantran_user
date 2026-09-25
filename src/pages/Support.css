@@ -1,123 +1,30 @@
-.tickets-list { display: flex; flex-direction: column; }
-
-.ticket-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  cursor: pointer;
-  transition: background var(--t-fast);
-  border-radius: var(--r-sm);
-  padding-left: 8px;
-}
-.ticket-row:last-child { border-bottom: none; }
-.ticket-row:hover { background: var(--bg-elevated); }
-
-.ticket-info { flex: 1; }
-.ticket-subject { font-weight: 600; color: var(--text-primary); font-size: 0.9rem; }
-.ticket-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
-
-.ticket-event-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  margin-top: 8px;
-}
-.ticket-event-check input { accent-color: var(--gold); }
+/* Support — conversations list and an Instagram DM thread */
+.tickets-list { list-style: none; margin: 0; padding: 0; }
+.ticket-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 8px 0; border: none; border-bottom: 1px solid var(--separator); background: none; text-align: left; cursor: pointer; color: var(--text); }
+.ticket-row:hover { background: var(--bg-hover); }
+.ticket-info { flex: 1; min-width: 0; }
+.ticket-subject { font-weight: 600; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ticket-meta { font-size: var(--fs-sm); color: var(--text-2); }
+.ticket-chev { color: var(--text-2); flex-shrink: 0; }
+.badge-ticket-open { color: var(--warning); }
+.badge-ticket-replied { color: var(--accent-text); }
+.badge-ticket-resolved { color: var(--success); }
+.ticket-event-check { display: flex; align-items: center; gap: 12px; min-height: var(--tap); cursor: pointer; }
+.ticket-event-check input { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* Thread */
-.ticket-thread { display: flex; flex-direction: column; gap: 14px; }
+.ticket-thread { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; padding: 4px 0 12px; }
+.thread-msg { max-width: 78%; display: flex; flex-direction: column; gap: 2px; align-self: flex-start; }
+.thread-msg.user { align-self: flex-end; align-items: flex-end; }
+.thread-role { font-size: var(--fs-xs); color: var(--text-2); padding: 0 12px; }
+.thread-body { padding: 8px 12px; border-radius: 18px; background: var(--bg-3); color: var(--text); line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-msg.user .thread-body { background: var(--accent); color: #fff; }
+.thread-time { font-size: var(--fs-xs); color: var(--text-2); padding: 0 12px; }
 
-.thread-msg {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 16px;
-  border-radius: var(--r-md);
-  max-width: 90%;
-}
-
-.thread-msg.user {
-  background: var(--rose-soft);
-  align-self: flex-end;
-  border: 1px solid var(--border-gold);
-}
-
-.thread-msg.admin, .thread-msg.support {
-  background: var(--bg-elevated);
-  align-self: flex-start;
-  border: 1px solid var(--border-subtle);
-}
-
-.thread-role { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
-.thread-body { font-size: 0.875rem; color: var(--text-primary); white-space: pre-wrap; line-height: 1.5; }
-.thread-time { font-size: 0.72rem; color: var(--text-muted); }
-
-/* Reply box
-   Sits under the thread inside the view modal. Separated by a rule rather than
-   a card so it reads as the end of the conversation - the place you type next -
-   instead of a detached form. */
-.ticket-reply {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.ticket-reply-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.ticket-reply-box {
-  width: 100%;
-  font-family: inherit;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--text-primary);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
-  padding: 10px 14px;
-  resize: vertical;
-  min-height: 72px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.ticket-reply-box:focus { border-color: var(--border-gold); }
-.ticket-reply-box:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.ticket-reply-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.ticket-reply-hint { font-size: 0.75rem; color: var(--text-muted); }
-
-@media (max-width: 560px) {
-  /* The hint wraps to two lines on a narrow screen and shoves the button off
-     the row, so they stack and the button spans the width instead. */
-  .ticket-reply-actions { flex-direction: column; align-items: stretch; }
-  .ticket-reply-hint { order: 2; }
-}
-
-/* Revamp: ticket rows are real buttons; friendly status colours (AA) */
-.tickets-list { list-style: none; padding: 0; margin: 0; }
-.ticket-row { width: 100%; font: inherit; text-align: left; background: none; border: none; min-height: 56px; display: flex; align-items: center; gap: 12px; }
-.ticket-chev { color: var(--gold-text); flex-shrink: 0; }
-.badge-ticket-open { background: var(--lemon-soft); color: var(--amber); }
-.badge-ticket-replied { background: var(--sky-soft); color: var(--sky-deep); }
-.badge-ticket-resolved { background: var(--mint-soft); color: var(--mint-deep); }
-.ticket-event-check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+/* Reply box — Instagram "Message…" field */
+.ticket-reply { border-top: 1px solid var(--separator); padding-top: 12px; }
+.ticket-reply-label { display: block; font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+.ticket-reply-box { width: 100%; min-height: var(--tap); padding: 11px 16px; border: 1px solid var(--control-line); border-radius: 22px; background: var(--bg); font-size: var(--fs-md); line-height: 20px; resize: vertical; outline: none; }
+.ticket-reply-box:focus { border-color: var(--text); }
+.ticket-reply-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.ticket-reply-hint { font-size: var(--fs-sm); color: var(--text-2); flex: 1; min-width: 0; }

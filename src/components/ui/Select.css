@@ -1,79 +1,26 @@
-.clay-select { position: relative; vertical-align: middle; }
+/* Dropdown — the trigger takes its look from .form-select; the list is an Instagram popover. */
+.sel { position: relative; vertical-align: middle; }
+.sel-trigger { display: flex; align-items: center; width: 100%; text-align: left; cursor: pointer; }
+.sel-trigger:disabled { opacity: 0.5; cursor: default; }
+.sel-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-/* Trigger inherits its look from the passed class (form-select):
-   white well, rose border, rose chevron. These rules only fix button quirks. */
-.clay-select-trigger {
-  display: flex;
-  align-items: center;
-  text-align: left;
-  width: 100%;
-}
-.clay-select-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Keeps HTML `required` validation working without being seen */
+.sel-native-mirror { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
 
-.clay-select-label {
-  flex: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* Keeps HTML `required` validation alive without being visible */
-.clay-select-native-mirror {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* The clay popup that replaces the native OS dropdown list */
-.clay-select-popup {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 100%;
-  max-width: 340px;
-  background: var(--bg-surface);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-lg);
-  padding: 6px;
-  margin: 0;
-  list-style: none;
-  z-index: 300;
-  max-height: 264px;
-  overflow-y: auto;
+.sel-popup {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 300;
+  min-width: 100%; max-width: 340px; max-height: 280px; overflow-y: auto;
+  margin: 0; padding: 4px 0; list-style: none;
+  background: var(--bg); border-radius: var(--radius); box-shadow: var(--popover-shadow);
   animation: fadeIn 0.12s ease;
 }
-
-.clay-select-popup.up {
-  top: auto;
-  bottom: calc(100% + 6px);
+.sel-popup.up { top: auto; bottom: calc(100% + 4px); }
+.sel-option {
+  display: flex; align-items: center; gap: 12px; min-height: var(--tap); padding: 0 16px;
+  font-size: var(--fs-base); color: var(--text); cursor: pointer;
 }
-
-.clay-select-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  transition: background var(--t-fast), color var(--t-fast);
-}
-
-.clay-select-option.highlight { background: var(--rose-soft); color: var(--rose-deep); }
-.clay-select-option.selected  { color: var(--rose-deep); font-weight: 700; }
-.clay-select-option.disabled  { opacity: 0.45; cursor: not-allowed; }
-
-.clay-select-check {
-  width: 14px;
-  flex-shrink: 0;
-  font-size: 0.8rem;
-  color: var(--gold);
-}
-
-.clay-select-option-label {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
+.sel-option.highlight { background: var(--bg-hover); }
+.sel-option.selected { font-weight: 600; }
+.sel-option.disabled { opacity: 0.4; cursor: default; }
+.sel-option-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sel-check { order: 2; width: 18px; display: inline-flex; color: var(--text); flex-shrink: 0; }

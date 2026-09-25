@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, useId } from 'react';
-import { useParams, useOutletContext, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useOutletContext, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
 import { parseGoogleMapsUrl, slugify, whatsappShareUrl } from '../lib/utils';
@@ -12,7 +12,7 @@ import { PageSkeleton } from '../components/ui/Skeleton';
 import { InfoTip } from '../components/ui/InfoTip';
 import { eventTitle, eventMeta, eventTypeWord } from '../lib/event';
 import {
-  Eye, Check, Lock, ArrowLeft, ArrowRight, Users, CalendarHeart, Image as ImageIcon, FileText,
+  Eye, Check, Lock, ArrowLeft, ArrowRight, ChevronLeft, ChevronDown, Users, CalendarHeart, Image as ImageIcon, FileText,
   Sparkles as SparklesIcon, Link2, Plus, MapPin, Trash2, PencilLine, Copy, Share2, Radio, Music,
 } from 'lucide-react';
 import { LinkField } from './invite/LinkField';
@@ -43,8 +43,6 @@ const CEREMONY_SUGGESTIONS = ['Haldi', 'Mehendi', 'Sangeet', 'Wedding', 'Recepti
 // Scroll offsets that collapse / restore the sticky tab header. Two separate
 // values on purpose: the gap between them is a dead band, so no scroll position
 // can toggle the header back and forth.
-const TABS_CONDENSE_AT = 96;
-const TABS_EXPAND_AT   = 32;
 
 /** @returns {null | { key: string, label: string, type: string, multiple: boolean, max: number, accept: string, allowUrl: boolean }[]} */
 function normalizeMediaSlots(fullSchema) {
@@ -150,8 +148,8 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
         border: '1px solid var(--border-subtle, rgba(0,0,0,0.06))',
       }}
     >
-      <div className="section-title" style={{ fontSize: '1rem', marginBottom: 4 }}>{slot.label}</div>
-      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10 }}>
+      <div className="section-title" style={{ marginBottom: 4 }}>{slot.label}</div>
+      <p className="form-hint" style={{ marginBottom: 12 }}>
         {slot.multiple ? `Up to ${slot.max} files — select multiple on desktop or mobile where supported.` : 'Single file — a new upload replaces the previous one.'}
       </p>
       {slotItems.length > 0 && (
@@ -160,20 +158,20 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
             <div key={m.id} className="item-row">
               <div className="item-info">
                 <span className="item-label">{m.type}{m.caption ? ` — ${m.caption}` : ''}</span>
-                {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
+                {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" />}
                 {m.type === 'music' && (
-                  <div style={{ marginTop: 8, width: '100%', background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)', boxSizing: 'border-box' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}><Music size={14} aria-hidden="true" /> Background music</div>
+                  <div className="media-audio">
+                    <div className="media-audio-label"><Music size={14} aria-hidden="true" /> Background music</div>
                     <audio
                       controls
                       src={m.url}
-                      style={{ width: '100%', maxWidth: '100%', display: 'block', minWidth: 0, height: 40 }}
+                      className="media-audio-player"
                       controlsList="nodownload"
                       preload="metadata"
                     />
                   </div>
                 )}
-                {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
+                {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" className="media-link">Play video</a>}
               </div>
               <div className="item-actions">
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemoveRequest(m)}>Remove</button>
@@ -235,8 +233,8 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
             const selected = globalAssets.find(a => a.id === selectedAssetId);
             if (!selected) return null;
             return (
-              <div style={{ marginTop: 8, background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview: {selected.name}</div>
+              <div className="media-audio">
+                <div className="media-audio-label">Preview: {selected.name}</div>
                 <audio controls src={selected.url} style={{ width: '100%', height: 40 }} preload="metadata" controlsList="nodownload" />
               </div>
             );
@@ -328,14 +326,12 @@ export default function GenerateInvitation() {
   // Wizard gating: index of the furthest tab the user may open. Tabs past it are locked.
   const [unlockedIdx, setUnlockedIdx] = useState(0);
   const [confirmingNames, setConfirmingNames] = useState(false);
-  // Collapsing tab header: shrink to just the active tab once scrolled past it
-  const [tabsCondensed, setTabsCondensed] = useState(false);
-  const [tabsExpanded, setTabsExpanded] = useState(false);
-  // Height the sticky header reserves in the document. Frozen at the *expanded*
-  // height so condensing never shortens the page — see the ResizeObserver below.
-  const [stickySlotH, setStickySlotH] = useState(null);
-  const stickyInnerRef = useRef(null);
-  const tabsExpandedRef = useRef(false);
+  // Phone: the step list opens as a sheet from the bar's title.
+  const [stepSheet, setStepSheet] = useState(false);
+  const navigate = useNavigate();
+  // Why "Next" can't move on yet — shown at the top of the step.
+  const [flowHint, setFlowHint] = useState('');
+  const flowHintRef = useRef(null);
 
   // People
   const [people, setPeople] = useState([]);
@@ -675,49 +671,6 @@ export default function GenerateInvitation() {
     if (!sections.some((x) => x.id === activeSection)) setActiveSection(sections[positionOf(activeSection)]?.id || 'people');
   }, [sections, activeSection, positionOf]);
 
-  // The scroll listener reads this instead of `tabsExpanded` so it never has to
-  // re-subscribe when the user opens the strip.
-  useEffect(() => { tabsExpandedRef.current = tabsExpanded; }, [tabsExpanded]);
-
-  // Scroll position drives the collapse, with two thresholds (a Schmitt trigger).
-  // The dead band between them is what stops the header oscillating when it sits
-  // right at the boundary — a single threshold flickers there forever.
-  useEffect(() => {
-    if (loading) return;
-    let raf = 0;
-    const read = () => {
-      raf = 0;
-      const y = window.scrollY;
-      if (y <= TABS_EXPAND_AT) { setTabsCondensed(false); setTabsExpanded(false); return; }
-      if (tabsExpandedRef.current) return;   // user opened the strip — hold it open
-      if (y > TABS_CONDENSE_AT) setTabsCondensed(true);
-    };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(read); };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    read();
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [loading]);
-
-  // Freeze the header's footprint at its expanded height. Condensing then shrinks
-  // only the painted box, never the document — if the page got shorter the browser
-  // would clamp the scroll position, which would flip the state back and loop.
-  useEffect(() => {
-    const el = stickyInnerRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const obs = new ResizeObserver(() => {
-      // Only ever record the expanded height; the condensed one must not stick.
-      // Mid-expand frames are recorded too, but every path that un-condenses runs
-      // at scroll top, where a changing document height can't move the scroll.
-      if (tabsCondensed || tabsExpanded) return;
-      setStickySlotH(el.offsetHeight);
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [loading, tabsCondensed, tabsExpanded]);
-
   if (loading) return <div className="page-fade" style={{ paddingTop: 8 }}><PageSkeleton stats={0} cards={3} /></div>;
   if (!event) return <div className="page-fade"><p>Event not found.</p></div>;
 
@@ -799,12 +752,13 @@ export default function GenerateInvitation() {
   }
 
   async function goToSection(sectionId) {
-    if (sectionId === activeSection) { setTabsExpanded(false); return; }
+    setStepSheet(false);
+    if (sectionId === activeSection) return;
     const idx = sections.findIndex(s => s.id === sectionId);
     if (idx < 0 || idx > unlockedIdx) return;
     if (!(await saveActive())) return;
     setActiveSection(sectionId);
-    setTabsExpanded(false);
+    setFlowHint('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -813,7 +767,7 @@ export default function GenerateInvitation() {
     if (idx < 0) return;
     setUnlockedIdx(prev => Math.max(prev, idx));
     setActiveSection(sectionId);
-    setTabsExpanded(false);
+    setFlowHint('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -822,6 +776,8 @@ export default function GenerateInvitation() {
    * next step. Live invitation: "Save changes" — save, then back to the overview.
    */
   async function handleNext() {
+    if (nextDisabled) { showFlowHint(nextHint); return; }
+    setFlowHint('');
     // People is gated by the permanent name freeze — confirm before moving on.
     if (activeSection === 'people' && !frozen) { setConfirmingNames(true); return; }
     if (!(await saveActive())) return;
@@ -1370,6 +1326,47 @@ export default function GenerateInvitation() {
         : 'Fill in the names marked “Must do” to continue.')
     : activeSection === 'functions' ? 'Give every ceremony a name and a date to continue.' : '';
 
+  // ── Phone bar ──
+  const stepNo = Math.max(1, stepSections.findIndex(sec => sec.id === activeSection) + 1);
+  // Short names in the phone bar so they fit on small screens ("Go live", not "Preview & go live").
+  const activeLabel = sections.find(sec => sec.id === activeSection)?.short || '';
+  const prevSection = sections[activeIdx - 1];
+  const backLabel = isLive
+    ? (activeSection === 'overview' ? 'Back to Home' : 'Back to overview')
+    : (prevSection && prevSection.id !== 'overview' ? `Back to ${prevSection.label}` : 'Back to Home');
+
+  function handleBack() {
+    if (isLive && activeSection !== 'overview') { goToSection('overview'); return; }
+    if (!isLive && prevSection && prevSection.id !== 'overview') { goToSection(prevSection.id); return; }
+    navigate('/dashboard');
+  }
+
+  function showFlowHint(text) {
+    if (!text) return;
+    setFlowHint(text);
+    // Bring the reason into view, then put the cursor in the first empty field.
+    requestAnimationFrame(() => {
+      flowHintRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      const empty = [...document.querySelectorAll('.invite-form-body input.form-input, .invite-form-body input[type="date"]')]
+        .find((el) => !el.disabled && !el.value && el.offsetParent !== null);
+      empty?.focus({ preventScroll: true });
+    });
+  }
+
+  function barGoLive() {
+    if (!frozen) { showFlowHint('Confirm your names first — then you can go live.'); return; }
+    if (!ceremoniesReady) { showFlowHint('Give every ceremony a name and a date first — then you can go live.'); return; }
+    if (linkBlocked) { showFlowHint('Choose a link that’s free to go live.'); return; }
+    startGoLive();
+  }
+
+  const nextStep = sections[activeIdx + 1];
+  const barAction = activeSection === 'overview' ? null
+    : activeSection === 'publish' ? (isLive ? null : { label: 'Go live', onClick: barGoLive })
+    : isLive ? { label: 'Save', onClick: handleNext }
+    : nextStep ? { label: 'Next', onClick: handleNext }
+    : null;
+
   // Live invitation home: what is filled in, per area.
   const firstDate = eventMeta({ ...event, functions }).split(' · ').pop();
   const filledDetails = fieldSchema.filter(f => String(customFields.find(c => c.fieldKey === f.key)?.fieldValue || '').trim()).length;
@@ -1390,20 +1387,77 @@ export default function GenerateInvitation() {
 
   return (
     <div className="invite-form-page page-fade">
+      {/* Phone: the builder's own bar, like Instagram's "New post" */}
+      <header className="flow-bar">
+        <button type="button" className="icon-btn" onClick={handleBack} aria-label={backLabel} disabled={savingActive}>
+          <ChevronLeft size={28} aria-hidden="true" />
+        </button>
+        <button type="button" className="flow-title" onClick={() => setStepSheet(true)} aria-haspopup="dialog" aria-label={`${activeLabel}. See all steps`}>
+          <span className="flow-title-text">{activeLabel}</span>
+          {activeSection !== 'overview' && <span className="flow-count">{stepNo}/{stepSections.length}</span>}
+          <ChevronDown size={16} strokeWidth={2.5} aria-hidden="true" />
+        </button>
+        <button type="button" className="icon-btn" onClick={openPreview} disabled={loadingPreview} aria-label="Preview your invitation" title="Preview">
+          <Eye size={24} aria-hidden="true" />
+        </button>
+        {barAction ? (
+          <button type="button" className="flow-next" onClick={barAction.onClick} disabled={savingActive || publishing}>
+            {savingActive || publishing ? <span className="btn-spinner" aria-hidden="true" /> : barAction.label}
+          </button>
+        ) : <span className="flow-next-spacer" aria-hidden="true" />}
+      </header>
+      {!isEditMode && (
+        <div className="story-segments flow-segments" role="progressbar" aria-label={`${mustDoneCount} of 3 must-do steps done`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          {stepSections.map((sec) => (
+            <span key={sec.id} className={sectionComplete[sec.id] ? 'is-done' : sec.id === activeSection ? 'is-current' : ''} />
+          ))}
+        </div>
+      )}
+
+      {/* Desktop: page header, progress and step tabs */}
       <div className="builder-head">
         <div className="builder-head-text">
-          <div className={`builder-status${isEditMode ? ' is-live' : ''}`}>
-            <span className={`event-dot${isEditMode ? ' is-live' : ''}`} aria-hidden="true" />
-            {isEditMode ? 'Live invitation' : 'Not live yet'}
-          </div>
-          <h1 className="ph-title">{isEditMode ? 'Edit your invitation' : 'Build your invitation'}</h1>
-          <p className="ph-subtitle">{[eventTitle({ ...event, people }), eventMeta({ ...event, functions })].filter(Boolean).join(' · ')}</p>
+          <h1 className="builder-title">{isEditMode ? 'Edit your invitation' : 'Build your invitation'}</h1>
+          <p className="builder-sub">
+            <span className={isEditMode ? 'builder-live' : ''}>{isEditMode ? 'Live' : 'Not live yet'}</span>
+            {' · '}{[eventTitle({ ...event, people }), eventMeta({ ...event, functions })].filter(Boolean).join(' · ')}
+          </p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={openPreview} disabled={loadingPreview}>
-          <Eye size={18} aria-hidden="true" />
+          <Eye size={16} aria-hidden="true" />
           {loadingPreview ? 'Opening…' : 'Preview'}
         </button>
       </div>
+      {!isEditMode && (
+        <div className="builder-progress">
+          <p className="builder-progress-text">
+            <strong>{mustDoneCount} of 3 must-do steps done.</strong>{' '}
+            {mustDoneCount === 2 ? 'Last step: preview and go live.' : 'You can come back and change anything later.'}
+          </p>
+          <div className="builder-progress-bar" aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
+        </div>
+      )}
+      <nav className="ig-tabs builder-tabs" aria-label="Steps">
+        {sections.map((sec) => {
+          const locked = sections.indexOf(sec) > unlockedIdx;
+          const done = sectionComplete[sec.id];
+          const active = activeSection === sec.id;
+          return (
+            <button
+              type="button"
+              key={sec.id}
+              className={`ig-tab${active ? ' active' : ''}`}
+              aria-current={active ? 'step' : undefined}
+              aria-disabled={locked || undefined}
+              title={locked ? lockedReason : undefined}
+              onClick={() => (locked ? toast(lockedReason, 'info') : goToSection(sec.id))}
+            >
+              {sec.id === 'overview' ? <Eye size={14} aria-hidden="true" /> : done ? <Check size={14} aria-hidden="true" /> : locked ? <Lock size={12} aria-hidden="true" /> : null}
+              {sec.short}
+            </button>
+          );
+        })}
+      </nav>
 
       {isEditMode && (
         <div className="live-banner" role="status">
@@ -1411,61 +1465,9 @@ export default function GenerateInvitation() {
           <span>Your invitation is live. Changes you save show to guests right away.</span>
         </div>
       )}
-
-      {/* The outer box holds the sticky position and a frozen height; only the
-          inner chrome shrinks, so the document never changes length. */}
-      <div className="invite-sticky" style={stickySlotH ? { height: stickySlotH } : undefined}>
-       <div
-        ref={stickyInnerRef}
-        className={`invite-sticky-inner${tabsCondensed ? ' condensed' : ''}${tabsExpanded ? ' expanded' : ''}`}
-       >
-        {!isEditMode && (
-          <div className="invite-progress-wrap">
-            <div className="invite-progress-header">
-              <span className="invite-progress-label">{mustDoneCount} of 3 must-do steps done</span>
-              <span className="invite-progress-sub">
-                {mustDoneCount === 2 ? 'Last step: preview and go live' : 'You can come back and change anything later'}
-              </span>
-            </div>
-            <div className="invite-progress-bar" role="progressbar" aria-label="Invitation progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-              <div className="invite-progress-fill" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        )}
-
-        {/* Steps */}
-        <nav className="section-tabs" aria-label="Steps">
-          {sections.map((s, i) => {
-            const locked = i > unlockedIdx;
-            const done = sectionComplete[s.id];
-            const active = activeSection === s.id;
-            const number = sections.filter(x => x.id !== 'overview').findIndex(x => x.id === s.id) + 1;
-            return (
-              <button
-                type="button"
-                key={s.id}
-                className={`section-tab ${active ? 'active' : ''} ${done ? 'done' : ''} ${locked ? 'locked' : ''}`}
-                aria-current={active ? 'step' : undefined}
-                aria-disabled={locked || undefined}
-                title={locked ? lockedReason : undefined}
-                onClick={() => {
-                  // In the condensed state, tapping the lone active tab reveals the rest
-                  if (tabsCondensed && !tabsExpanded && active) { setTabsExpanded(true); return; }
-                  if (locked) { toast(lockedReason, 'info'); return; }
-                  goToSection(s.id);
-                }}
-              >
-                <span className="step-num" aria-hidden="true">
-                  {s.id === 'overview' ? <Eye size={13} /> : done ? <Check size={14} /> : locked ? <Lock size={12} /> : number}
-                </span>
-                <span className="step-label">{s.label}</span>
-                {!locked && !done && s.must && !isEditMode && <span className="tab-required">Must do</span>}
-              </button>
-            );
-          })}
-        </nav>
-       </div>
-      </div>
+      {flowHint && (
+        <p className="flow-hint" role="alert" ref={flowHintRef} tabIndex={-1}>{flowHint}</p>
+      )}
 
       <div className="invite-form-body">
 
@@ -1617,7 +1619,7 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add the people your invitation is from.</div>
               </div>
             ))}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
           </div>
         )}
 
@@ -1807,12 +1809,6 @@ export default function GenerateInvitation() {
             {functions.length > 1 && (
               <div className="partial-box">
                 <label className="partial-switch">
-                  <input
-                    type="checkbox"
-                    checked={partialEnabled}
-                    disabled={Boolean(event.invitePairId)}
-                    onChange={e => setPartialEnabled(e.target.checked)}
-                  />
                   <span className="partial-switch-text">
                     <strong>Some guests are only invited to a few ceremonies</strong>
                     <span className="form-hint">
@@ -1821,6 +1817,15 @@ export default function GenerateInvitation() {
                         : 'You’ll get a second link that shows only the ceremonies you tick.'}
                     </span>
                   </span>
+                  <span className="ig-switch">
+                    <input
+                      type="checkbox"
+                      checked={partialEnabled}
+                      disabled={Boolean(event.invitePairId)}
+                      onChange={e => setPartialEnabled(e.target.checked)}
+                    />
+                    <span aria-hidden="true" />
+                  </span>
                 </label>
                 <InfoTip label="About the second link" align="end" learnMore="/guide#selected-ceremonies">
                   For example: family gets your main link with every ceremony, and friends get a second link with only the Sangeet and Reception. You choose a name for each link before going live.
@@ -1828,7 +1833,7 @@ export default function GenerateInvitation() {
               </div>
             )}
 
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
           </div>
         )}
 
@@ -1865,16 +1870,16 @@ export default function GenerateInvitation() {
                 ))}
                 {media.some((m) => !m.slotKey) && (
                   <div className="items-list" style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 8 }}>Other uploads (not shown in this design)</div>
+                    <div className="section-title" style={{ marginBottom: 8 }}>Other uploads (not shown in this design)</div>
                     {media
                       .filter((m) => !m.slotKey)
                       .map((m) => (
                         <div key={m.id} className="item-row">
                           <div className="item-info">
                             <span className="item-label">{({ photo: 'Photo', music: 'Music', video: 'Video' })[m.type] || 'File'}</span>
-                            {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
+                            {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" />}
                             {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
-                            {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
+                            {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" className="media-link">Play video</a>}
                           </div>
                           <div className="item-actions">
                             <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeletingMedia(m)}>Remove</button>
@@ -1919,9 +1924,9 @@ export default function GenerateInvitation() {
                       <div key={m.id} className="item-row">
                         <div className="item-info">
                           <span className="item-label">{({ photo: 'Photo', music: 'Music', video: 'Video' })[m.type] || 'File'}</span>
-                          {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
+                          {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" />}
                           {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
-                          {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
+                          {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" className="media-link">Play video</a>}
                           {m.caption && <span className="item-meta">{m.caption}</span>}
                         </div>
                         <div className="item-actions">
@@ -1939,7 +1944,7 @@ export default function GenerateInvitation() {
                 )}
               </>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
           </div>
         )}
 
@@ -2012,7 +2017,7 @@ export default function GenerateInvitation() {
                 })}
               </>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
           </div>
         )}
 
@@ -2092,7 +2097,7 @@ export default function GenerateInvitation() {
               </label>
             </div>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
           </div>
         )}
 
@@ -2113,7 +2118,7 @@ export default function GenerateInvitation() {
                 </label>
               ))}
             </div>
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
           </div>
         )}
 
@@ -2249,10 +2254,45 @@ export default function GenerateInvitation() {
                 </div>
               </div>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} saving={savingActive} isLive={isLive} />
           </div>
         )}
       </div>
+
+      {stepSheet && (
+        <Modal title="Steps" onClose={() => setStepSheet(false)}>
+          <ul className="ig-list">
+            {sections.map((sec) => {
+              const locked = sections.indexOf(sec) > unlockedIdx;
+              const done = sectionComplete[sec.id];
+              const active = activeSection === sec.id;
+              const num = stepSections.findIndex(x => x.id === sec.id) + 1;
+              return (
+                <li key={sec.id}>
+                  <button
+                    type="button"
+                    className={`ig-row step-row${active ? ' is-current' : ''}`}
+                    aria-current={active ? 'step' : undefined}
+                    aria-disabled={locked || undefined}
+                    onClick={() => (locked ? toast(lockedReason, 'info') : goToSection(sec.id))}
+                  >
+                    <span className={`step-dot${done ? ' is-done' : ''}${active ? ' is-current' : ''}`} aria-hidden="true">
+                      {sec.id === 'overview' ? <Eye size={14} /> : done ? <Check size={14} /> : locked ? <Lock size={12} /> : num}
+                    </span>
+                    <span className="ig-row-text">
+                      {sec.label}
+                      {(locked || (sec.must && !done && !isEditMode)) && (
+                        <span className="ig-row-sub">{locked ? lockedReason : 'Must do'}</span>
+                      )}
+                    </span>
+                    {active && <Check size={20} className="ig-row-end" aria-label="You are here" />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Modal>
+      )}
 
       {/* Confirm modals */}
       {venueModal && (
@@ -2492,7 +2532,7 @@ function PreflyItem({ ok, label, onClick, actionLabel = 'Fix', optional = false 
  * "Save & continue". Live invitation: "Back to overview" and "Save changes".
  * Every move saves first. When the main button is greyed out, `hint` says why.
  */
-function SectionNav({ sections, activeSection, onBack, onNext, nextDisabled, saving, extra, isLive, hint }) {
+function SectionNav({ sections, activeSection, onBack, onNext, saving, extra, isLive }) {
   if (activeSection === 'overview') return null;
   const idx = sections.findIndex(s => s.id === activeSection);
   const prev = sections[idx - 1];
@@ -2514,7 +2554,7 @@ function SectionNav({ sections, activeSection, onBack, onNext, nextDisabled, sav
         <div className="section-nav-actions">
           {extra}
           {showPrimary && (
-            <button type="button" className="btn btn-primary" disabled={nextDisabled || saving} onClick={onNext}>
+            <button type="button" className="btn btn-primary" disabled={saving} onClick={onNext}>
               {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
               {saving ? 'Saving…' : primaryLabel}
               {!saving && !isLive && <ArrowRight size={18} aria-hidden="true" />}
@@ -2522,7 +2562,6 @@ function SectionNav({ sections, activeSection, onBack, onNext, nextDisabled, sav
           )}
         </div>
       </div>
-      {hint && <p className="section-nav-hint">{hint}</p>}
     </div>
   );
 }

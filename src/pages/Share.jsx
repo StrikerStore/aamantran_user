@@ -5,7 +5,8 @@ import { getInviteBaseUrl } from '../lib/config';
 import { WhatsAppShare } from '../components/WhatsAppShare';
 import { useToast } from '../components/ui/Toast';
 import { QrCode } from './invite/QrCode';
-import { ArrowLeft, Copy, Lock, AlertTriangle, QrCode as QrIcon, Radio } from 'lucide-react';
+import { Copy, Lock, AlertTriangle, QrCode as QrIcon, Link2 } from 'lucide-react';
+import { PageHeader } from '../components/ui/PageHeader';
 import './Share.css';
 
 export default function Share() {
@@ -60,7 +61,7 @@ export default function Share() {
     return (
       <div className="page-fade share-page">
         <div className="share-state-card">
-          <div className="share-state-emoji" aria-hidden="true"><AlertTriangle size={30} /></div>
+          <div className="empty-icon" aria-hidden="true"><AlertTriangle size={32} strokeWidth={1.5} /></div>
           <h2>We couldn’t open this invitation</h2>
           <p>{error || 'It may have been removed.'}</p>
           <button type="button" className="btn btn-primary" onClick={() => navigate('/dashboard')}>Back to Home</button>
@@ -73,10 +74,10 @@ export default function Share() {
     return (
       <div className="page-fade share-page">
         <div className="share-state-card">
-          <div className="share-state-emoji" aria-hidden="true"><Lock size={30} /></div>
+          <div className="empty-icon" aria-hidden="true"><Lock size={32} strokeWidth={1.5} /></div>
           <h2>Go live first, then share</h2>
           <p>Your invitation isn’t online yet. Put it live and come back here to send it to guests.</p>
-          <Link to={`/events/${event.id}/generate?step=publish`} className="btn btn-primary"><Radio size={18} aria-hidden="true" /> Preview & go live</Link>
+          <Link to={`/events/${event.id}/generate?step=publish`} className="btn btn-primary">Preview & go live</Link>
           <Link to="/dashboard" className="share-state-back">Back to Home</Link>
         </div>
       </div>
@@ -86,38 +87,39 @@ export default function Share() {
   return (
     <div className="page-fade share-page">
 
-      <div className="share-topcard">
-        <button type="button" className="share-back-btn" onClick={() => navigate(-1)} aria-label="Go back">
-          <ArrowLeft size={20} aria-hidden="true" />
-        </button>
-        <div className="share-topcard-text">
-          <h1>Share your invitation</h1>
-          <p>Send your link on WhatsApp, or copy it anywhere.</p>
-        </div>
-      </div>
+      <PageHeader title="Share your invitation" subtitle="Send your link on WhatsApp, or copy it anywhere." />
 
-      <div className="share-link-card">
-        <div className="share-link-row">
-          <span className="share-link-label">Your link</span>
-          <div className="share-link-input">
-            <span>{inviteUrl}</span>
-            <button type="button" onClick={() => copy(inviteUrl)}><Copy size={15} aria-hidden="true" /> Copy</button>
-          </div>
-        </div>
+      <ul className="ig-list share-links">
+        <li className="share-link-row">
+          <span className="ig-row-icon"><Link2 size={24} aria-hidden="true" /></span>
+          <span className="ig-row-text">
+            <span className="share-link-label">Your link</span>
+            <span className="ig-row-sub share-link-url">{inviteUrl}</span>
+          </span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => copy(inviteUrl)} aria-label="Copy your link">
+            <Copy size={16} aria-hidden="true" /> Copy
+          </button>
+        </li>
         {partialUrl && (
-          <div className="share-link-row">
-            <span className="share-link-label">Link for selected ceremonies</span>
-            <div className="share-link-input">
-              <span>{partialUrl}</span>
-              <button type="button" onClick={() => copy(partialUrl)}><Copy size={15} aria-hidden="true" /> Copy</button>
-            </div>
-          </div>
+          <li className="share-link-row">
+            <span className="ig-row-icon"><Link2 size={24} aria-hidden="true" /></span>
+            <span className="ig-row-text">
+              <span className="share-link-label">Link for selected ceremonies</span>
+              <span className="ig-row-sub share-link-url">{partialUrl}</span>
+            </span>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => copy(partialUrl)} aria-label="Copy the link for selected ceremonies">
+              <Copy size={16} aria-hidden="true" /> Copy
+            </button>
+          </li>
         )}
-        <details className="share-qr">
-          <summary><QrIcon size={16} aria-hidden="true" /> QR code for printed cards</summary>
-          <QrCode url={inviteUrl} fileName={`qr-${event.slug}.png`} />
-        </details>
-      </div>
+      </ul>
+      <details className="share-qr">
+        <summary>
+          <span className="ig-row-icon"><QrIcon size={24} aria-hidden="true" /></span>
+          <span className="ig-row-text">QR code for printed cards</span>
+        </summary>
+        <QrCode url={inviteUrl} fileName={`qr-${event.slug}.png`} />
+      </details>
 
       <WhatsAppShare
         event={event}

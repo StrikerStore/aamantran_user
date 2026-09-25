@@ -1,159 +1,61 @@
-.login-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-base);
-  padding: 20px;
-}
+/* Log in — Instagram's login: a 350px column, a bordered box, a second box for help */
+.login-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 16px; background: var(--bg); }
+.login-card { width: 100%; max-width: 350px; padding: 32px 40px 24px; border: 1px solid var(--separator); border-radius: 1px; background: var(--bg); text-align: center; }
+.login-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; }
+.login-logo-img { width: 44px; height: 44px; object-fit: contain; }
+.login-logotype { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+.login-title { font-size: var(--fs-md); font-weight: 600; line-height: 20px; color: var(--text-2); }
+.login-sub { margin: 4px 0 20px; color: var(--text-2); }
 
-.login-card {
-  background: linear-gradient(145deg, #ffffff 55%, var(--bg-elevated));
-  border: none;
-  border-radius: var(--r-xl);
-  padding: 40px 36px;
-  width: 100%;
-  max-width: 420px;
-  box-shadow: var(--shadow-lg);
-  animation: slideUp 0.3s ease-out;
-}
-
-.login-logo { text-align: center; margin-bottom: 32px; }
-.login-logo-img { width: 56px; height: 56px; object-fit: contain; display: block; margin: 0 auto 12px; }
-.login-logotype { font-family: var(--font-display); font-size: 1.8rem; font-weight: 600; color: var(--gold); letter-spacing: 0.02em; }
-.login-tagline { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
-
-.login-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 500; color: var(--text-primary); margin-bottom: 6px; }
-.login-sub { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 28px; }
-
-.login-form { display: flex; flex-direction: column; gap: 4px; }
-.login-error { background: var(--coral-soft); border: none; border-radius: var(--r-sm); padding: 10px 14px; font-size: 0.85rem; color: var(--coral-deep); margin-bottom: 4px; }
-.login-btn { width: 100%; justify-content: center; padding: 11px; font-size: 0.95rem; margin-top: 8px; }
-.login-footer { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 20px; }
-
-.login-link {
-  border: none;
-  background: transparent;
-  color: var(--gold);
-  font-size: 0.82rem;
-  cursor: pointer;
-  margin-bottom: 6px;
-}
-
-.recovery-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(61, 37, 50, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 1000;
-}
-
-.recovery-card {
-  width: 100%;
-  max-width: 420px;
-  background: var(--bg-surface);
-  border: none;
-  box-shadow: var(--shadow-lg);
-  border-radius: var(--r-xl);
-  padding: 24px;
-}
-
-.recovery-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.recovery-card-header h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.keep-signed-in-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.83rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  margin: 4px 0 8px;
-  user-select: none;
-}
-
-.keep-signed-in-label input[type="checkbox"] {
-  accent-color: var(--gold);
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
-}
-
-/* ── Password field with show/hide toggle ─────────────────────────── */
+.login-form { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.login-form .form-group { margin-bottom: 0; }
+/* Instagram shows the name inside the field; the label stays for screen readers. */
+.login-form .form-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.login-form .form-input { min-height: 40px; padding: 9px 8px; border-radius: 3px; background: var(--bg-2); font-size: var(--fs-base); }
 .pw-field { position: relative; }
-.pw-field .form-input { padding-right: 40px; width: 100%; }
+.pw-field .form-input { padding-right: 44px; }
+.pw-toggle { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: none; background: none; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.capslock-hint { font-size: var(--fs-sm); color: var(--warning); }
+.keep-signed-in-label { display: flex; align-items: center; gap: 8px; min-height: var(--tap); font-size: var(--fs-sm); color: var(--text-2); cursor: pointer; }
+.keep-signed-in-label input { width: 16px; height: 16px; accent-color: var(--accent); }
+.login-btn { width: 100%; height: 32px; margin-top: 8px; }
+.login-error { margin-top: 8px; font-size: var(--fs-base); color: var(--danger-text); text-align: center; }
 
-.pw-toggle {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
+.login-link { border: none; background: none; padding: 0; cursor: pointer; color: var(--text); font-size: var(--fs-sm); font-weight: 600; min-height: var(--tap); }
+.login-link:hover { text-decoration: underline; }
+.login-forgot { display: block; margin: 16px auto 0; }
+.login-footer { padding: 20px 16px; color: var(--text); }
+.login-footer a { font-weight: 600; }
+
+/* Account recovery dialog */
+.recovery-overlay { position: fixed; inset: 0; z-index: 200; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadeIn 0.15s ease; }
+.recovery-card { width: 100%; max-width: 400px; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--bg); border-radius: var(--radius); box-shadow: var(--popover-shadow); padding: 0 24px 24px; animation: popIn 0.15s ease-out; }
+.recovery-card-header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; margin: 0 -24px 16px; padding: 0 48px; border-bottom: 1px solid var(--separator); }
+.recovery-card-header h2 { font-size: var(--fs-md); line-height: 20px; }
+.recovery-card .login-form .form-label { position: static; width: auto; height: auto; clip: auto; white-space: normal; }
+.recovery-card .login-form .form-input { font-size: var(--fs-md); min-height: var(--tap); border-radius: var(--radius); padding: 11px 12px; }
+.recovery-card .login-sub { margin: 0 0 12px; text-align: left; }
+.recovery-card .login-btn { height: var(--tap); }
+.recovery-code-input { letter-spacing: 6px; font-weight: 700; text-align: center; }
+.resend-row { display: flex; justify-content: center; margin-top: 8px; }
+.resend-hint { font-size: var(--fs-sm); color: var(--text-2); }
+.strength-meter { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.strength-track { flex: 1; height: 4px; border-radius: 2px; background: var(--bg-3); overflow: hidden; }
+.strength-fill { height: 100%; width: 0; transition: width var(--t); }
+.strength-1 { width: 25%; background: var(--danger); }
+.strength-2 { width: 50%; background: #f5a623; }
+.strength-3 { width: 75%; background: var(--success); }
+.strength-4 { width: 100%; background: var(--success); }
+.strength-label { font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.strength-label-1 { color: var(--danger-text); }
+.strength-label-3, .strength-label-4 { color: var(--success); }
+
+@media (max-width: 450px) {
+  .login-page { justify-content: flex-start; padding-top: 48px; }
+  .login-card { border: none; padding: 16px 24px; }
+  .login-footer { border-top: 1px solid var(--separator); }
 }
-.pw-toggle:hover { color: var(--text-primary); }
-
-.capslock-hint {
-  margin-top: 6px;
-  font-size: 0.78rem;
-  color: var(--red);
+@media (max-width: 767px) {
+  .recovery-overlay { align-items: flex-end; padding: 0; }
+  .recovery-card { max-width: none; border-radius: var(--radius) var(--radius) 0 0; animation: sheetUp 0.22s ease-out; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 }
-
-/* ── Recovery code input ──────────────────────────────────────────── */
-.recovery-code-input {
-  letter-spacing: 6px;
-  font-size: 1.05rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.resend-row { text-align: center; margin-top: 10px; }
-.resend-hint { font-size: 0.8rem; color: var(--text-muted); }
-
-/* ── Password strength meter ──────────────────────────────────────── */
-.strength-meter {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.strength-track {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--border-default);
-  overflow: hidden;
-}
-
-.strength-fill { height: 100%; border-radius: 2px; transition: width 0.25s ease, background 0.25s ease; }
-.strength-fill.strength-1 { width: 25%;  background: #c94030; }
-.strength-fill.strength-2 { width: 50%;  background: #d99a2b; }
-.strength-fill.strength-3 { width: 75%;  background: #7fa650; }
-.strength-fill.strength-4 { width: 100%; background: #3f8f4f; }
-
-.strength-label { font-size: 0.74rem; font-weight: 600; min-width: 44px; text-align: right; }
-.strength-label-1 { color: #c94030; }
-.strength-label-2 { color: #d99a2b; }
-.strength-label-3 { color: #7fa650; }
-.strength-label-4 { color: #3f8f4f; }

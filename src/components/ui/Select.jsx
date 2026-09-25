@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, Children } from 'react';
+import { Check } from 'lucide-react';
 import './Select.css';
 
 /**
- * Clay-styled drop-in replacement for a native <select>.
+ * Drop-in replacement for a native <select>.
  * Accepts the same shape: value, onChange (receives { target: { value } }),
  * and <option> children — so existing call sites swap in unchanged.
  * Values are compared/emitted as strings, matching native select behavior.
@@ -87,7 +88,7 @@ export function Select({ value, onChange, children, className = '', style, disab
 
   return (
     <div
-      className="clay-select"
+      className="sel"
       ref={wrapRef}
       style={{ display: fullWidth ? 'block' : 'inline-block', width: fullWidth ? '100%' : undefined, ...style }}
     >
@@ -96,14 +97,14 @@ export function Select({ value, onChange, children, className = '', style, disab
         id={id}
         aria-label={ariaLabel}
         autoFocus={autoFocus}
-        className={`clay-select-trigger ${className}`}
+        className={`sel-trigger ${className}`}
         onClick={toggle}
         onKeyDown={onTriggerKeyDown}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="clay-select-label">{current ? current.label : ' '}</span>
+        <span className="sel-label">{current ? current.label : ' '}</span>
       </button>
 
       {/* Invisible native mirror keeps HTML form `required` validation working */}
@@ -114,7 +115,7 @@ export function Select({ value, onChange, children, className = '', style, disab
           required
           tabIndex={-1}
           aria-hidden="true"
-          className="clay-select-native-mirror"
+          className="sel-native-mirror"
         >
           {options.map(o => (
             <option key={o.value} value={o.value}>{o.value}</option>
@@ -123,14 +124,14 @@ export function Select({ value, onChange, children, className = '', style, disab
       )}
 
       {open && (
-        <ul className={`clay-select-popup${openUp ? ' up' : ''}`} role="listbox" ref={listRef}>
+        <ul className={`sel-popup${openUp ? ' up' : ''}`} role="listbox" ref={listRef}>
           {options.map((o, i) => (
             <li
               key={`${o.value}-${i}`}
               role="option"
               aria-selected={o.value === currentValue}
               className={
-                'clay-select-option' +
+                'sel-option' +
                 (o.value === currentValue ? ' selected' : '') +
                 (i === highlight ? ' highlight' : '') +
                 (o.disabled ? ' disabled' : '')
@@ -138,8 +139,8 @@ export function Select({ value, onChange, children, className = '', style, disab
               onMouseEnter={() => setHighlight(i)}
               onClick={() => pick(o)}
             >
-              <span className="clay-select-check">{o.value === currentValue ? '✓' : ''}</span>
-              <span className="clay-select-option-label">{o.label}</span>
+              <span className="sel-check">{o.value === currentValue ? <Check size={18} aria-hidden="true" /> : null}</span>
+              <span className="sel-option-label">{o.label}</span>
             </li>
           ))}
         </ul>
