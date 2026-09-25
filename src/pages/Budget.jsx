@@ -3,7 +3,10 @@ import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
-import { ConfirmModal } from '../components/ui/Modal';
+import { ConfirmModal, Modal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Plus, Pencil, Trash2, Check, Wallet } from 'lucide-react';
 import './Budget.css';
 
 const EXPENSE_CATS = ['Venue', 'Catering', 'Photography', 'Attire', 'Decor', 'Music', 'Transport', 'Jewellery', 'Invitations', 'Other'];
@@ -33,7 +36,7 @@ export default function Budget() {
         setTotalInput(br.budget?.totalBudget ? String(br.budget.totalBudget) : '');
         setExpenses(er.expenses || []);
       })
-      .catch(() => toast('Failed to load budget', 'error'))
+      .catch(() => toast('We couldn’t load your budget. Try again.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -43,7 +46,7 @@ export default function Budget() {
     try {
       const r = await api.budget.setTotal(id, { totalBudget: Number(totalInput) });
       setBudget(r.budget);
-      toast('Budget set!', 'success');
+      toast('Budget saved.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -60,7 +63,7 @@ export default function Budget() {
   }
 
   async function save() {
-    if (!form.description || !form.amount) { toast('Description and amount are required', 'error'); return; }
+    if (!form.description || !form.amount) { toast('Add what it’s for and the amount first.', 'error'); return; }
     setSaving(true);
     try {
       const payload = { ...form };
@@ -76,7 +79,7 @@ export default function Budget() {
         setExpenses(prev => [...prev, r.expense]);
       }
       setShowModal(false);
-      toast(editing ? 'Updated!' : 'Added!', 'success');
+      toast(editing ? 'Expense saved.' : 'Expense added.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -123,33 +126,34 @@ export default function Budget() {
   return (
     <div className="page-fade">
       <section className="feat-shell">
-        <header className="feat-head">
-          <div className="feat-head-text">
-            <h1 className="feat-title">Budget</h1>
-            <p className="feat-desc">Track your wedding expenses</p>
-          </div>
-          <div className="feat-head-actions">
-            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add expense</button>
-          </div>
-        </header>
+        <PageHeader
+          title="Budget"
+          subtitle="Set what you want to spend, then add each expense as you book it."
+          helpMore="/guide#budget"
+          help="“Booked” is everything you’ve added. “Paid” is what’s already paid; “Still to pay” is the rest. Tap “Mark paid” when you pay a bill."
+          actions={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add expense</button>}
+        />
       </section>
 
       {/* Budget setup */}
       <div className="card mb-24">
-        <div className="card-title">Total Budget</div>
+        <h2 className="card-title"><label htmlFor="budget-total">Your total budget</label></h2>
         <div className="budget-setup-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="budget-currency">₹</span>
+            <span className="budget-currency" aria-hidden="true">₹</span>
             <input
+              id="budget-total"
               className="form-input budget-total-input"
               type="number"
-              placeholder="Enter your total budget"
+              inputMode="numeric"
+              placeholder="e.g. 500000"
               value={totalInput}
               onChange={e => setTotalInput(e.target.value)}
             />
           </div>
-          <button className="btn btn-primary btn-sm" onClick={saveTotal} disabled={savingTotal || !totalInput}>
-            {savingTotal ? <span className="btn-spinner" /> : 'Set Budget'}
+          <button type="button" className="btn btn-primary" onClick={saveTotal} disabled={savingTotal || !totalInput}>
+            {savingTotal ? <span className="btn-spinner" aria-hidden="true" /> : null}
+            {totalBudget > 0 ? 'Update budget' : 'Save budget'}
           </button>
         </div>
 
@@ -158,39 +162,39 @@ export default function Budget() {
             {/* Summary */}
             <div className="budget-summary">
               <div className="budget-stat">
-                <span className="budget-stat-label">Total Budget</span>
+                <span className="budget-stat-label">Budget</span>
                 <span className="budget-stat-val">₹{fmt(totalBudget)}</span>
               </div>
               <div className="budget-stat">
-                <span className="budget-stat-label">Total Spent</span>
-                <span className="budget-stat-val" style={{ color: 'var(--gold)' }}>₹{fmt(totalSpent)}</span>
+                <span className="budget-stat-label">Booked</span>
+                <span className="budget-stat-val" style={{ color: 'var(--gold-text)' }}>₹{fmt(totalSpent)}</span>
               </div>
               <div className="budget-stat">
                 <span className="budget-stat-label">Paid</span>
                 <span className="budget-stat-val" style={{ color: 'var(--green)' }}>₹{fmt(totalPaid)}</span>
               </div>
               <div className="budget-stat">
-                <span className="budget-stat-label">Pending</span>
+                <span className="budget-stat-label">Still to pay</span>
                 <span className="budget-stat-val" style={{ color: 'var(--amber)' }}>₹{fmt(totalPending)}</span>
               </div>
               <div className="budget-stat">
-                <span className="budget-stat-label">Remaining</span>
+                <span className="budget-stat-label">{remaining < 0 ? 'Over budget' : 'Left in budget'}</span>
                 <span className="budget-stat-val" style={{ color: remaining < 0 ? 'var(--red)' : 'var(--green)' }}>
-                  ₹{fmt(Math.abs(remaining))}{remaining < 0 ? ' over' : ''}
+                  ₹{fmt(Math.abs(remaining))}
                 </span>
               </div>
             </div>
 
             {/* Bar */}
             <div className="budget-bar-wrap">
-              <div className="budget-bar">
+              <div className="budget-bar" role="img" aria-label={`Paid ${paidPct}%, booked ${spentPct}% of your budget`}>
                 <div className="budget-bar-paid"  style={{ width: `${paidPct}%` }} />
                 <div className="budget-bar-spent" style={{ width: `${Math.max(0, spentPct - paidPct)}%` }} />
               </div>
               <div className="budget-bar-labels">
                 <span style={{ color: 'var(--green)' }}>Paid {paidPct}%</span>
-                <span style={{ color: 'var(--gold)'  }}>Spent {spentPct}%</span>
-                <span style={{ color: 'var(--text-muted)' }}>Remaining {100 - spentPct}%</span>
+                <span style={{ color: 'var(--gold-text)' }}>Booked {spentPct}%</span>
+                <span style={{ color: 'var(--text-muted)' }}>Left {100 - spentPct}%</span>
               </div>
             </div>
           </>
@@ -200,7 +204,7 @@ export default function Budget() {
       {/* Category breakdown */}
       {catBreakdown.length > 0 && (
         <div className="card mb-24">
-          <div className="card-title">By Category</div>
+          <h2 className="card-title">By category</h2>
           {catBreakdown.map(({ cat, total }) => (
             <div key={cat} className="budget-cat-row">
               <span className="budget-cat-name">{cat}</span>
@@ -215,38 +219,43 @@ export default function Budget() {
 
       {/* Expense list */}
       <div className="card">
-        <div className="card-title">Expenses</div>
+        <h2 className="card-title">Expenses</h2>
         {expenses.length === 0 ? (
-          <div className="empty-state" style={{ padding: '24px 0' }}>
-            <div className="empty-icon">💰</div>
-            <div className="empty-title">No expenses yet</div>
-            <div className="empty-desc">Add your first expense to start tracking.</div>
-          </div>
+          <EmptyState
+            icon={Wallet}
+            tone="mint"
+            title="No expenses yet"
+            action={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add your first expense</button>}
+          >
+            Add each booking — venue, caterer, outfits — to see where the money goes.
+          </EmptyState>
         ) : (
           <div className="table-wrap">
-            <table className="data-table">
+            <table className="data-table table-stack">
               <thead>
-                <tr><th>Description</th><th>Category</th><th>Amount</th><th>Status</th><th></th></tr>
+                <tr><th>What for</th><th>Category</th><th>Amount</th><th>Paid?</th><th><span className="sr-only">Actions</span></th></tr>
               </thead>
               <tbody>
                 {expenses.map(e => (
                   <tr key={e.id}>
-                    <td style={{ fontWeight: 600 }}>{e.description}{e.vendor ? <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {e.vendor}</span> : ''}</td>
-                    <td>{e.category}</td>
-                    <td style={{ fontWeight: 600 }}>₹{fmt(e.amount)}</td>
-                    <td>
+                    <td data-label="What for" style={{ fontWeight: 600 }}>{e.description}{e.vendor ? <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {e.vendor}</span> : ''}</td>
+                    <td data-label="Category">{e.category}</td>
+                    <td data-label="Amount" style={{ fontWeight: 600 }}>₹{fmt(e.amount)}</td>
+                    <td data-label="Paid?">
                       <button
+                        type="button"
                         className={`btn btn-sm ${e.paid ? 'btn-secondary' : 'btn-ghost'}`}
-                        style={{ fontSize: '0.72rem', color: e.paid ? 'var(--green)' : undefined }}
+                        style={{ color: e.paid ? 'var(--green)' : undefined }}
+                        aria-pressed={!!e.paid}
                         onClick={() => togglePaid(e)}
                       >
-                        {e.paid ? '✓ Paid' : 'Mark Paid'}
+                        {e.paid ? <><Check size={15} aria-hidden="true" /> Paid</> : 'Mark paid'}
                       </button>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)}>Edit</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => setDeleting(e)}>✕</button>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(e)} aria-label={`Edit “${e.description}”`}><Pencil size={15} aria-hidden="true" /> Edit</button>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(e)} aria-label={`Delete “${e.description}”`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -257,63 +266,61 @@ export default function Budget() {
         )}
       </div>
 
-      {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">{editing ? 'Edit Expense' : 'Add Expense'}</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+        <Modal
+          title={editing ? 'Edit expense' : 'Add an expense'}
+          onClose={() => !saving && setShowModal(false)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                {editing ? 'Save changes' : 'Add expense'}
+              </button>
+            </>
+          }
+        >
+          <div className="form-group">
+            <label className="form-label" htmlFor="exp-desc">What is it for?</label>
+            <input id="exp-desc" className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Photographer advance" />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="exp-cat">Category</label>
+              <Select id="exp-cat" className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                {EXPENSE_CATS.map(c => <option key={c}>{c}</option>)}
+              </Select>
+              {form.category === 'Other' && (
+                <input className="form-input" style={{ marginTop: 6 }} placeholder="Name the category" aria-label="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
+              )}
             </div>
             <div className="form-group">
-              <label className="form-label">Description <span className="req">*</span></label>
-              <input className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} autoFocus />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <Select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {EXPENSE_CATS.map(c => <option key={c}>{c}</option>)}
-                </Select>
-                {form.category === 'Other' && (
-                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
-                )}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Amount (₹) <span className="req">*</span></label>
-                <input className="form-input" type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Vendor</label>
-                <input className="form-input" value={form.vendor} onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Due Date</label>
-                <input className="form-input" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
-              </div>
-            </div>
-            <label className="form-label" style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', margin: '8px 0' }}>
-              <input type="checkbox" checked={form.paid} onChange={e => setForm(f => ({ ...f, paid: e.target.checked }))} />
-              Already paid
-            </label>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12 }}>
-              <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? <span className="btn-spinner" /> : null}
-                {editing ? 'Update' : 'Add'}
-              </button>
+              <label className="form-label" htmlFor="exp-amt">Amount (₹)</label>
+              <input id="exp-amt" className="form-input" type="number" inputMode="numeric" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
             </div>
           </div>
-        </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="exp-vendor">Paid to <span className="form-optional">(optional)</span></label>
+              <input id="exp-vendor" className="form-input" value={form.vendor} onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} placeholder="Vendor or shop" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="exp-due">Pay by <span className="form-optional">(optional)</span></label>
+              <input id="exp-due" className="form-input" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
+            </div>
+          </div>
+          <label className="check-row">
+            <input type="checkbox" checked={!!form.paid} onChange={e => setForm(f => ({ ...f, paid: e.target.checked }))} />
+            Already paid
+          </label>
+        </Modal>
       )}
 
       {deleting && (
         <ConfirmModal
-          title="Delete Expense"
-          message={`Delete "${deleting.description}"?`}
-          confirmText="Delete"
+          title="Delete this expense?"
+          message={`“${deleting.description}” (₹${fmt(deleting.amount)}) will be removed from your budget.`}
+          confirmText="Delete expense"
           onConfirm={() => deleteExpense(deleting.id)}
           onCancel={() => setDeleting(null)}
         />

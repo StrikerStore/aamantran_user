@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getUserInfo, clearToken } from '../lib/auth';
 import { formatDate } from '../lib/utils';
 import { useToast } from '../components/ui/Toast';
+import { ConfirmModal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
 import PhoneField from '../components/PhoneField';
 import './Settings.css';
 
@@ -23,6 +25,7 @@ export default function Settings() {
   const [showDelete, setShowDelete] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     setEventExpiry(activeEvent?.expiresAt || null);
@@ -50,11 +53,11 @@ export default function Settings() {
   async function saveProfile(e) {
     e.preventDefault();
     if (phoneLocked) {
-      toast('Contact number cannot be changed once filled. Raise a support ticket if needed.', 'info');
+      toast('Your contact number can’t be changed here. Message us from Support to change it.', 'info');
       return;
     }
     if (!profile.phone?.trim()) {
-      toast('Please enter a contact number', 'error');
+      toast('Enter your contact number first.', 'error');
       return;
     }
     setSavingProfile(true);
@@ -63,7 +66,7 @@ export default function Settings() {
         phone: profile.phone.trim(),
         phoneCountryCode: profile.phoneCountryCode,
       });
-      toast('Contact number saved!', 'success');
+      toast('Contact number saved.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -71,15 +74,16 @@ export default function Settings() {
     }
   }
 
-  async function deleteAccount(e) {
+  function askDeleteAccount(e) {
     e.preventDefault();
     if (!deletePassword.trim()) {
-      toast('Please enter your password to confirm', 'error');
+      toast('Enter your password to confirm.', 'error');
       return;
     }
-    if (!window.confirm('This permanently deletes your account, invitations, guest lists and photos. This cannot be undone. Continue?')) {
-      return;
-    }
+    setConfirmDelete(true);
+  }
+
+  async function deleteAccount() {
     setDeleting(true);
     try {
       await api.profile.deleteAccount(deletePassword);
@@ -88,35 +92,31 @@ export default function Settings() {
     } catch (err) {
       toast(err.message, 'error');
       setDeleting(false);
+      setConfirmDelete(false);
     }
   }
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Manage your account and invitation settings</p>
-        </div>
-      </div>
+      <PageHeader title="Settings" subtitle="Your account details and how long your invitation stays online." />
 
       <div className="settings-grid">
         {/* Account */}
         <div className="card">
-          <div className="card-title">Account</div>
+          <h2 className="card-title">Your account</h2>
           <form onSubmit={saveProfile}>
             <div className="form-group">
-              <label className="form-label">Username</label>
-              <input className="form-input" value={info?.username || ''} disabled />
-              <div className="form-hint">Username cannot be changed.</div>
+              <label className="form-label" htmlFor="set-username">Username</label>
+              <input id="set-username" className="form-input" value={info?.username || ''} disabled />
+              <div className="form-hint">Your username can’t be changed.</div>
             </div>
             <div className="form-group">
-              <label className="form-label">Email</label>
-              <input className="form-input" type="email" value={profile.email} disabled />
-              <div className="form-hint">Email cannot be changed. Raise a support ticket if needed.</div>
+              <label className="form-label" htmlFor="set-email">Email</label>
+              <input id="set-email" className="form-input" type="email" value={profile.email} disabled />
+              <div className="form-hint">To change your email, <Link to="/support">message us</Link>.</div>
             </div>
             <div className="form-group">
-              <label className="form-label">Contact Number</label>
+              <label className="form-label">Contact number</label>
               <PhoneField
                 countryCode={profile.phoneCountryCode}
                 number={profile.phone}
@@ -128,14 +128,14 @@ export default function Settings() {
               />
               <div className="form-hint">
                 {phoneLocked
-                  ? 'Contact number is locked after being filled. To change it, please raise a support ticket.'
-                  : 'You can add your contact number once.'}
+                  ? <>Saved. To change it, <Link to="/support">message us</Link>.</>
+                  : 'We only use this to reach you about your invitation. Once saved, you’ll need to message us to change it.'}
               </div>
             </div>
             {!phoneLocked && (
               <button type="submit" className="btn btn-primary" disabled={savingProfile}>
-                {savingProfile ? <span className="btn-spinner" /> : null}
-                Save Contact Number
+                {savingProfile ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                Save contact number
               </button>
             )}
           </form>
@@ -144,41 +144,43 @@ export default function Settings() {
         {/* Expiry */}
         {activeEvent && (
           <div className="card">
-            <div className="card-title">Invitation Expiry</div>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 16 }}>
-              Expiry is auto-calculated as 6 months after your latest function date.
+            <h2 className="card-title">How long your invitation stays online</h2>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+              Your invitation stays online until 6 months after your last ceremony.
             </p>
             <div className="form-group">
-              <label className="form-label">Expires On</label>
+              <label className="form-label" htmlFor="set-expiry">Online until</label>
               <input
+                id="set-expiry"
                 className="form-input"
-                value={eventExpiry ? formatDate(eventExpiry) : 'Set at publish time after adding functions'}
+                value={eventExpiry ? formatDate(eventExpiry) : 'Worked out when you go live, from your ceremony dates'}
                 disabled
               />
             </div>
             <div className="publish-note">
-              To increase the expiration date, please raise a support ticket.
+              Need it online for longer? <Link to="/support">Message us</Link>.
             </div>
           </div>
         )}
 
         {/* Delete account (DPDP right to erasure) */}
         <div className="card">
-          <div className="card-title">Delete Account</div>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 16 }}>
-            Permanently delete your account and all personal data — invitations, guest lists,
-            RSVPs, photos and profile. Payment records are kept in de-identified form as
-            required by tax law. This cannot be undone.
+          <h2 className="card-title">Delete your account</h2>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+            This deletes your account and everything in it for good — invitations, guest lists,
+            replies, photos and profile. Guests will no longer be able to open your invitation.
+            Payment records are kept without your name, as tax law requires.
           </p>
           {!showDelete ? (
             <button type="button" className="btn btn-danger" onClick={() => setShowDelete(true)}>
-              Delete My Account
+              Delete my account
             </button>
           ) : (
-            <form onSubmit={deleteAccount}>
+            <form onSubmit={askDeleteAccount}>
               <div className="form-group">
-                <label className="form-label">Confirm your password</label>
+                <label className="form-label" htmlFor="set-del-pass">Type your password to confirm</label>
                 <input
+                  id="set-del-pass"
                   className="form-input"
                   type="password"
                   autoComplete="current-password"
@@ -186,12 +188,11 @@ export default function Settings() {
                   onChange={e => setDeletePassword(e.target.value)}
                 />
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" className="btn btn-danger" disabled={deleting}>
-                  {deleting ? <span className="btn-spinner" /> : null}
-                  Permanently Delete
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="submit" className="btn btn-danger-solid" disabled={deleting}>
+                  Delete my account
                 </button>
-                <button type="button" className="btn" onClick={() => { setShowDelete(false); setDeletePassword(''); }} disabled={deleting}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowDelete(false); setDeletePassword(''); }} disabled={deleting}>
                   Cancel
                 </button>
               </div>
@@ -199,6 +200,18 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete your account for good?"
+          message="Your invitations, guest lists, replies and photos will be deleted, and guests won’t be able to open your invitation. This can’t be undone."
+          confirmText="Delete my account"
+          cancelText="Keep my account"
+          loading={deleting}
+          onConfirm={deleteAccount}
+          onCancel={() => !deleting && setConfirmDelete(false)}
+        />
+      )}
     </div>
   );
 }

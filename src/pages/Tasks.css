@@ -94,10 +94,10 @@
 }
 .task-pill-maroon { background: var(--rose-soft); color: var(--maroon); }
 
-.task-due { font-size: 0.72rem; color: var(--text-muted); }
+.task-due { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-muted); }
 .task-due.overdue { color: var(--red); font-weight: 700; }
 
-.task-actions { display: flex; gap: 4px; align-items: center; }
+.task-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 
 .btn-xs {
   padding: 3px 8px !important;
@@ -108,3 +108,7 @@
 @media (max-width: 800px) {
   .kanban-board { grid-template-columns: 1fr; }
 }
+
+/* Revamp: icon + text in the alerts */
+.tasks-alert, .tasks-allclear { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; }
+.tasks-alert { justify-content: flex-start; }

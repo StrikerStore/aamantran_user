@@ -3,6 +3,15 @@ export function formatDate(d) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/** "2026-01-15" → "15 Jan" (adds the year when it isn't this year). */
+export function shortDate(iso) {
+  if (!iso) return '';
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
+}
+
 export function formatDateTime(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-IN', {
@@ -15,9 +24,10 @@ export function formatRelative(d) {
   if (!d) return '—';
   const sec = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
   if (sec < 60)     return 'just now';
-  if (sec < 3600)   return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400)  return `${Math.floor(sec / 3600)}h ago`;
-  if (sec < 604800) return `${Math.floor(sec / 86400)}d ago`;
+  const ago = (n, unit) => `${n} ${unit}${n === 1 ? '' : 's'} ago`;
+  if (sec < 3600)   return ago(Math.floor(sec / 60), 'min');
+  if (sec < 86400)  return ago(Math.floor(sec / 3600), 'hour');
+  if (sec < 604800) return ago(Math.floor(sec / 86400), 'day');
   return formatDate(d);
 }
 

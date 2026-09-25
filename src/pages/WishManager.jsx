@@ -3,6 +3,10 @@ import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatRelative } from '../lib/utils';
 import { useToast } from '../components/ui/Toast';
+import { ConfirmModal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Eye, EyeOff, Trash2, Heart, SearchX, Search } from 'lucide-react';
 import './WishManager.css';
 
 export default function WishManager() {
@@ -12,6 +16,7 @@ export default function WishManager() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [deleting, setDeleting] = useState(null);
 
   const loadWishes = useCallback(async () => {
     const r = await api.wishes.list(id);
@@ -20,7 +25,7 @@ export default function WishManager() {
 
   useEffect(() => {
     setLoading(true);
-    loadWishes().catch(() => toast('Failed to load wishes', 'error')).finally(() => setLoading(false));
+    loadWishes().catch(() => toast('We couldn’t load your wishes. Try again.', 'error')).finally(() => setLoading(false));
   }, [loadWishes, toast]);
 
   const filtered = useMemo(() => {
@@ -40,24 +45,23 @@ export default function WishManager() {
       setWishes((prev) =>
         prev.map((w) => (w.id === wish.id ? { ...w, isApproved: nextVisible } : w))
       );
-      toast(nextVisible ? 'Wish is now visible on invite' : 'Wish hidden from invite', 'success');
+      toast(nextVisible ? 'Guests can now see this wish.' : 'Hidden — guests won’t see this wish.', 'success');
     } catch {
-      toast('Could not update visibility', 'error');
+      toast('We couldn’t change that. Try again.', 'error');
     } finally {
       setBusyId('');
     }
   }
 
   async function handleDelete(wish) {
-    const yes = window.confirm('Delete this guest wish permanently?');
-    if (!yes) return;
+    setDeleting(null);
     setBusyId(wish.id);
     try {
       await api.wishes.remove(id, wish.id);
       setWishes((prev) => prev.filter((w) => w.id !== wish.id));
-      toast('Wish deleted', 'success');
+      toast('Wish deleted.', 'success');
     } catch {
-      toast('Could not delete wish', 'error');
+      toast('We couldn’t delete that wish. Try again.', 'error');
     } finally {
       setBusyId('');
     }
@@ -70,20 +74,20 @@ export default function WishManager() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Guest Wishes</h1>
-          <p className="page-subtitle">Manage wishes shown on your live invitation</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Wishes"
+        subtitle="Messages guests leave on your invitation. Choose which wishes guests can see."
+        helpMore="/guide#wishes"
+        help="New wishes show on your invitation straight away. Press “Hide from guests” on any wish you’d rather keep private — you’ll still see it here. “Delete” removes it for good."
+      />
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-label">Total Wishes</div>
+          <div className="stat-label">All wishes</div>
           <div className="stat-value">{wishes.length}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Visible</div>
+          <div className="stat-label">Guests can see</div>
           <div className="stat-value" style={{ color: 'var(--green)' }}>{visibleCount}</div>
         </div>
         <div className="stat-card">
@@ -94,24 +98,38 @@ export default function WishManager() {
 
       <div className="card">
         <div className="section-header wish-controls">
-          <div className="section-title">Wish Wall Messages</div>
-          <input
-            className="form-input"
-            style={{ maxWidth: 280, marginBottom: 0 }}
-            placeholder="Search by name or message..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <h2 className="section-title">Messages from guests</h2>
+          {wishes.length > 0 && (
+            <div className="search-field" style={{ maxWidth: 300, width: '100%' }}>
+              <Search size={16} aria-hidden="true" className="search-field-icon" />
+              <input
+                className="form-input"
+                type="search"
+                style={{ marginBottom: 0 }}
+                placeholder="Search by name or message"
+                aria-label="Search wishes"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         {filtered.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">💌</div>
-            <div className="empty-title">{search ? 'No results found' : 'No wishes yet'}</div>
-            <div className="empty-desc">
-              Wishes submitted from the invitation page appear here for moderation.
-            </div>
-          </div>
+          search ? (
+            <EmptyState
+              icon={SearchX}
+              tone="sky"
+              title="No wishes match"
+              action={<button type="button" className="btn btn-secondary" onClick={() => setSearch('')}>Show all wishes</button>}
+            >
+              Try another name or word.
+            </EmptyState>
+          ) : (
+            <EmptyState icon={Heart} title="No wishes yet">
+              When guests leave a message on your invitation, it appears here.
+            </EmptyState>
+          )
         ) : (
           <div className="wish-list">
             {filtered.map((wish) => (
@@ -120,26 +138,30 @@ export default function WishManager() {
                   <div className="wish-author">{wish.guestName || 'Guest'}</div>
                   <div className="wish-meta">
                     <span className={`badge ${wish.isApproved ? 'badge-published' : 'badge-pending'}`}>
-                      {wish.isApproved ? 'Visible' : 'Hidden'}
+                      {wish.isApproved ? 'Guests can see' : 'Hidden'}
                     </span>
                     <span className="wish-time">{formatRelative(wish.createdAt)}</span>
                   </div>
                 </div>
-                <div className="wish-message">"{wish.message}"</div>
+                <div className="wish-message">“{wish.message}”</div>
                 <div className="wish-actions">
                   <button
+                    type="button"
                     className="btn btn-secondary btn-sm"
                     disabled={busyId === wish.id}
                     onClick={() => handleToggleVisibility(wish)}
                   >
-                    {wish.isApproved ? 'Hide' : 'Show'}
+                    {wish.isApproved
+                      ? <><EyeOff size={15} aria-hidden="true" /> Hide from guests</>
+                      : <><Eye size={15} aria-hidden="true" /> Show to guests</>}
                   </button>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm wish-delete-btn"
                     disabled={busyId === wish.id}
-                    onClick={() => handleDelete(wish)}
+                    onClick={() => setDeleting(wish)}
                   >
-                    Delete
+                    <Trash2 size={15} aria-hidden="true" /> Delete
                   </button>
                 </div>
               </div>
@@ -147,6 +169,16 @@ export default function WishManager() {
           </div>
         )}
       </div>
+
+      {deleting && (
+        <ConfirmModal
+          title="Delete this wish?"
+          message={`The message from ${deleting.guestName || 'this guest'} will be deleted for good. To keep it but stop guests seeing it, use “Hide from guests” instead.`}
+          confirmText="Delete wish"
+          onConfirm={() => handleDelete(deleting)}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
     </div>
   );
 }

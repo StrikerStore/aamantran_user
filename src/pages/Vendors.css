@@ -28,3 +28,6 @@
 .vendor-pay-bar { height: 100%; background: var(--green); border-radius: 99px; transition: width 0.4s ease; }
 
 @media (max-width: 700px) { .vendor-grid { grid-template-columns: 1fr; } }
+
+/* Revamp: actions wrap on narrow cards */
+.vendor-actions-row { flex-wrap: wrap; }

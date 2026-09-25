@@ -139,3 +139,8 @@
   .share-topcard { padding: 18px 16px; }
   .share-topcard h1 { font-size: 1.3rem; }
 }
+
+.share-qr { margin-top: 12px; }
+.share-qr summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-secondary); }
+.share-link-input button { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; }
+.share-state-emoji { color: var(--rose-deep); }

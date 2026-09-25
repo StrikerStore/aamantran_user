@@ -34,12 +34,12 @@ async function request(method, path, { body, multipart = false, params } = {}) {
   try {
     res = await fetch(url.toString(), { method, headers, body: fetchBody, cache: 'no-store' });
   } catch {
-    throw new ApiError('Network error — is the backend running?', 0, null);
+    throw new ApiError("We couldn't reach Aamantran. Check your internet connection and try again.", 0, null);
   }
 
   let json;
   try { json = await res.json(); }
-  catch { throw new ApiError(`Non-JSON response (${res.status})`, res.status, null); }
+  catch { throw new ApiError('Something went wrong on our side. Please try again in a moment.', res.status, null); }
 
   if (res.status === 401) {
     const msg = json?.message || 'Session expired — please sign in again.';
@@ -51,7 +51,7 @@ async function request(method, path, { body, multipart = false, params } = {}) {
     throw new ApiError(msg, 401, json);
   }
 
-  if (!res.ok) throw new ApiError(json?.message || `Request failed (${res.status})`, res.status, json);
+  if (!res.ok) throw new ApiError(json?.message || 'Something went wrong. Please try again.', res.status, json);
   return json;
 }
 
@@ -81,6 +81,7 @@ export const api = {
     create:       (body)         => request('POST',  '/api/user/events', { body }),
     get:          (id)           => request('GET',   `/api/user/events/${id}`),
     previewToken: (id)           => request('GET',   `/api/user/events/${id}/preview-token`),
+    linkAvailable: (id, link)    => request('GET',   `/api/user/events/${id}/link-available?link=${encodeURIComponent(link)}`),
     update:       (id, body)     => request('PUT',   `/api/user/events/${id}`, { body }),
     confirmNames: (id)           => request('PATCH', `/api/user/events/${id}/confirm-names`),
     publish:        (id, body) => request('PATCH', `/api/user/events/${id}/publish`, { body }),

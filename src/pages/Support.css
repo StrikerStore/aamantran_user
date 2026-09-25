@@ -112,3 +112,12 @@
   .ticket-reply-actions { flex-direction: column; align-items: stretch; }
   .ticket-reply-hint { order: 2; }
 }
+
+/* Revamp: ticket rows are real buttons; friendly status colours (AA) */
+.tickets-list { list-style: none; padding: 0; margin: 0; }
+.ticket-row { width: 100%; font: inherit; text-align: left; background: none; border: none; min-height: 56px; display: flex; align-items: center; gap: 12px; }
+.ticket-chev { color: var(--gold-text); flex-shrink: 0; }
+.badge-ticket-open { background: var(--lemon-soft); color: var(--amber); }
+.badge-ticket-replied { background: var(--sky-soft); color: var(--sky-deep); }
+.badge-ticket-resolved { background: var(--mint-soft); color: var(--mint-deep); }
+.ticket-event-check { display: flex; align-items: center; gap: 10px; min-height: 44px; }

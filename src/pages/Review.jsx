@@ -2,7 +2,13 @@ import { useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { eventTitle } from '../lib/event';
+import { Star, ImagePlus, Trash2, PartyPopper } from 'lucide-react';
 import './Review.css';
+
+const RATING_WORDS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
 
 export default function Review() {
   const toast = useToast();
@@ -32,8 +38,8 @@ export default function Review() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!activeEvent?.template?.id) { toast('No template associated with this event', 'error'); return; }
-    if (!form.rating) { toast('Please select a rating', 'error'); return; }
+    if (!activeEvent?.template?.id) { toast('We couldn’t find the design for this invitation. Message us from Support.', 'error'); return; }
+    if (!form.rating) { toast('Choose how many stars first.', 'error'); return; }
     setSubmitting(true);
     try {
       let payload;
@@ -58,7 +64,7 @@ export default function Review() {
       }
       await api.review.submit(payload);
       setSubmitted(true);
-      toast('Review submitted! Thank you 🎉', 'success');
+      toast('Thank you for your review! 🎉', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -69,136 +75,107 @@ export default function Review() {
   if (submitted) {
     return (
       <div className="page-fade">
-        <div className="review-submitted">
-          <div className="review-submitted-icon">🎉</div>
+        <div className="review-submitted" role="status">
+          <div className="review-submitted-icon" aria-hidden="true"><PartyPopper size={40} /></div>
           <h2>Thank you for your review!</h2>
-          <p>Your feedback helps other couples find the perfect template.</p>
+          <p>It helps other couples choose their design.</p>
         </div>
       </div>
     );
   }
 
+  const shown = hover || form.rating;
+
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Leave a Review</h1>
-          <p className="page-subtitle">Share your experience with the template</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Leave a review"
+        subtitle="Tell other couples what you thought of your design."
+      />
 
       {!activeEvent ? (
         <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">⭐</div>
-            <div className="empty-title">No event selected</div>
-            <div className="empty-desc">Select an event from the sidebar to leave a review.</div>
-          </div>
+          <EmptyState icon={Star} tone="lemon" title="Nothing to review yet">
+            Once you have an invitation, you can review its design here.
+          </EmptyState>
         </div>
       ) : (
         <div className="card review-card">
           <div className="review-template-info">
-            <div className="review-template-label">Reviewing</div>
-            <div className="review-template-name">{activeEvent.template?.name || 'Your Template'}</div>
+            <div className="review-template-label">Your design</div>
+            <div className="review-template-name">{activeEvent.template?.name || eventTitle(activeEvent)}</div>
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* Star rating */}
-            <div className="form-group">
-              <label className="form-label">Your Rating</label>
-              <div className="star-row">
+            <fieldset className="form-group review-stars">
+              <legend className="form-label">How many stars?</legend>
+              <div className="star-row" role="radiogroup" aria-label="Rating" onMouseLeave={() => setHover(0)}>
                 {[1, 2, 3, 4, 5].map(n => (
                   <button
                     key={n}
                     type="button"
-                    className={`star-btn ${n <= (hover || form.rating) ? 'active' : ''}`}
+                    role="radio"
+                    aria-checked={form.rating === n}
+                    aria-label={`${n} star${n > 1 ? 's' : ''} — ${RATING_WORDS[n]}`}
+                    className={`star-btn ${n <= shown ? 'active' : ''}`}
                     onMouseEnter={() => setHover(n)}
-                    onMouseLeave={() => setHover(0)}
+                    onFocus={() => setHover(n)}
+                    onBlur={() => setHover(0)}
                     onClick={() => setForm(f => ({ ...f, rating: n }))}
                   >
-                    ★
+                    <Star size={30} aria-hidden="true" fill={n <= shown ? 'currentColor' : 'none'} />
                   </button>
                 ))}
-                {form.rating > 0 && (
-                  <span className="rating-label">
-                    {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][form.rating]}
-                  </span>
-                )}
+                {shown > 0 && <span className="rating-label" aria-hidden="true">{RATING_WORDS[shown]}</span>}
               </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Couple Names (optional)</label>
-                <input className="form-input" placeholder="Priya & Arjun"
-                  value={form.coupleNames} onChange={e => setForm(f => ({ ...f, coupleNames: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Location (optional)</label>
-                <input className="form-input" placeholder="Mumbai, India"
-                  value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                />
-              </div>
-            </div>
+            </fieldset>
 
             <div className="form-group">
-              <label className="form-label">Review</label>
-              <textarea className="form-textarea" rows={4}
-                placeholder="Share your experience with this template — what you loved, what you used it for..."
+              <label className="form-label" htmlFor="rev-text">What did you think? <span className="form-optional">(optional)</span></label>
+              <textarea id="rev-text" className="form-textarea" rows={4}
+                placeholder="What you loved, what guests said…"
                 value={form.reviewText}
                 onChange={e => setForm(f => ({ ...f, reviewText: e.target.value }))}
               />
             </div>
 
-            {/* Couple photo upload — optional */}
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="rev-names">Your names <span className="form-optional">(optional)</span></label>
+                <input id="rev-names" className="form-input" placeholder="Priya & Arjun"
+                  value={form.coupleNames} onChange={e => setForm(f => ({ ...f, coupleNames: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="rev-city">Your city <span className="form-optional">(optional)</span></label>
+                <input id="rev-city" className="form-input" placeholder="Mumbai"
+                  value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                />
+              </div>
+            </div>
+
             <div className="form-group" style={{ marginTop: 8 }}>
-              <label className="form-label">
-                📸 Couple Photo with Invite in Hand
-                <span className="form-hint-inline" style={{ marginLeft: 6 }}>(optional)</span>
-              </label>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
-                Upload a photo of you holding the invite on your device — it'll appear on our website as a real-couple card flip! Max 5 MB.
+              <span className="form-label">A photo of you with your invitation <span className="form-optional">(optional)</span></span>
+              <p className="form-hint" style={{ marginBottom: 10 }}>
+                Hold your phone showing the invitation and take a photo together. We may show it on our website. JPG, PNG or WebP, up to 5 MB.
               </p>
 
               {photoPreview ? (
-                <div style={{ position: 'relative', display: 'inline-block', marginBottom: 12 }}>
-                  <img
-                    src={photoPreview}
-                    alt="Preview"
-                    style={{ width: 180, height: 180, objectFit: 'cover', borderRadius: 12, border: '2px solid var(--border-subtle)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={removePhoto}
-                    style={{
-                      position: 'absolute', top: -8, right: -8,
-                      background: 'var(--red, #c0392b)', color: '#fff',
-                      border: 'none', borderRadius: '50%', width: 24, height: 24,
-                      cursor: 'pointer', fontSize: '0.75rem', lineHeight: '24px', textAlign: 'center',
-                    }}
-                    title="Remove photo"
-                  >✕</button>
+                <div className="review-photo">
+                  <img src={photoPreview} alt="Your photo" className="review-photo-img" />
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={removePhoto}>
+                    <Trash2 size={15} aria-hidden="true" /> Remove photo
+                  </button>
                 </div>
               ) : (
-                <label
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    border: '2px dashed var(--border-subtle)', borderRadius: 10,
-                    padding: '14px 18px', cursor: 'pointer',
-                    background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
-                    fontSize: '0.85rem', transition: 'border-color 0.2s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
-                >
-                  <span style={{ fontSize: '1.4rem' }}>🖼️</span>
-                  <span>Click to upload a photo (JPG, PNG, WebP — max 5 MB)</span>
+                <label className="review-upload">
+                  <ImagePlus size={24} aria-hidden="true" />
+                  <span>Add a photo</span>
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/avif"
-                    style={{ display: 'none' }}
+                    className="sr-only"
                     onChange={handlePhotoChange}
                   />
                 </label>
@@ -206,9 +183,10 @@ export default function Review() {
             </div>
 
             <button type="submit" className="btn btn-primary" disabled={submitting || !form.rating}>
-              {submitting ? <span className="btn-spinner" /> : '⭐'}
-              Submit Review
+              {submitting ? <span className="btn-spinner" aria-hidden="true" /> : null}
+              Send review
             </button>
+            {!form.rating && <div className="form-hint" style={{ marginTop: 6 }}>Choose your stars to send.</div>}
           </form>
         </div>
       )}

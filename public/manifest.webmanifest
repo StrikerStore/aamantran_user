@@ -1,9 +1,9 @@
 {
   "name": "Aamantran Dashboard",
   "short_name": "Aamantran",
-  "description": "Build and manage your wedding invitation",
-  "theme_color": "#c9900a",
-  "background_color": "#faf6ef",
+  "description": "Build, share and plan your invitation",
+  "theme_color": "#d6336c",
+  "background_color": "#fdf1f5",
   "display": "standalone",
   "scope": "/",
   "start_url": "/",

@@ -470,3 +470,8 @@
     font-size: 0.8rem;
   }
 }
+
+/* Revamp: remove button reachable by keyboard and on touch */
+.masonry-overlay .masonry-delete { width: 36px; height: 36px; }
+.masonry-pin-link:focus-within .masonry-overlay { opacity: 1; }
+@media (hover: none) { .masonry-overlay { opacity: 1; } }

@@ -1,26 +1,44 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useParams, useOutletContext, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback, useRef, useId } from 'react';
+import { useParams, useOutletContext, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
-import { parseGoogleMapsUrl, formatDate, slugify, whatsappShareUrl } from '../lib/utils';
+import { parseGoogleMapsUrl, slugify, whatsappShareUrl } from '../lib/utils';
 import { toHtmlDateInputValue } from '../utils/dateNormalize';
 import { getInviteBaseUrl } from '../lib/config';
 import { NameConfirmBar, ConfirmNamesModal } from '../components/NameConfirmBar';
 import { useToast } from '../components/ui/Toast';
-import { ConfirmModal } from '../components/ui/Modal';
+import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import { InfoTip } from '../components/ui/InfoTip';
+import { eventTitle, eventMeta, eventTypeWord } from '../lib/event';
+import {
+  Eye, Check, Lock, ArrowLeft, ArrowRight, Users, CalendarHeart, Image as ImageIcon, FileText,
+  Sparkles as SparklesIcon, Link2, Plus, MapPin, Trash2, PencilLine, Copy, Share2, Radio, Music,
+} from 'lucide-react';
+import { LinkField } from './invite/LinkField';
+import { QrCode } from './invite/QrCode';
+import { EditOverview } from './invite/EditOverview';
+import { toTimeInput, fromTimeInput } from './invite/time';
 import './InvitationForm.css';
 
+/**
+ * The builder's steps, in order. Venues are added inside Ceremonies (a venue
+ * only matters as "where a ceremony happens"). `must` marks the steps a couple
+ * has to finish; `overview` is the home of a live invitation.
+ */
 const SECTIONS = [
-  { id: 'people',    label: 'People & Names',   short: 'People'     },
-  { id: 'venues',    label: 'Venues',            short: 'Venues'     },
-  { id: 'functions', label: 'Ceremonies',        short: 'Ceremonies' },
-  { id: 'media',     label: 'Photos & Music',    short: 'Media'      },
-  { id: 'custom',    label: 'Special Details',   short: 'Details'    },
-  { id: 'social',    label: 'Guest Options',     short: 'Options'    },
-  { id: 'language',  label: 'Language',          short: 'Language'   },
-  { id: 'publish',   label: 'Preview & Publish', short: 'Publish'    },
+  { id: 'overview',  label: 'Overview',          short: 'Overview' },
+  { id: 'people',    label: 'Names',             short: 'Names',          must: true },
+  { id: 'functions', label: 'Ceremonies',        short: 'Ceremonies',     must: true },
+  { id: 'media',     label: 'Photos & music',    short: 'Photos & music' },
+  { id: 'custom',    label: 'Special details',   short: 'Special details' },
+  { id: 'social',    label: 'Guest features',    short: 'Guest features' },
+  { id: 'language',  label: 'Language',          short: 'Language' },
+  { id: 'publish',   label: 'Preview & go live', short: 'Go live' },
 ];
+
+/** Common ceremony names, offered as one-tap suggestions. */
+const CEREMONY_SUGGESTIONS = ['Haldi', 'Mehendi', 'Sangeet', 'Wedding', 'Reception', 'Engagement', 'Cocktail', 'Anand Karaj', 'Nikah', 'Roka'];
 
 // Scroll offsets that collapse / restore the sticky tab header. Two separate
 // values on purpose: the gap between them is a dead band, so no scroll position
@@ -77,7 +95,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
         caption: asset.name
       });
       await refreshMedia();
-      toast(isFilled ? 'Music updated!' : 'Added!', 'success');
+      toast(isFilled ? 'Music changed.' : 'Added.', 'success');
       setSelectedAssetId('');
       setReplacing(false);
     } catch (err) {
@@ -145,7 +163,7 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
                 {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
                 {m.type === 'music' && (
                   <div style={{ marginTop: 8, width: '100%', background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)', boxSizing: 'border-box' }}>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>🎵 Background Music</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}><Music size={14} aria-hidden="true" /> Background music</div>
                     <audio
                       controls
                       src={m.url}
@@ -300,9 +318,9 @@ const LANGUAGES = [
 
 export default function GenerateInvitation() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const toast = useToast();
   const outletCtx = useOutletContext() || {};
+  const [searchParams] = useSearchParams();
 
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -337,6 +355,7 @@ export default function GenerateInvitation() {
   const [venueForm, setVenueForm] = useState({ name: '', address: '', mapUrl: '', city: '', state: '' });
   const [editingVenue, setEditingVenue] = useState(null);
   const [savingVenue, setSavingVenue] = useState(false);
+  const [venueModal, setVenueModal] = useState(null); // { fnKey } while the venue dialog is open
 
   // Media
   const [media, setMedia] = useState([]);
@@ -377,6 +396,14 @@ export default function GenerateInvitation() {
 
   // Celebration
   const [showCelebration, setShowCelebration] = useState(false);
+
+  // Going live: link checks, "have you previewed?", and the personalise prompt
+  const [mainLinkStatus, setMainLinkStatus] = useState({ state: 'idle' });
+  const [partialLinkStatus, setPartialLinkStatus] = useState({ state: 'idle' });
+  const [previewed, setPreviewed] = useState(false);
+  const [showLinkPrompt, setShowLinkPrompt] = useState(false);
+  const mainLinkRef = useRef(null);
+  const partialLinkRef = useRef(null);
 
   // Delete confirms
   const [deletingPerson, setDeletingPerson] = useState(null);
@@ -437,6 +464,13 @@ export default function GenerateInvitation() {
       }
 
       setSlugFull(ev.slug || '');
+      // Open a live invitation on its overview; a link like ?step=publish opens
+      // that step when it is already reachable.
+      const wanted = searchParams.get('step');
+      const reachable = ev.isPublished || wanted === 'people'
+        || (ev.namesAreFrozen && (wanted === 'functions' || (ev.functions || []).length > 0));
+      if (wanted && reachable && SECTIONS.some((x) => x.id === wanted)) setActiveSection(wanted);
+      else if (ev.isPublished) setActiveSection('overview');
       // If there's already a paired subset, pre-tick its functions.
       // pairedFunctionIds contains the MAIN event's function IDs (matched by name
       // on the backend), NOT the partial event's copied function IDs.
@@ -447,7 +481,7 @@ export default function GenerateInvitation() {
       }
       setLoading(false);
     }).catch(() => {
-      toast('Failed to load event', 'error');
+      toast('We couldn’t open your invitation. Try again.', 'error');
       setLoading(false);
     });
 
@@ -479,12 +513,16 @@ export default function GenerateInvitation() {
     ? templateSchema.dashboard : {};
   const guestOptionKeys = Array.isArray(dashboardSteps.guestOptions) ? dashboardSteps.guestOptions : null;
   const showGuestOption = (key) => !guestOptionKeys || guestOptionKeys.includes(key);
+  const isLive = Boolean(event?.isPublished);
   const sections = useMemo(() => SECTIONS.filter((s) => {
+    if (s.id === 'overview') return isLive;
     if (s.id === 'media') return dashboardSteps.showMedia !== false;
+    // Special details only when the design asks for any.
+    if (s.id === 'custom') return fieldSchema.length > 0;
     if (s.id === 'social') return !guestOptionKeys || guestOptionKeys.length > 0;
     if (s.id === 'language') return !templateLanguages || templateLanguages.length > 1;
     return true;
-  }), [dashboardSteps.showMedia, guestOptionKeys, templateLanguages]);
+  }), [isLive, dashboardSteps.showMedia, fieldSchema.length, guestOptionKeys, templateLanguages]);
 
   // Roles follow a prefix convention: "person1_father" hangs off "person1". That lets us
   // group parents under the person they belong to without hard-coding weddings —
@@ -584,7 +622,6 @@ export default function GenerateInvitation() {
     // otherwise every optional tab would unlock at once.
     const hasContent = {
       people: !blocked.people,
-      venues: venues.length > 0,
       functions: !blocked.functions,
       media: media.length > 0,
       custom: customFields.some(f => String(f.fieldValue || '').trim()),
@@ -597,7 +634,7 @@ export default function GenerateInvitation() {
 
     return Math.min(blockingLimit, lastFilled + 1);
   }, [event, sections, hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole, people, functions,
-      venues, media, customFields, instagramUrl, instagramHashtag, socialYoutubeUrl]);
+      media, customFields, instagramUrl, instagramHashtag, socialYoutubeUrl]);
 
   // Furthest step reached, stored by id: positions differ between templates now
   // that steps can be hidden. The old key held a position in the full list.
@@ -745,11 +782,30 @@ export default function GenerateInvitation() {
   const savingActive = savingPerson || savingAllFns || savingVenue || savingFields
     || savingGuestFeatures || savingLang;
 
-  function goToSection(sectionId) {
+  /**
+   * Save whatever is on the current step. Moving anywhere — a tab, Back, Next —
+   * goes through this first, so nothing typed is ever silently lost.
+   * @returns {Promise<boolean>} false when it could not be saved (stay put)
+   */
+  async function saveActive() {
+    switch (activeSection) {
+      case 'people':    return savePeopleBySchema();
+      case 'functions': return functions.length ? saveAllFunctions() : true;
+      case 'custom':    return saveCustomFields();
+      case 'social':    return saveGuestFeatures();
+      case 'language':  return saveLanguage();
+      default:          return true; // photos save as they upload; overview/publish hold no drafts
+    }
+  }
+
+  async function goToSection(sectionId) {
+    if (sectionId === activeSection) { setTabsExpanded(false); return; }
     const idx = sections.findIndex(s => s.id === sectionId);
     if (idx < 0 || idx > unlockedIdx) return;
+    if (!(await saveActive())) return;
     setActiveSection(sectionId);
     setTabsExpanded(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function advanceTo(sectionId) {
@@ -761,29 +817,20 @@ export default function GenerateInvitation() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  /** "Next" is the save button: persist this tab, then reveal the following one. */
+  /**
+   * The step's main button. Building: "Save & continue" — save, then open the
+   * next step. Live invitation: "Save changes" — save, then back to the overview.
+   */
   async function handleNext() {
-    if (!nextSection) return;
-
     // People is gated by the permanent name freeze — confirm before moving on.
     if (activeSection === 'people' && !frozen) { setConfirmingNames(true); return; }
-
-    let ok = true;
-    switch (activeSection) {
-      // Once names are confirmed the required ones are locked, but optional
-      // names (parents and the like) stay editable — and they live only in
-      // peopleInputs until saved, so they must be flushed here like any tab.
-      case 'people':    ok = await savePeopleBySchema(); break;
-      // A half-typed venue would otherwise be lost on the way out.
-      case 'venues':    if (editingVenue || venueForm.name.trim()) ok = await saveVenue(); break;
-      case 'functions': ok = await saveAllFunctions(); break;
-      case 'custom':    ok = await saveCustomFields(); break;
-      case 'social':    ok = await saveGuestFeatures(); break;
-      case 'language':  ok = await saveLanguage(); break;
-      // Media uploads persist as they happen — nothing to flush.
-      default: break;
+    if (!(await saveActive())) return;
+    if (isLive) {
+      toast('Saved — your live invitation is updated.', 'success');
+      advanceTo('overview');
+      return;
     }
-    if (ok) advanceTo(nextSection.id);
+    if (nextSection) advanceTo(nextSection.id);
   }
 
   async function confirmNamesAndAdvance() {
@@ -792,11 +839,11 @@ export default function GenerateInvitation() {
     try {
       await api.events.confirmNames(event.id);
       setEvent(e => ({ ...e, namesAreFrozen: true }));
-      toast('Names confirmed and locked!', 'success');
+      toast('Names confirmed.', 'success');
       setConfirmingNames(false);
-      advanceTo('venues');
+      advanceTo('functions');
     } catch (err) {
-      toast(err.message || 'Failed to confirm names', 'error');
+      toast(err.message || 'We couldn’t save the names. Try again.', 'error');
     } finally {
       setSavingPerson(false);
     }
@@ -893,19 +940,12 @@ export default function GenerateInvitation() {
   }
 
   // ── FUNCTIONS ───────────────────────────────────────────
-  const BLANK_FN = () => ({ _cid: `new-${Date.now()}`, _isNew: true, name: '', date: new Date().toISOString().slice(0, 10), startTime: '', venueName: '', venueAddress: '', venueMapUrl: '', dressCode: '', notes: '' });
+  // No date filled in for them: a ceremony dated "today" by default looks real
+  // and easily goes live wrong.
+  const BLANK_FN = () => ({ _cid: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, _isNew: true, name: '', date: '', startTime: '', venueName: '', venueAddress: '', venueMapUrl: '', dressCode: '', notes: '' });
 
   function updateFnField(fnKey, field, value) {
     setFunctions(prev => prev.map(f => (f._cid === fnKey || f.id === fnKey) ? { ...f, [field]: value } : f));
-  }
-
-  function insertFnAfter(fnKey) {
-    setFunctions(prev => {
-      const idx = prev.findIndex(f => f._cid === fnKey || f.id === fnKey);
-      const next = [...prev];
-      next.splice(idx + 1, 0, BLANK_FN());
-      return next;
-    });
   }
 
   /** @returns {Promise<boolean>} true when every ceremony persisted */
@@ -913,11 +953,12 @@ export default function GenerateInvitation() {
     // Validate all functions first
     const invalid = functions.filter(fn => !fn.name || !fn.date);
     if (invalid.length > 0) {
-      toast(`${invalid.length} function(s) are missing a name or date`, 'error');
+      toast('Give every ceremony a name and a date.', 'error');
       return false;
     }
     setSavingAllFns(true);
     const errors = [];
+    const savedIdFor = {}; // new ceremony's temporary key → its saved id
     for (let idx = 0; idx < functions.length; idx++) {
       const fn = functions[idx];
       const key = fn._cid || fn.id;
@@ -926,6 +967,7 @@ export default function GenerateInvitation() {
         const payload = { name: fn.name, date: fn.date, startTime: fn.startTime || undefined, venueId: fn.venueId || undefined, venueName: fn.venueName || undefined, venueAddress: fn.venueAddress || undefined, venueMapUrl: fn.venueMapUrl || undefined, dressCode: fn.dressCode || undefined, notes: fn.notes || undefined, sortOrder: idx };
         if (fn._isNew) {
           const r = await api.functions.add(id, payload);
+          savedIdFor[fn._cid] = r.function.id;
           setFunctions(prev => prev.map(f => f._cid === fn._cid ? r.function : f));
           // Carry the partial-invite tick over from the client-side _cid to the real id
           setPartialFnIds(prev => {
@@ -945,12 +987,19 @@ export default function GenerateInvitation() {
         setSavingFnId(null);
       }
     }
+    // A second link that already exists follows the ticks straight away.
+    if (!errors.length && event.invitePairId && partialEnabled) {
+      const selectedIds = [...partialFnIds].map(k => savedIdFor[k] || k).filter(k => k && !String(k).startsWith('new-'));
+      if (selectedIds.length) {
+        try { await api.events.updatePartial(id, { partialFunctionIds: selectedIds }); }
+        catch { errors.push('the second link'); }
+      }
+    }
     setSavingAllFns(false);
     if (errors.length > 0) {
-      toast(`Failed to save: ${errors.join(', ')}`, 'error');
+      toast(`We couldn’t save ${errors.join(', ')}. Please try again.`, 'error');
       return false;
     }
-    toast('All functions saved!', 'success');
     return true;
   }
 
@@ -986,45 +1035,62 @@ export default function GenerateInvitation() {
   }
 
   // ── VENUES ──────────────────────────────────────────────
-  function handleVenueMapUrl(url) {
-    const coords = parseGoogleMapsUrl(url);
-    setVenueForm(f => ({
-      ...f, mapUrl: url,
-      ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
-    }));
+  /** Open the venue dialog — to add one for a ceremony (fnKey), or to edit an existing venue. */
+  function openVenueModal(fnKey, venue = null) {
+    setEditingVenue(venue ? { ...venue } : null);
+    setVenueForm({ name: '', address: '', mapUrl: '', city: '', state: '' });
+    setVenueModal({ fnKey });
   }
 
-  /** @returns {Promise<boolean>} true when the venue persisted */
+  /** @returns {Promise<object|null>} the saved venue */
   async function saveVenue() {
-    if (editingVenue ? !editingVenue.name : !venueForm.name) {
-      toast('Venue name is required', 'error');
-      return false;
+    if (editingVenue ? !String(editingVenue.name || '').trim() : !venueForm.name.trim()) {
+      toast('Give the venue a name.', 'error');
+      return null;
     }
     setSavingVenue(true);
     try {
+      let saved;
       if (editingVenue) {
         const r = await api.venues.update(id, editingVenue.id, editingVenue);
+        saved = r.venue;
         setVenues(v => v.map(x => x.id === editingVenue.id ? r.venue : x));
+        // Ceremonies at this venue show its new details.
+        setFunctions(prev => prev.map(f => f.venueId === saved.id
+          ? { ...f, venueName: saved.name, venueAddress: saved.address || '', venueMapUrl: saved.mapUrl || '' } : f));
         setEditingVenue(null);
       } else {
         const r = await api.venues.add(id, venueForm);
+        saved = r.venue;
         setVenues(v => [...v, r.venue]);
       }
       setVenueForm({ name: '', address: '', mapUrl: '', city: '', state: '' });
-      toast('Saved!', 'success');
-      return true;
+      toast('Venue saved.', 'success');
+      return saved;
     } catch (err) {
       toast(err.message, 'error');
-      return false;
+      return null;
     } finally {
       setSavingVenue(false);
     }
+  }
+
+  async function saveVenueFromModal() {
+    const fnKey = venueModal?.fnKey;
+    const saved = await saveVenue();
+    if (!saved) return;
+    if (fnKey) {
+      setFunctions(prev => prev.map(f => (f._cid === fnKey || f.id === fnKey)
+        ? { ...f, venueId: saved.id, venueName: saved.name, venueAddress: saved.address || '', venueMapUrl: saved.mapUrl || '' } : f));
+    }
+    setVenueModal(null);
   }
 
   async function removeVenue(vId) {
     try {
       await api.venues.remove(id, vId);
       setVenues(v => v.filter(x => x.id !== vId));
+      setFunctions(prev => prev.map(f => f.venueId === vId ? { ...f, venueId: '', venueName: '', venueAddress: '', venueMapUrl: '' } : f));
       setDeletingVenue(null);
     } catch (err) {
       toast(err.message, 'error');
@@ -1042,7 +1108,7 @@ export default function GenerateInvitation() {
         const r = await api.media.upload(id, fd);
         setMedia((m) => [...m, r.media]);
         setMediaForm({ type: 'photo', url: '', file: null });
-        toast('Added!', 'success');
+        toast('Added.', 'success');
       } catch (err) {
         toast(err.message, 'error');
       } finally {
@@ -1051,7 +1117,7 @@ export default function GenerateInvitation() {
       return;
     }
     if (!mediaForm.url?.trim()) {
-      toast('Choose a file or enter a URL', 'error');
+      toast('Choose a file, or paste a link to one.', 'error');
       return;
     }
     setSavingMedia(true);
@@ -1062,7 +1128,7 @@ export default function GenerateInvitation() {
       });
       setMedia((m) => [...m, r.media]);
       setMediaForm({ type: 'photo', url: '', file: null });
-      toast('Added!', 'success');
+      toast('Added.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -1168,21 +1234,22 @@ export default function GenerateInvitation() {
 
   // ── PUBLISH ──────────────────────────────────────────────
   async function handlePublish() {
+    setShowLinkPrompt(false);
     if (partialEnabled && partialFnIds.size === 0) {
-      toast('Select at least one function for the partial invite, or disable partial invite.', 'error');
+      toast('Tick at least one ceremony for your second link — or switch the second link off in Ceremonies.', 'error');
       return;
     }
-    // Only meaningful while the pair is still being created — once it exists the
-    // partial slug is fixed and the field is ignored.
+    // Only while the second link is still being created — once it exists its
+    // name is fixed.
     if (partialEnabled && !event.invitePairId) {
       const mainSlug = slugify(slugFull || event.slug);
-      const pSlug = slugify(partialSlug || `${event.slug}-partial`);
+      const pSlug = slugify(partialLinkValue);
       if (!pSlug) {
-        toast('Enter a link for the partial invite.', 'error');
+        toast('Choose a name for your second link.', 'error');
         return;
       }
       if (pSlug === mainSlug) {
-        toast('The partial invite link must be different from the full invite link.', 'error');
+        toast('Your two links need different names.', 'error');
         return;
       }
     }
@@ -1201,7 +1268,7 @@ export default function GenerateInvitation() {
       const body = {
         slugFull: slugFull || undefined,
         createPartial: partialEnabled && !event.invitePairId,
-        partialSlug: partialEnabled ? partialSlug : undefined,
+        partialSlug: partialEnabled ? partialLinkValue : undefined,
         partialFunctionIds: partialEnabled ? [...partialFnIds].filter(k => !String(k).startsWith('new-')) : undefined,
       };
       await api.events.publish(id, body);
@@ -1211,9 +1278,10 @@ export default function GenerateInvitation() {
       if (r.event.pairedEvent) {
         setPartialEnabled(true);
         setPartialSlug(r.event.pairedEvent.slug);
-        setPartialFnIds(new Set((r.event.pairedEvent.functions || []).map(f => f.id)));
+        setPartialFnIds(new Set(r.event.pairedEvent.pairedFunctionIds || []));
       }
       setShowCelebration(true);
+      outletCtx.refreshEvents?.();
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -1222,6 +1290,7 @@ export default function GenerateInvitation() {
   }
 
   async function openPreview() {
+    setPreviewed(true);
     setLoadingPreview(true);
     try {
       const r = await api.events.previewToken(id);
@@ -1238,73 +1307,110 @@ export default function GenerateInvitation() {
     try {
       await api.events.unpublish(id);
       setEvent(e => ({ ...e, isPublished: false }));
-      toast('Invitation unpublished', 'info');
+      setActiveSection('publish');
+      toast('Your invitation is offline. Guests can’t open it until you go live again.', 'info');
+      outletCtx.refreshEvents?.();
     } catch (err) {
       toast(err.message, 'error');
-    }
-  }
-
-  async function refreshEvent() {
-    try {
-      // Refresh should also sync partial selection changes made via checkboxes.
-      if (event.invitePairId && partialEnabled) {
-        const selectedIds = functions
-          .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
-          .map((f) => f.id);
-        if (selectedIds.length > 0) {
-          await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
-        }
-      }
-
-      const r = await api.events.get(id);
-      setEvent(r.event);
-      if (r.event.pairedEvent) {
-        setPartialEnabled(true);
-        setPartialSlug(r.event.pairedEvent.slug || '');
-        setPartialFnIds(new Set(r.event.pairedEvent.pairedFunctionIds || []));
-      }
-      toast('Invite details refreshed', 'success');
-    } catch (err) {
-      toast(err.message || 'Failed to refresh invite data', 'error');
     }
   }
 
   const inviteBase = getInviteBaseUrl();
   const inviteUrl = `${inviteBase}/i/${event.slug}`;
   const pairedEvent = event.pairedEvent;
-  const partialUrl = pairedEvent ? `${inviteBase}/i/${pairedEvent.slug}` : null;
   const partialInviteSlug = pairedEvent?.slug || partialSlug;
   const partialPreviewUrl = partialInviteSlug ? `${inviteBase}/i/${partialInviteSlug}` : null;
   const isEditMode = event.isPublished;
+  // The second link's name as the couple sees it — its default is shown as the
+  // value (so it can be personalised), exactly what publishing would use.
+  const partialLinkValue = partialSlug || `${event.slug}-partial`;
+  const needsSecondLink = partialEnabled && functions.length > 1;
+  const creatingSecondLink = needsSecondLink && !event.invitePairId;
+  const badLink = (st) => ['taken', 'short', 'empty'].includes(st?.state);
+  const linkBlocked = !isEditMode && (badLink(mainLinkStatus) || (creatingSecondLink && badLink(partialLinkStatus)));
+  const selectedCeremonyNames = functions.filter(f => partialFnIds.has(f.id || f._cid)).map(f => f.name).filter(Boolean);
+  const nameExample = (eventTitle({ ...event, people }).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')) || 'priya-rahul';
+  const shownBase = inviteBase.replace(/^https?:\/\//, '');
 
-  // Progress bar computation
+  function copyLink(url) {
+    navigator.clipboard?.writeText(url)
+      .then(() => toast('Link copied.', 'success'))
+      .catch(() => toast('Couldn’t copy — press and hold the link to copy it.', 'error'));
+  }
+
+  /** Go live — but first offer to personalise a link that is still a made-up one. */
+  function startGoLive() {
+    const mainIsDefault = mainLinkStatus.isDefault;
+    const secondIsDefault = creatingSecondLink && (partialLinkStatus.isDefault || /partial/.test(partialLinkValue));
+    if (mainIsDefault || secondIsDefault) { setShowLinkPrompt(true); return; }
+    handlePublish();
+  }
+
+  // Progress that reflects real work: a step counts only once something is in it.
+  const ceremoniesReady = functions.length > 0 && functions.every(f => f.name && f.date && !f._isNew);
   const sectionComplete = {
-    people:    people.length > 0,
-    venues:    venues.length > 0,
-    functions: functions.length > 0 && functions.every(f => f.name && f.date && !f._isNew),
+    overview:  false,
+    people:    frozen,
+    functions: ceremoniesReady,
     media:     media.length > 0,
-    custom:    fieldSchema.length === 0 || customFields.some(f => f.fieldValue),
-    social:    true,
-    language:  true,
+    custom:    customFields.some(f => String(f.fieldValue || '').trim()),
+    social:    Boolean(instagramUrl || instagramHashtag || socialYoutubeUrl),
+    language:  false,
     publish:   event.isPublished,
   };
-  const totalDone = sections.filter(sec => sectionComplete[sec.id]).length;
-  const pct = Math.round((totalDone / sections.length) * 100);
-  const requiredDone = ['people', 'functions', 'publish'].filter(k => sectionComplete[k]).length;
+  const stepSections = sections.filter(sec => sec.id !== 'overview');
+  const pct = Math.round((stepSections.filter(sec => sectionComplete[sec.id]).length / stepSections.length) * 100);
+  const mustDoneCount = [frozen, ceremoniesReady, event.isPublished].filter(Boolean).length;
+  const lockedReason = !frozen ? 'Add and confirm your names first' : 'Add your ceremonies first';
+
+  // Why the main button is greyed out, said under it.
+  const nextHint = !nextDisabled ? '' : activeSection === 'people'
+    ? (missingRoleChoice
+        ? `Choose ${missingRoleChoice.roleOptions.join(' or ')} for ${missingRoleChoice.label}.`
+        : 'Fill in the names marked “Must do” to continue.')
+    : activeSection === 'functions' ? 'Give every ceremony a name and a date to continue.' : '';
+
+  // Live invitation home: what is filled in, per area.
+  const firstDate = eventMeta({ ...event, functions }).split(' · ').pop();
+  const filledDetails = fieldSchema.filter(f => String(customFields.find(c => c.fieldKey === f.key)?.fieldValue || '').trim()).length;
+  const overviewCards = [
+    { id: 'people', title: 'Names', icon: Users, summary: eventTitle({ ...event, people }) },
+    { id: 'functions', title: 'Ceremonies', icon: CalendarHeart,
+      summary: functions.length ? `${functions.length} ceremon${functions.length === 1 ? 'y' : 'ies'}${firstDate && /\d/.test(firstDate) ? ` · first on ${firstDate}` : ''}` : 'No ceremonies yet',
+      empty: !functions.length },
+    { id: 'media', title: 'Photos & music', icon: ImageIcon,
+      summary: media.length ? `${media.length} file${media.length === 1 ? '' : 's'} added` : 'Nothing added yet', empty: !media.length },
+    { id: 'custom', title: 'Special details', icon: FileText,
+      summary: `${filledDetails} of ${fieldSchema.length} filled in`, empty: !filledDetails },
+    { id: 'social', title: 'Guest features', icon: SparklesIcon,
+      summary: [showGuestOption('rsvp') && `Replies ${rsvpEnabled ? 'on' : 'off'}`, showGuestOption('wishes') && `Wishes ${guestNotesEnabled ? 'on' : 'off'}`,
+        (instagramUrl || instagramHashtag || socialYoutubeUrl) && 'Links added'].filter(Boolean).join(' · ') || 'Nothing set' },
+    { id: 'publish', title: 'Your link & QR code', icon: Link2, summary: `…/i/${event.slug}` },
+  ].filter(card => sections.some(sec => sec.id === card.id));
 
   return (
     <div className="invite-form-page page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{isEditMode ? 'Edit Invitation' : 'Build Invitation'}</h1>
-          <p className="page-subtitle">{event.slug} · {event.community} {event.eventType}</p>
+      <div className="builder-head">
+        <div className="builder-head-text">
+          <div className={`builder-status${isEditMode ? ' is-live' : ''}`}>
+            <span className={`event-dot${isEditMode ? ' is-live' : ''}`} aria-hidden="true" />
+            {isEditMode ? 'Live invitation' : 'Not live yet'}
+          </div>
+          <h1 className="ph-title">{isEditMode ? 'Edit your invitation' : 'Build your invitation'}</h1>
+          <p className="ph-subtitle">{[eventTitle({ ...event, people }), eventMeta({ ...event, functions })].filter(Boolean).join(' · ')}</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn btn-secondary btn-sm" onClick={openPreview} disabled={loadingPreview}>
-            {loadingPreview ? 'Opening…' : '👁 Preview'}
-          </button>
-        </div>
+        <button type="button" className="btn btn-secondary" onClick={openPreview} disabled={loadingPreview}>
+          <Eye size={18} aria-hidden="true" />
+          {loadingPreview ? 'Opening…' : 'Preview'}
+        </button>
       </div>
+
+      {isEditMode && (
+        <div className="live-banner" role="status">
+          <Radio size={18} aria-hidden="true" />
+          <span>Your invitation is live. Changes you save show to guests right away.</span>
+        </div>
+      )}
 
       {/* The outer box holds the sticky position and a frozen height; only the
           inner chrome shrinks, so the document never changes length. */}
@@ -1313,83 +1419,97 @@ export default function GenerateInvitation() {
         ref={stickyInnerRef}
         className={`invite-sticky-inner${tabsCondensed ? ' condensed' : ''}${tabsExpanded ? ' expanded' : ''}`}
        >
-        {/* Progress bar */}
-        <div className="invite-progress-wrap">
-          <div className="invite-progress-header">
-            <span className="invite-progress-label">
-              {event.isPublished ? '✓ Published' : `${pct}% complete`}
-            </span>
-            <span className="invite-progress-sub">
-              {event.isPublished
-                ? 'Your invitation is live!'
-                : requiredDone < 3
-                  ? `${3 - requiredDone} required step(s) left`
-                  : 'All required steps done — ready to publish!'}
-            </span>
+        {!isEditMode && (
+          <div className="invite-progress-wrap">
+            <div className="invite-progress-header">
+              <span className="invite-progress-label">{mustDoneCount} of 3 must-do steps done</span>
+              <span className="invite-progress-sub">
+                {mustDoneCount === 2 ? 'Last step: preview and go live' : 'You can come back and change anything later'}
+              </span>
+            </div>
+            <div className="invite-progress-bar" role="progressbar" aria-label="Invitation progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+              <div className="invite-progress-fill" style={{ width: `${pct}%` }} />
+            </div>
           </div>
-          <div className="invite-progress-bar">
-            <div
-              className="invite-progress-fill"
-              style={{ width: `${pct}%`, background: event.isPublished ? 'var(--green)' : 'var(--gold)' }}
-            />
-          </div>
-        </div>
+        )}
 
-        {/* Section tabs */}
-        <div className="section-tabs">
+        {/* Steps */}
+        <nav className="section-tabs" aria-label="Steps">
           {sections.map((s, i) => {
             const locked = i > unlockedIdx;
+            const done = sectionComplete[s.id];
+            const active = activeSection === s.id;
+            const number = sections.filter(x => x.id !== 'overview').findIndex(x => x.id === s.id) + 1;
             return (
               <button
+                type="button"
                 key={s.id}
-                className={`section-tab ${activeSection === s.id ? 'active' : ''} ${sectionComplete[s.id] ? 'done' : ''} ${locked ? 'locked' : ''}`}
-                disabled={locked}
-                title={locked ? 'Finish the steps before this one to unlock it' : undefined}
+                className={`section-tab ${active ? 'active' : ''} ${done ? 'done' : ''} ${locked ? 'locked' : ''}`}
+                aria-current={active ? 'step' : undefined}
+                aria-disabled={locked || undefined}
+                title={locked ? lockedReason : undefined}
                 onClick={() => {
                   // In the condensed state, tapping the lone active tab reveals the rest
-                  if (tabsCondensed && !tabsExpanded && activeSection === s.id) { setTabsExpanded(true); return; }
+                  if (tabsCondensed && !tabsExpanded && active) { setTabsExpanded(true); return; }
+                  if (locked) { toast(lockedReason, 'info'); return; }
                   goToSection(s.id);
                 }}
               >
-                {s.label}
-                {locked && <span className="tab-lock">🔒</span>}
-                {!locked && sectionComplete[s.id] && <span className="tab-check">✓</span>}
-                {!locked && !sectionComplete[s.id] && (s.id === 'people' || s.id === 'functions') && (
-                  <span className="tab-required">Required</span>
-                )}
+                <span className="step-num" aria-hidden="true">
+                  {s.id === 'overview' ? <Eye size={13} /> : done ? <Check size={14} /> : locked ? <Lock size={12} /> : number}
+                </span>
+                <span className="step-label">{s.label}</span>
+                {!locked && !done && s.must && !isEditMode && <span className="tab-required">Must do</span>}
               </button>
             );
           })}
-        </div>
+        </nav>
        </div>
       </div>
 
       <div className="invite-form-body">
 
-        {/* ── PEOPLE ── */}
+        {/* ── OVERVIEW (live invitation) ── */}
+        {activeSection === 'overview' && (
+          <div className="card">
+            <div className="step-head">
+              <h2 className="step-title">What would you like to change?</h2>
+            </div>
+            <p className="step-intro">Pick an area. Changes you save go live straight away.</p>
+            <EditOverview cards={overviewCards} onEdit={goToSection} />
+          </div>
+        )}
+
+        {/* ── NAMES ── */}
         {activeSection === 'people' && (
           <div className="card">
             <NameConfirmBar event={event} people={people} />
 
-            <div className="section-header">
-              <div className="section-title">People</div>
+            <div className="step-head">
+              <h2 className="step-title">Names</h2>
+              <InfoTip label="About names" learnMore="/guide#names">
+                These names appear on your invitation exactly as you type them — check the spelling and capital letters.
+              </InfoTip>
             </div>
+            <p className="step-intro">Type each name exactly as it should appear on your invitation.</p>
 
             {!frozen && !hasSchemaPeopleRoles && (
               <div className="inline-form">
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Role <span className="form-hint-inline">(fallback mode)</span></label>
+                    <label className="form-label" htmlFor="fallback-role">Who is this?</label>
                     <input
+                      id="fallback-role"
                       className="form-input"
-                      placeholder="e.g. Person 1, Person 2, Host"
+                      placeholder="e.g. Host, Birthday person"
                       value={personForm.role}
                       onChange={e => setPersonForm(f => ({ ...f, role: e.target.value }))}
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Full Name</label>
+                    <label className="form-label" htmlFor="fallback-name">Full name</label>
                     <input
+                      id="fallback-name"
                       className="form-input"
                       placeholder="e.g. Priya Sharma"
                       value={personForm.name}
@@ -1398,38 +1518,29 @@ export default function GenerateInvitation() {
                   </div>
                 </div>
                 <div className="inline-form-actions">
-                  <button className="btn btn-primary btn-sm" disabled={savingPerson} onClick={async () => {
-                    if (!personForm.role || !personForm.name) { toast('Role and name are required', 'error'); return; }
+                  <button type="button" className="btn btn-primary" disabled={savingPerson} onClick={async () => {
+                    if (!personForm.role || !personForm.name) { toast('Fill in who this is and their name.', 'error'); return; }
                     setSavingPerson(true);
                     try {
                       const r = await api.people.add(id, personForm);
                       setPeople(p => [...p, r.person]);
                       setPersonForm({ role: '', name: '' });
-                      toast('Saved!', 'success');
+                      toast('Name added.', 'success');
                     } catch (err) {
                       toast(err.message, 'error');
                     } finally {
                       setSavingPerson(false);
                     }
                   }}>
-                    {savingPerson ? <span className="btn-spinner" /> : null}
-                    Add Person
+                    {savingPerson ? <span className="btn-spinner" aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+                    Add person
                   </button>
                 </div>
               </div>
             )}
 
             {hasSchemaPeopleRoles && (
-              <div className="inline-form">
-                <div className="form-hint" style={{ marginBottom: 10 }}>
-                  {frozen
-                    ? 'Required names are locked after confirmation. You can still edit optional names below, and change Bride/Groom-style roles.'
-                    : 'Roles are fixed by template schema. Fill names only.'}
-                </div>
-                <div className="form-row" style={{ marginBottom: 8 }}>
-                  <div className="form-label">Role</div>
-                  <div className="form-label">Full Name</div>
-                </div>
+              <div className="people-form">
                 {peopleRoleGroups.principals.map((roleDef) => (
                   <PersonNameRow
                     key={roleDef.role}
@@ -1444,8 +1555,14 @@ export default function GenerateInvitation() {
                   />
                 ))}
 
-                {/* Parents appear once the couple is named; each field keeps the
-                    template's own label, only the group heading uses the name. */}
+                {!frozen && peopleRoleGroups.principals.some(r => r.required) && (
+                  <div className="lock-note">
+                    <Lock size={16} aria-hidden="true" />
+                    <span>These names can’t be changed once you continue — please check the spelling now.</span>
+                  </div>
+                )}
+
+                {/* Family names appear once the couple is named. */}
                 {showDependents
                   ? peopleRoleGroups.groups.filter(g => g.dependents.length > 0).map((g) => (
                       <div className="people-group" key={g.principal.role}>
@@ -1475,7 +1592,7 @@ export default function GenerateInvitation() {
               </div>
             )}
 
-            {people.length > 0 ? (
+            {!hasSchemaPeopleRoles && (people.length > 0 ? (
               <div className="items-list" style={{ marginTop: 8 }}>
                 {orderedPeople.map(p => (
                   <div key={p.id} className="item-row">
@@ -1485,9 +1602,9 @@ export default function GenerateInvitation() {
                     </div>
                     {!frozen && (
                       <div className="item-actions">
-                        {!hasSchemaPeopleRoles && (
-                          <button className="btn btn-danger btn-sm" onClick={() => setDeletingPerson(p)}>Remove</button>
-                        )}
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDeletingPerson(p)}>
+                          <Trash2 size={16} aria-hidden="true" /> Remove
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1495,142 +1612,151 @@ export default function GenerateInvitation() {
               </div>
             ) : (
               <div className="empty-state" style={{ padding: '24px 0' }}>
-                <div className="empty-icon">👤</div>
-                <div className="empty-title">No people added yet</div>
-                <div className="empty-desc">Add the couple and family members.</div>
+                <div className="empty-icon"><Users size={30} aria-hidden="true" /></div>
+                <div className="empty-title">No names yet</div>
+                <div className="empty-desc">Add the people your invitation is from.</div>
               </div>
-            )}
-          <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            ))}
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
           </div>
         )}
 
-        {/* ── FUNCTIONS ── */}
+        {/* ── CEREMONIES (venues are added from here) ── */}
         {activeSection === 'functions' && (
           <div className="card">
-            {functions.length >= 2 && (
-              <div className="info-callout">
-                <strong>Tip — Partial Invite:</strong> With 2+ ceremonies you can create a separate invite link for guests attending only some functions. Enable it in Preview &amp; Publish.
-              </div>
-            )}
-            <div className="section-header">
-              <div>
-                <div className="section-title">Ceremonies</div>
-                {functions.length > 1 && (
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                    Tick ✓ to include in partial invite
-                  </div>
-                )}
-              </div>
+            <div className="step-head">
+              <h2 className="step-title">Ceremonies</h2>
+              <InfoTip label="About ceremonies" learnMore="/guide#ceremonies">
+                Add every event guests are invited to — like Haldi, Mehendi, Sangeet or the wedding. Guests see them in this order.
+              </InfoTip>
             </div>
+            <p className="step-intro">Add each ceremony with its date, time and place.</p>
 
             {functions.length === 0 ? (
               <div className="empty-state" style={{ padding: '24px 0' }}>
-                <div className="empty-icon">🎊</div>
-                <div className="empty-title">No ceremonies added</div>
-                <div className="empty-desc">Click the + button below to add your first ceremony.</div>
-                <button className="fn-add-btn" onClick={() => setFunctions([BLANK_FN()])}>+</button>
+                <div className="empty-icon"><CalendarHeart size={30} aria-hidden="true" /></div>
+                <div className="empty-title">No ceremonies yet</div>
+                <div className="empty-desc">Start with your first one — you can add more after.</div>
+                <button type="button" className="btn btn-primary" onClick={() => setFunctions([BLANK_FN()])}>
+                  <Plus size={18} aria-hidden="true" /> Add a ceremony
+                </button>
               </div>
             ) : (
               <div className="fn-cards">
-                {functions.map((fn, idx) => {
+                {functions.map((fn) => {
                   const key = fn._cid || fn.id;
                   const isSaving = savingFnId === key;
+                  const timeValue = toTimeInput(fn.startTime);
                   return (
                     <div key={key} className={`fn-card${isSaving ? ' fn-card-saving' : ''}`}>
-                      {/* Card header */}
                       <div className="fn-card-header">
-                        <span className="fn-card-title">Function {idx + 1}</span>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          {fn._isNew && <span className="fn-badge-new">Unsaved</span>}
-                          {isSaving && <span className="btn-spinner" style={{ display: 'inline-block' }} />}
+                        <span className="fn-card-title">{String(fn.name || '').trim() || 'New ceremony'}</span>
+                        <div className="fn-card-meta">
+                          {fn._isNew && <span className="fn-badge-new">Not saved yet</span>}
+                          {isSaving && <span className="btn-spinner" aria-hidden="true" />}
                           {functions.length > 1 && (
-                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeletingFn(fn)}>Remove</button>
+                            <button type="button" className="btn btn-ghost btn-sm fn-remove" onClick={() => setDeletingFn(fn)}>
+                              <Trash2 size={16} aria-hidden="true" /> Delete
+                            </button>
                           )}
                         </div>
                       </div>
 
-                      {/* Fields */}
                       <div className="form-row">
                         <div className="form-group">
-                          <label className="form-label">Function Name <span className="req">*</span></label>
-                          <input className="form-input" placeholder="e.g. Wedding Ceremony, Mehendi, Sangeet"
+                          <label className="form-label" htmlFor={`fn-name-${key}`}>Ceremony name</label>
+                          <input
+                            id={`fn-name-${key}`}
+                            className="form-input"
+                            placeholder="e.g. Mehendi"
                             value={fn.name}
                             onChange={e => updateFnField(key, 'name', e.target.value)}
                           />
+                          {!String(fn.name || '').trim() && (
+                            <div className="chip-row" aria-label="Suggestions">
+                              {CEREMONY_SUGGESTIONS.slice(0, 6).map(name => (
+                                <button type="button" key={name} className="chip" onClick={() => updateFnField(key, 'name', name)}>{name}</button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="form-group">
-                          <label className="form-label">Date <span className="req">*</span></label>
-                          <input className="form-input" type="date"
+                          <label className="form-label" htmlFor={`fn-date-${key}`}>Date</label>
+                          <input
+                            id={`fn-date-${key}`}
+                            className="form-input"
+                            type="date"
                             value={fn.date ? String(fn.date).slice(0, 10) : ''}
                             onChange={e => updateFnField(key, 'date', e.target.value)}
                           />
                         </div>
                       </div>
 
-                      {/* Venue dropdown */}
-                      <div className="form-group">
-                        <label className="form-label">Venue</label>
-                        {venues.length === 0 ? (
-                          <div className="fn-venue-empty">
-                            No venues added yet —{' '}
-                            <button className="btn-link" onClick={() => goToSection('venues')}>add a venue first</button>
-                          </div>
-                        ) : (
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label className="form-label" htmlFor={`fn-time-${key}`}>
+                            Start time <span className="form-optional">(optional)</span>
+                          </label>
+                          <input
+                            id={`fn-time-${key}`}
+                            className="form-input"
+                            type="time"
+                            value={timeValue}
+                            onChange={e => updateFnField(key, 'startTime', fromTimeInput(e.target.value))}
+                          />
+                          {fn.startTime && !timeValue && (
+                            <div className="form-hint">Currently “{fn.startTime}” — pick a time to replace it.</div>
+                          )}
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label" htmlFor={`fn-venue-${key}`}>Venue</label>
                           <Select
+                            id={`fn-venue-${key}`}
                             className="form-select"
                             value={fn.venueId || ''}
                             onChange={e => {
+                              if (e.target.value === '__new__') { openVenueModal(key); return; }
                               const v = venues.find(v => v.id === e.target.value);
-                              if (v) {
-                                setFunctions(prev => prev.map(f =>
-                                  (f._cid === key || f.id === key)
+                              setFunctions(prev => prev.map(f =>
+                                (f._cid === key || f.id === key)
+                                  ? (v
                                     ? { ...f, venueId: v.id, venueName: v.name, venueAddress: v.address || '', venueMapUrl: v.mapUrl || '' }
-                                    : f
-                                ));
-                              } else {
-                                setFunctions(prev => prev.map(f =>
-                                  (f._cid === key || f.id === key)
-                                    ? { ...f, venueId: '', venueName: '', venueAddress: '', venueMapUrl: '' }
-                                    : f
-                                ));
-                              }
+                                    : { ...f, venueId: '', venueName: '', venueAddress: '', venueMapUrl: '' })
+                                  : f
+                              ));
                             }}
                           >
-                            <option value="">— No venue —</option>
+                            <option value="">No venue yet</option>
                             {venues.map(v => (
                               <option key={v.id} value={v.id}>
                                 {v.name}{v.city ? ` · ${v.city}` : ''}
                               </option>
                             ))}
+                            <option value="__new__">+ Add a new venue</option>
                           </Select>
-                        )}
-                        {fn.venueId && fn.venueName && (
-                          <div className="fn-venue-preview">
-                            {fn.venueAddress && <span>{fn.venueAddress}</span>}
-                            {fn.venueMapUrl && <a href={fn.venueMapUrl} target="_blank" rel="noreferrer" className="fn-venue-map-link">📍 Map</a>}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label">Start Time</label>
-                          <input className="form-input" placeholder="e.g. 7:00 PM"
-                            value={fn.startTime || ''}
-                            onChange={e => updateFnField(key, 'startTime', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">Dress Code</label>
-                          <input className="form-input" placeholder="e.g. Traditional / Ethnic / Formal"
-                            value={fn.dressCode || ''}
-                            onChange={e => updateFnField(key, 'dressCode', e.target.value)}
-                          />
+                          {fn.venueId && fn.venueName && (fn.venueAddress || fn.venueMapUrl) && (
+                            <div className="fn-venue-preview">
+                              {fn.venueAddress && <span>{fn.venueAddress}</span>}
+                              {fn.venueMapUrl && <a href={fn.venueMapUrl} target="_blank" rel="noreferrer" className="fn-venue-map-link"><MapPin size={14} aria-hidden="true" /> Map</a>}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Partial invite checkbox — shown for all functions including unsaved */}
-                      {functions.length > 1 && (
+                      <div className="form-group">
+                        <label className="form-label" htmlFor={`fn-dress-${key}`}>
+                          Dress code <span className="form-optional">(optional)</span>
+                        </label>
+                        <input
+                          id={`fn-dress-${key}`}
+                          className="form-input"
+                          placeholder="e.g. Traditional, pastel colours"
+                          value={fn.dressCode || ''}
+                          onChange={e => updateFnField(key, 'dressCode', e.target.value)}
+                        />
+                      </div>
+
+                      {partialEnabled && functions.length > 1 && (
                         <label className="fn-partial-label">
                           <input
                             type="checkbox"
@@ -1638,137 +1764,87 @@ export default function GenerateInvitation() {
                             onChange={e => setPartialFnIds(prev => {
                               const next = new Set(prev);
                               const k = fn.id || fn._cid;
-                              e.target.checked ? next.add(k) : next.delete(k);
+                              if (e.target.checked) next.add(k); else next.delete(k);
                               return next;
                             })}
                           />
-                          Include in <strong>partial invite</strong>
-                          {fn._isNew && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 6 }}>(save first to apply)</span>}
+                          Include in the second link
                         </label>
                       )}
-
-                      {/* Add-after button row (save now handled by master button at top) */}
-                      <div className="fn-card-footer">
-                        <button className="fn-add-btn" title="Add function after this one" onClick={() => insertFnAfter(key)}>+</button>
-                      </div>
                     </div>
                   );
                 })}
-              </div>
-            )}
-            <SectionNav
-              sections={sections}
-              activeSection={activeSection}
-              onBack={goToSection}
-              onNext={handleNext}
-              nextDisabled={nextDisabled}
-              saving={savingActive}
-              extra={functions.length > 0 && (
-                <button
-                  className="btn btn-secondary btn-sm"
-                  disabled={savingAllFns || nextDisabled}
-                  onClick={saveAllFunctions}
-                  title="Save all ceremonies without leaving this step"
-                >
-                  {savingAllFns ? <span className="btn-spinner" /> : '💾'}
-                  Save All
-                </button>
-              )}
-            />
-          </div>
-        )}
-
-        {/* ── C. VENUES ── */}
-        {activeSection === 'venues' && (
-          <div className="card">
-            <div className="section-header">
-              <div className="section-title">Venues</div>
-            </div>
-
-            <div className="inline-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Venue Name</label>
-                  <input className="form-input" placeholder="e.g. Raj Palace Banquet Hall"
-                    value={editingVenue ? editingVenue.name : venueForm.name}
-                    onChange={e => editingVenue ? setEditingVenue(v => ({ ...v, name: e.target.value })) : setVenueForm(f => ({ ...f, name: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">City</label>
-                  <input className="form-input" placeholder="Mumbai"
-                    value={editingVenue ? editingVenue.city || '' : venueForm.city}
-                    onChange={e => editingVenue ? setEditingVenue(v => ({ ...v, city: e.target.value })) : setVenueForm(f => ({ ...f, city: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Full Address</label>
-                <input className="form-input" placeholder="e.g. 14 MG Road, Bandra West, Mumbai 400050"
-                  value={editingVenue ? editingVenue.address || '' : venueForm.address}
-                  onChange={e => editingVenue ? setEditingVenue(v => ({ ...v, address: e.target.value })) : setVenueForm(f => ({ ...f, address: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Google Maps Link</label>
-                <input className="form-input" placeholder="https://maps.google.com/..."
-                  value={editingVenue ? editingVenue.mapUrl || '' : venueForm.mapUrl}
-                  onChange={e => {
-                    if (editingVenue) {
-                      const coords = parseGoogleMapsUrl(e.target.value);
-                      setEditingVenue(v => ({ ...v, mapUrl: e.target.value, ...(coords || {}) }));
-                    } else {
-                      handleVenueMapUrl(e.target.value);
-                    }
-                  }}
-                />
-                <div className="form-hint">Lat/Lng are auto-extracted from Google Maps links.</div>
-              </div>
-              <div className="inline-form-actions">
-                {editingVenue && <button className="btn btn-ghost btn-sm" onClick={() => setEditingVenue(null)}>Cancel</button>}
-                <button className="btn btn-primary btn-sm" disabled={savingVenue} onClick={saveVenue}>
-                  {savingVenue ? <span className="btn-spinner" /> : null}
-                  {editingVenue ? 'Update Venue' : 'Add Venue'}
+                <button type="button" className="btn btn-secondary add-ceremony-btn" onClick={() => setFunctions(prev => [...prev, BLANK_FN()])}>
+                  <Plus size={18} aria-hidden="true" /> Add another ceremony
                 </button>
               </div>
-            </div>
+            )}
 
-            {venues.length > 0 ? (
-              <div className="items-list">
-                {venues.map(v => (
-                  <div key={v.id} className="item-row">
-                    <div className="item-info">
-                      <span className="item-name">{v.name}</span>
-                      <span className="item-meta">{[v.address, v.city].filter(Boolean).join(', ')}</span>
+            {venues.length > 0 && (
+              <details className="venues-manage">
+                <summary><MapPin size={16} aria-hidden="true" /> Your venues ({venues.length})</summary>
+                <div className="items-list">
+                  {venues.map(v => (
+                    <div key={v.id} className="item-row">
+                      <div className="item-info">
+                        <span className="item-name">{v.name}</span>
+                        <span className="item-meta">{[v.address, v.city].filter(Boolean).join(', ') || 'No address added'}</span>
+                      </div>
+                      <div className="item-actions">
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openVenueModal(null, v)}>
+                          <PencilLine size={16} aria-hidden="true" /> Edit
+                        </button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDeletingVenue(v)}>
+                          <Trash2 size={16} aria-hidden="true" /> Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="item-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => setEditingVenue(v)}>Edit</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => setDeletingVenue(v)}>Remove</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state" style={{ padding: '24px 0' }}>
-                <div className="empty-icon">📍</div>
-                <div className="empty-title">No venues added</div>
-                <div className="empty-desc">Add venue(s) for your ceremonies.</div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {functions.length > 1 && (
+              <div className="partial-box">
+                <label className="partial-switch">
+                  <input
+                    type="checkbox"
+                    checked={partialEnabled}
+                    disabled={Boolean(event.invitePairId)}
+                    onChange={e => setPartialEnabled(e.target.checked)}
+                  />
+                  <span className="partial-switch-text">
+                    <strong>Some guests are only invited to a few ceremonies</strong>
+                    <span className="form-hint">
+                      {event.invitePairId
+                        ? 'You have a second link — tick below which ceremonies it shows.'
+                        : 'You’ll get a second link that shows only the ceremonies you tick.'}
+                    </span>
+                  </span>
+                </label>
+                <InfoTip label="About the second link" align="end" learnMore="/guide#selected-ceremonies">
+                  For example: family gets your main link with every ceremony, and friends get a second link with only the Sangeet and Reception. You choose a name for each link before going live.
+                </InfoTip>
               </div>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
           </div>
         )}
 
         {/* ── D. MEDIA ── */}
         {activeSection === 'media' && (
           <div className="card">
-            <div className="section-header">
-              <div className="section-title">Photos & Music</div>
+            <div className="step-head">
+              <h2 className="step-title">Photos & music</h2>
+              <InfoTip label="About photos and music" learnMore="/guide#photos-music">
+                Each box matches a part of your design. Photos save as soon as they upload — there’s nothing else to press.
+              </InfoTip>
             </div>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: 14 }}>
+            <p className="step-intro">
               {mediaSlotsNorm
-                ? 'Each block matches a section of your template. Upload from your phone or computer, or paste a link when allowed.'
-                : 'Add photos, music, or short videos. Upload a file from your device or paste a direct link to the file.'}
+                ? 'Add photos and music for each part of your design, from your phone or computer.'
+                : 'Add photos, music or short videos from your phone or computer.'}
             </p>
 
             {mediaSlotsNorm ? (
@@ -1789,13 +1865,13 @@ export default function GenerateInvitation() {
                 ))}
                 {media.some((m) => !m.slotKey) && (
                   <div className="items-list" style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Earlier uploads (no section)</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 8 }}>Other uploads (not shown in this design)</div>
                     {media
                       .filter((m) => !m.slotKey)
                       .map((m) => (
                         <div key={m.id} className="item-row">
                           <div className="item-info">
-                            <span className="item-label">{m.type}</span>
+                            <span className="item-label">{({ photo: 'Photo', music: 'Music', video: 'Video' })[m.type] || 'File'}</span>
                             {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
                             {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
                             {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
@@ -1813,7 +1889,7 @@ export default function GenerateInvitation() {
                 <div className="inline-form">
                   <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">Type</label>
+                      <label className="form-label">What are you adding?</label>
                       <Select className="form-select" value={mediaForm.type} onChange={(e) => setMediaForm((f) => ({ ...f, type: e.target.value }))}>
                         <option value="photo">Photo</option>
                         <option value="music">Music</option>
@@ -1833,7 +1909,7 @@ export default function GenerateInvitation() {
                   <div className="inline-form-actions">
                     <button type="button" className="btn btn-primary btn-sm" disabled={savingMedia} onClick={addMedia}>
                       {savingMedia ? <span className="btn-spinner" /> : null}
-                      Add Media
+                      Add
                     </button>
                   </div>
                 </div>
@@ -1842,7 +1918,7 @@ export default function GenerateInvitation() {
                     {media.map((m) => (
                       <div key={m.id} className="item-row">
                         <div className="item-info">
-                          <span className="item-label">{m.type}{m.slotKey ? ` (${m.slotKey})` : ''}</span>
+                          <span className="item-label">{({ photo: 'Photo', music: 'Music', video: 'Video' })[m.type] || 'File'}</span>
                           {m.type === 'photo' && <img src={m.url} alt={m.caption || 'photo'} style={{ width: '100%', maxWidth: 200, borderRadius: 6, marginTop: 6, display: 'block' }} />}
                           {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
                           {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
@@ -1856,34 +1932,39 @@ export default function GenerateInvitation() {
                   </div>
                 ) : (
                   <div className="empty-state" style={{ padding: '24px 0' }}>
-                    <div className="empty-icon">🖼️</div>
-                    <div className="empty-title">No media added</div>
-                    <div className="empty-desc">Add photos, music, or videos.</div>
+                    <div className="empty-icon"><ImageIcon size={30} strokeWidth={1.75} aria-hidden="true" /></div>
+                    <div className="empty-title">Nothing added yet</div>
+                    <div className="empty-desc">Photos and music make your invitation feel personal.</div>
                   </div>
                 )}
               </>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
           </div>
         )}
 
         {/* ── E. CUSTOM FIELDS ── */}
         {activeSection === 'custom' && (
           <div className="card">
-            <div className="section-header">
-              <div className="section-title">Custom Fields</div>
+            <div className="step-head">
+              <h2 className="step-title">Special details</h2>
+              <InfoTip label="About special details" learnMore="/guide#photos-music">
+                Extra lines your design has room for. Leave any of them empty and that part simply won’t show.
+              </InfoTip>
             </div>
+            <p className="step-intro">Fill in what you’d like on your invitation — every field here is optional.</p>
             {fieldSchema.length === 0 ? (
               <div className="empty-state" style={{ padding: '24px 0' }}>
-                <div className="empty-icon">📋</div>
-                <div className="empty-title">No custom fields</div>
-                <div className="empty-desc">This template has no additional fields.</div>
+                <div className="empty-icon"><FileText size={30} aria-hidden="true" /></div>
+                <div className="empty-title">Nothing extra needed</div>
+                <div className="empty-desc">This design has no special details to fill in.</div>
               </div>
             ) : (
               <>
                 {fieldSchema.map(field => {
                   const saved = customFields.find(f => f.fieldKey === field.key);
-                  const listId = `cf-list-${field.key}`;
+                  const inputId = `cf-${field.key}`;
+                  const long = field.type === 'textarea' || field.type === 'html';
 
                   let demoPlaceholder = '';
                   if (templateDemoData?.customFields) {
@@ -1897,15 +1978,19 @@ export default function GenerateInvitation() {
 
                   return (
                     <div key={field.key} className="form-group">
-                      <label className="form-label">{field.label || field.key}</label>
-                      {field.type === 'textarea' ? (
-                        <textarea className="form-textarea"
+                      <label className="form-label" htmlFor={inputId}>
+                        {field.label || humanizeRole(field.key)}
+                        <span className="form-optional">(optional)</span>
+                      </label>
+                      {long ? (
+                        <textarea className="form-textarea" id={inputId}
                           placeholder={finalPlaceholder}
                           value={saved?.fieldValue || ''}
                           onChange={e => setFieldValue(field.key, e.target.value)}
                         />
                       ) : field.type === 'date' ? (
                         <input
+                          id={inputId}
                           className="form-input"
                           type="date"
                           value={toHtmlDateInputValue(saved?.fieldValue || '')}
@@ -1913,8 +1998,9 @@ export default function GenerateInvitation() {
                         />
                       ) : (
                         <input
+                          id={inputId}
                           className="form-input"
-                          type={field.type || 'text'}
+                          type={field.type === 'number' ? 'number' : 'text'}
                           placeholder={finalPlaceholder}
                           value={saved?.fieldValue || ''}
                           onChange={e => setFieldValue(field.key, e.target.value)}
@@ -1926,15 +2012,18 @@ export default function GenerateInvitation() {
                 })}
               </>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
           </div>
         )}
 
         {/* ── F. LINKS & GUEST FEATURES ── */}
         {activeSection === 'social' && (
           <div className="card">
-            <div className="section-header">
-              <div className="section-title">Links & guest features</div>
+            <div className="step-head">
+              <h2 className="step-title">Guest features</h2>
+              <InfoTip label="About guest features" learnMore="/guide#guest-features">
+                What guests can do on your invitation. You can change these any time, even after it’s live.
+              </InfoTip>
             </div>
             <p className="page-subtitle" style={{ marginBottom: 16 }}>
               {(showGuestOption('instagram') || showGuestOption('hashtag') || showGuestOption('youtube'))
@@ -1946,9 +2035,10 @@ export default function GenerateInvitation() {
             </p>
             {showGuestOption('instagram') && (
             <div className="form-group">
-              <label className="form-label">Instagram URL</label>
+              <label className="form-label" htmlFor="gf-instagram">Instagram link <span className="form-optional">(optional)</span></label>
               <input
                 className="form-input"
+                id="gf-instagram"
                 type="url"
                 placeholder="e.g. https://instagram.com/priya_rahul_2025"
                 value={instagramUrl}
@@ -1958,9 +2048,10 @@ export default function GenerateInvitation() {
             )}
             {showGuestOption('hashtag') && (
             <div className="form-group">
-              <label className="form-label">Instagram Hashtag</label>
+              <label className="form-label" htmlFor="gf-hashtag">Wedding hashtag <span className="form-optional">(optional)</span></label>
               <input
                 className="form-input"
+                id="gf-hashtag"
                 placeholder="e.g. PriyaWedsRahul"
                 value={instagramHashtag}
                 onChange={(e) => setInstagramHashtag(e.target.value)}
@@ -1972,11 +2063,12 @@ export default function GenerateInvitation() {
             )}
             {showGuestOption('youtube') && (
             <div className="form-group">
-              <label className="form-label">YouTube URL</label>
+              <label className="form-label" htmlFor="gf-youtube">YouTube link <span className="form-optional">(optional)</span></label>
               <input
                 className="form-input"
+                id="gf-youtube"
                 type="url"
-                placeholder="https://youtube.com/@yourchannel"
+                placeholder="e.g. https://youtube.com/@yourchannel"
                 value={socialYoutubeUrl}
                 onChange={(e) => setSocialYoutubeUrl(e.target.value)}
               />
@@ -1986,7 +2078,8 @@ export default function GenerateInvitation() {
             <div className="form-group" style={{ marginTop: 20 }}>
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input type="checkbox" checked={rsvpEnabled} onChange={(e) => setRsvpEnabled(e.target.checked)} />
-                Show RSVP form on invitation
+                Guests can tell you if they’re coming
+                <InfoTip label="About replies">Adds a short reply form (RSVP) to your invitation. Replies appear on your Guests page.</InfoTip>
               </label>
             </div>
             )}
@@ -1994,18 +2087,19 @@ export default function GenerateInvitation() {
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input type="checkbox" checked={guestNotesEnabled} onChange={(e) => setGuestNotesEnabled(e.target.checked)} />
-                Show guest notes / wishes on invitation
+                Guests can leave you a wish
+                <InfoTip label="About wishes">Guests can write you a message on the invitation. You choose which ones show on your Wishes page.</InfoTip>
               </label>
             </div>
             )}
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
           </div>
         )}
 
         {/* ── G. LANGUAGE ── */}
         {activeSection === 'language' && (
           <div className="card">
-            <div className="card-title">Invitation Language</div>
+            <div className="step-head"><h2 className="step-title">Language</h2></div>
             <p className="page-subtitle" style={{ marginBottom: 20 }}>
               {templateLanguages
                 ? `This template supports ${templateLanguages.length} language${templateLanguages.length !== 1 ? 's' : ''}.`
@@ -2019,241 +2113,197 @@ export default function GenerateInvitation() {
                 </label>
               ))}
             </div>
-            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
           </div>
         )}
 
-        {/* ── H. PREVIEW & PUBLISH ── */}
+        {/* ── PREVIEW & GO LIVE ── */}
         {activeSection === 'publish' && (
-          <div>
-            <div className="card" style={{ marginBottom: 20 }}>
-              <div className="card-title">Preview & Publish</div>
-
-              {/* Pre-flight checklist */}
-              <div className="preflight-list">
-                <PreflyItem ok={people.length > 0} label="At least one person added" onClick={!people.length ? () => goToSection('people') : null} />
-                <PreflyItem ok={frozen} label="Names confirmed" onClick={!frozen ? () => goToSection('people') : null} />
-                <PreflyItem ok={functions.length > 0} label="At least one ceremony added" onClick={!functions.length ? () => goToSection('functions') : null} />
-                <PreflyItem ok={event.isPublished} label="Invitation published" />
-              </div>
-
-              <hr className="divider" />
-
-              <div className="publish-columns">
-                {/* Full invite column */}
-                <div className="publish-column-card">
-                  <div className="publish-column-title">Full Invite</div>
-                  <div className="detail-item">
-                    <span className="detail-label">Status</span>
-                    <span className={`badge ${event.isPublished ? 'badge-published' : 'badge-draft'}`}>
-                      {event.isPublished ? 'Published' : 'Draft'}
-                    </span>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Invite Slug</label>
-                    <div className="slug-input-wrap">
-                      <span className="slug-prefix">aamantran.co/i/</span>
-                      <input
-                        className="form-input slug-input"
-                        value={slugFull}
-                        disabled={event.isPublished}
-                        onChange={e => setSlugFull(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                      />
-                    </div>
-                    <div className="form-hint">All functions included.</div>
-                  </div>
-
-                  <div className="publish-link-line">
-                    <span className="pub-link-label">Invite</span>
-                    {event.isPublished ? (
-                      <a href={inviteUrl} target="_blank" rel="noreferrer" className="pub-link">{inviteUrl}</a>
-                    ) : (
-                      <span className="item-meta">Will be available after publish</span>
-                    )}
-                  </div>
-
-                  <div className="publish-qr-wrap">
-                    <div className="qr-code-label">QR</div>
-                    {event.isPublished ? (
-                      <>
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(inviteUrl)}`}
-                          alt="Full Invite QR Code"
-                          className="qr-preview"
-                        />
-                        <button className="btn btn-secondary btn-sm" onClick={() => {
-                          const a = document.createElement('a');
-                          a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(inviteUrl)}`;
-                          a.download = `qr-${event.slug}.png`;
-                          a.target = '_blank';
-                          a.click();
-                        }}>⬇ Download QR</button>
-                      </>
-                    ) : (
-                      <div className="item-meta">QR will be generated after publish</div>
-                    )}
-                  </div>
-
-                  <div className="publish-actions-column">
-                    <button className="btn btn-secondary btn-sm" onClick={openPreview} disabled={loadingPreview}>
-                      {loadingPreview ? 'Opening…' : '👁 Preview'}
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={refreshEvent}>🔄 Refresh</button>
-                  </div>
-                </div>
-
-                {/* Partial invite column */}
-                <div className="publish-column-card">
-                  <div className="publish-column-title">Partial Invite</div>
-                  <div className="detail-item">
-                    <span className="detail-label">Status</span>
-                    <span className={`badge ${event.isPublished && partialPreviewUrl ? 'badge-published' : 'badge-draft'}`}>
-                      {event.isPublished && partialPreviewUrl ? 'Published' : 'Draft'}
-                    </span>
-                  </div>
-                  {functions.length > 1 && !event.invitePairId && !event.isPublished && (
-                    <div className="partial-toggle-row">
-                      <label className="partial-toggle-label">
-                        <input
-                          type="checkbox"
-                          checked={partialEnabled}
-                          onChange={e => setPartialEnabled(e.target.checked)}
-                        />
-                        <span>Enable partial invite</span>
-                      </label>
-                    </div>
-                  )}
-
-                  {(partialEnabled || event.invitePairId) && functions.length > 1 ? (
-                    <div className="form-group">
-                      <label className="form-label">Invite Slug</label>
-                      <div className="slug-input-wrap">
-                        <span className="slug-prefix">aamantran.co/i/</span>
-                        <input
-                          className="form-input slug-input"
-                          value={partialSlug}
-                          disabled={event.isPublished}
-                          placeholder={`${slugFull}-partial`}
-                          onChange={e => setPartialSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                        />
-                      </div>
-                      <div className="form-hint">
-                        Only selected functions from Section B.
-                        {partialFnIds.size > 0 && (
-                          <> Selected: {functions.filter(f => partialFnIds.has(f.id)).map(f => f.name).join(', ')}</>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="item-meta" style={{ marginBottom: 12 }}>
-                      Partial invite requires 2+ functions.
-                    </div>
-                  )}
-
-                  <div className="publish-link-line">
-                    <span className="pub-link-label">Invite</span>
-                    {partialPreviewUrl && event.isPublished ? (
-                      <a href={partialPreviewUrl} target="_blank" rel="noreferrer" className="pub-link">{partialPreviewUrl}</a>
-                    ) : (
-                      <span className="item-meta">Will be available after publish</span>
-                    )}
-                  </div>
-
-                  <div className="publish-qr-wrap">
-                    <div className="qr-code-label">QR</div>
-                    {partialPreviewUrl && event.isPublished ? (
-                      <>
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(partialPreviewUrl)}`}
-                          alt="Partial Invite QR Code"
-                          className="qr-preview"
-                        />
-                        <button className="btn btn-secondary btn-sm" onClick={() => {
-                          const a = document.createElement('a');
-                          a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(partialPreviewUrl)}`;
-                          a.download = `qr-${partialInviteSlug || 'partial'}.png`;
-                          a.target = '_blank';
-                          a.click();
-                        }}>⬇ Download QR</button>
-                      </>
-                    ) : (
-                      <div className="item-meta">QR will be generated after publish</div>
-                    )}
-                  </div>
-
-                  <div className="publish-actions-column">
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      disabled={loadingPreview || !pairedEvent?.id}
-                      onClick={async () => {
-                        if (!pairedEvent?.id) return;
-                        setLoadingPreview(true);
-                        try {
-                          const r = await api.events.previewToken(pairedEvent.id);
-                          window.open(r.previewUrl, '_blank', 'noopener,noreferrer');
-                        } catch (err) {
-                          toast(err.message || 'Could not open preview', 'error');
-                        } finally {
-                          setLoadingPreview(false);
-                        }
-                      }}
-                    >
-                      {loadingPreview ? 'Opening…' : '👁 Preview'}
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={refreshEvent}>🔄 Refresh</button>
-                  </div>
-                </div>
-              </div>
-
-              {!frozen && (
-                <div className="publish-note">
-                  ⚠️ Confirm your names in <button className="btn-link" onClick={() => goToSection('people')}>People & Names</button> before publishing.
-                </div>
-              )}
-
-              {/* Big publish / unpublish button — below invite columns, above WhatsApp */}
-              <div style={{ marginTop: 24 }}>
-                {!event.isPublished ? (
-                  <button
-                    className="btn btn-primary"
-                    style={{ width: '100%', padding: '14px 20px', fontSize: '1.1rem', fontWeight: 700, borderRadius: 10 }}
-                    disabled={!frozen || publishing}
-                    onClick={handlePublish}
-                    title={!frozen ? 'Confirm your names first (Section A)' : ''}
-                  >
-                    {publishing ? <span className="btn-spinner" /> : '🚀'}
-                    {publishing ? ' Publishing…' : ' Publish Invitation'}
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-danger"
-                    style={{ width: '100%', padding: '14px 20px', fontSize: '1.1rem', fontWeight: 700, borderRadius: 10 }}
-                    onClick={() => setConfirmUnpublish(true)}
-                  >
-                    🔕 Unpublish Invitation
-                  </button>
-                )}
-              </div>
+          <div className="card">
+            <div className="step-head">
+              <h2 className="step-title">{isEditMode ? 'Your link & QR code' : 'Preview & go live'}</h2>
+              <InfoTip label="About going live" learnMore="/guide#go-live">
+                Going live puts your invitation online at your link, so guests can open it. You can keep editing afterwards — changes show straight away.
+              </InfoTip>
             </div>
+            <p className="step-intro">
+              {isEditMode
+                ? 'Share your link or QR code with guests. Your invitation is online.'
+                : 'Check everything, choose your link, then put your invitation online.'}
+            </p>
 
-            {/* Share — moved to a dedicated page */}
-            {event.isPublished && (
-              <div className="share-cta-card">
-                <div className="share-cta-icon">📱</div>
-                <div className="share-cta-text">
-                  <div className="share-cta-title">Ready to send invitations?</div>
-                  <p>Open the Share page to craft a personalised WhatsApp message and send it to every guest.</p>
+            {!isEditMode && (
+              <ul className="preflight-list">
+                <PreflyItem ok={frozen} label="Names added and checked" onClick={!frozen ? () => goToSection('people') : null} actionLabel="Add names" />
+                <PreflyItem ok={ceremoniesReady} label="At least one ceremony with a date" onClick={!ceremoniesReady ? () => goToSection('functions') : null} actionLabel="Add ceremony" />
+                <PreflyItem
+                  ok={functions.length > 0 && functions.every(f => f.venueId || f.venueName)}
+                  optional
+                  label="Every ceremony has a venue"
+                  onClick={() => goToSection('functions')}
+                  actionLabel="Add venues"
+                />
+                <PreflyItem ok={previewed} optional label="You’ve previewed your invitation" onClick={openPreview} actionLabel="Preview" />
+              </ul>
+            )}
+
+            {/* Main link */}
+            <section className="link-card" aria-labelledby="main-link-title">
+              <div className="link-card-head">
+                <Link2 size={18} aria-hidden="true" />
+                <h3 id="main-link-title">Your invitation link</h3>
+              </div>
+              {isEditMode ? (
+                <>
+                  <div className="live-link">
+                    <a href={inviteUrl} target="_blank" rel="noreferrer" className="pub-link">{inviteUrl}</a>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => copyLink(inviteUrl)}>
+                      <Copy size={16} aria-hidden="true" /> Copy link
+                    </button>
+                  </div>
+                  <QrCode url={inviteUrl} fileName={`qr-${event.slug}.png`} />
+                </>
+              ) : (
+                <LinkField
+                  eventId={id}
+                  base={inviteBase}
+                  value={slugFull}
+                  onChange={setSlugFull}
+                  onStatus={setMainLinkStatus}
+                  inputRef={mainLinkRef}
+                  label="Personalise your link"
+                  hint={<>This is what guests see. Use your names — for example <strong>{nameExample}</strong>.</>}
+                />
+              )}
+            </section>
+
+            {/* Second link (only for some ceremonies) */}
+            {needsSecondLink && (
+              <section className="link-card" aria-labelledby="second-link-title">
+                <div className="link-card-head">
+                  <Link2 size={18} aria-hidden="true" />
+                  <h3 id="second-link-title">Link for selected ceremonies</h3>
                 </div>
-                <Link to={`/events/${id}/share`} className="btn btn-primary share-cta-btn">
-                  Open Share Page →
+                <p className="form-hint link-card-note">
+                  Shows only: {selectedCeremonyNames.length ? selectedCeremonyNames.join(', ') : 'no ceremonies ticked yet'}.{' '}
+                  <button type="button" className="btn-link" onClick={() => goToSection('functions')}>Change</button>
+                </p>
+                {isEditMode && partialPreviewUrl ? (
+                  <>
+                    <div className="live-link">
+                      <a href={partialPreviewUrl} target="_blank" rel="noreferrer" className="pub-link">{partialPreviewUrl}</a>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => copyLink(partialPreviewUrl)}>
+                        <Copy size={16} aria-hidden="true" /> Copy link
+                      </button>
+                    </div>
+                    <QrCode url={partialPreviewUrl} fileName={`qr-${partialInviteSlug || 'second-link'}.png`} />
+                  </>
+                ) : event.invitePairId ? (
+                  <p className="live-link-static">{shownBase}/i/{partialInviteSlug}</p>
+                ) : (
+                  <LinkField
+                    eventId={id}
+                    base={inviteBase}
+                    value={partialLinkValue}
+                    onChange={setPartialSlug}
+                    onStatus={setPartialLinkStatus}
+                    inputRef={partialLinkRef}
+                    label="Personalise this link"
+                    hint={<>Guests who get this link see only the ceremonies you picked. For example <strong>{nameExample}-{(selectedCeremonyNames[0] || 'sangeet').toLowerCase().replace(/[^a-z0-9]+/g, '-')}</strong>.</>}
+                  />
+                )}
+              </section>
+            )}
+
+            {!isEditMode ? (
+              <div className="golive">
+                {!frozen && (
+                  <p className="publish-note">
+                    Confirm your names in <button type="button" className="btn-link" onClick={() => goToSection('people')}>Names</button> before going live.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-golive"
+                  disabled={!frozen || !ceremoniesReady || publishing || linkBlocked}
+                  onClick={startGoLive}
+                >
+                  {publishing ? <span className="btn-spinner" aria-hidden="true" /> : <Radio size={20} aria-hidden="true" />}
+                  {publishing ? 'Going live…' : 'Go live'}
+                </button>
+                {linkBlocked && <p className="section-nav-hint">Choose a link that’s free to go live.</p>}
+                <p className="form-hint golive-note">You can keep editing after going live.</p>
+              </div>
+            ) : (
+              <div className="live-actions">
+                <Link to={`/events/${id}/share`} className="btn btn-primary">
+                  <Share2 size={18} aria-hidden="true" /> Share your invitation
                 </Link>
+                <button type="button" className="btn btn-secondary" onClick={openPreview} disabled={loadingPreview}>
+                  <Eye size={18} aria-hidden="true" /> {loadingPreview ? 'Opening…' : 'Preview'}
+                </button>
+                <div className="offline-row">
+                  <button type="button" className="btn-link btn-link-danger" onClick={() => setConfirmUnpublish(true)}>
+                    Take invitation offline
+                  </button>
+                </div>
               </div>
             )}
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} isLive={isLive} hint={nextHint} />
           </div>
         )}
       </div>
 
       {/* Confirm modals */}
+      {venueModal && (
+        <Modal
+          title={editingVenue ? 'Edit venue' : 'Add a venue'}
+          onClose={() => { setVenueModal(null); setEditingVenue(null); }}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => { setVenueModal(null); setEditingVenue(null); }}>Cancel</button>
+              <button type="button" className="btn btn-primary" disabled={savingVenue} onClick={saveVenueFromModal}>
+                {savingVenue && <span className="btn-spinner" aria-hidden="true" />}
+                Save venue
+              </button>
+            </>
+          }
+        >
+          {(() => {
+            const v = editingVenue || venueForm;
+            const set = (patch) => (editingVenue ? setEditingVenue(x => ({ ...x, ...patch })) : setVenueForm(x => ({ ...x, ...patch })));
+            return (
+              <>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="venue-name">Venue name</label>
+                  <input id="venue-name" className="form-input" placeholder="e.g. Raj Palace Banquet Hall"
+                    value={v.name || ''} onChange={e => set({ name: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="venue-address">Address <span className="form-optional">(optional)</span></label>
+                  <input id="venue-address" className="form-input" placeholder="e.g. 14 MG Road, Bandra West"
+                    value={v.address || ''} onChange={e => set({ address: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="venue-city">City <span className="form-optional">(optional)</span></label>
+                  <input id="venue-city" className="form-input" placeholder="e.g. Mumbai"
+                    value={v.city || ''} onChange={e => set({ city: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="venue-map">Google Maps link <span className="form-optional">(optional)</span></label>
+                  <input id="venue-map" className="form-input" placeholder="Paste the share link from Google Maps"
+                    value={v.mapUrl || ''}
+                    onChange={e => {
+                      const coords = parseGoogleMapsUrl(e.target.value);
+                      set({ mapUrl: e.target.value, ...(coords || {}) });
+                    }} />
+                  <div className="form-hint">Guests can tap it to get directions.</div>
+                </div>
+              </>
+            );
+          })()}
+        </Modal>
+      )}
       {confirmingNames && (
         <ConfirmNamesModal
           rows={draftNameRows}
@@ -2264,8 +2314,8 @@ export default function GenerateInvitation() {
       )}
       {deletingPerson && (
         <ConfirmModal
-          title="Remove Person"
-          message={`Remove "${deletingPerson.name}" (${deletingPerson.role})?`}
+          title={`Remove ${deletingPerson.name}?`}
+          message="They’ll be taken off your invitation."
           confirmText="Remove"
           onConfirm={() => removePerson(deletingPerson.id)}
           onCancel={() => setDeletingPerson(null)}
@@ -2273,26 +2323,26 @@ export default function GenerateInvitation() {
       )}
       {deletingFn && (
         <ConfirmModal
-          title="Remove Function"
-          message={`Remove "${deletingFn.name || 'this function'}"?`}
-          confirmText="Remove"
+          title="Delete this ceremony?"
+          message={`“${deletingFn.name || 'This ceremony'}” will be removed from your invitation.`}
+          confirmText="Delete ceremony"
           onConfirm={() => removeFn(deletingFn)}
           onCancel={() => setDeletingFn(null)}
         />
       )}
       {deletingVenue && (
         <ConfirmModal
-          title="Remove Venue"
-          message={`Remove "${deletingVenue.name}"?`}
-          confirmText="Remove"
+          title="Delete this venue?"
+          message={`Ceremonies at “${deletingVenue.name}” will show no venue until you pick another.`}
+          confirmText="Delete venue"
           onConfirm={() => removeVenue(deletingVenue.id)}
           onCancel={() => setDeletingVenue(null)}
         />
       )}
       {deletingMedia && (
         <ConfirmModal
-          title="Remove Media"
-          message="Remove this media item?"
+          title="Remove this file?"
+          message="It will no longer appear on your invitation."
           confirmText="Remove"
           onConfirm={() => removeMedia(deletingMedia.id)}
           onCancel={() => setDeletingMedia(null)}
@@ -2300,52 +2350,69 @@ export default function GenerateInvitation() {
       )}
       {confirmUnpublish && (
         <ConfirmModal
-          title="Unpublish Invitation"
-          message="This will hide your invitation from guests. You can re-publish at any time."
-          confirmText="Unpublish"
+          title="Take your invitation offline?"
+          message="Guests who open your link will see a “not available” page. You can put it back online any time."
+          confirmText="Take offline"
           onConfirm={handleUnpublish}
           onCancel={() => setConfirmUnpublish(false)}
         />
       )}
 
-      {/* Celebration modal */}
+      {/* Before going live with a made-up link */}
+      {showLinkPrompt && (
+        <Modal
+          title="Personalise your link before you share it?"
+          onClose={() => setShowLinkPrompt(false)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={handlePublish}>Go live with this link</button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowLinkPrompt(false);
+                  const target = mainLinkStatus.isDefault ? mainLinkRef.current : partialLinkRef.current;
+                  setTimeout(() => { target?.focus(); target?.select?.(); }, 50);
+                }}
+              >
+                Personalise link
+              </button>
+            </>
+          }
+        >
+          <p className="prompt-text">Guests will see {mainLinkStatus.isDefault && creatingSecondLink && (partialLinkStatus.isDefault || /partial/.test(partialLinkValue)) ? 'these links' : 'this link'}:</p>
+          {mainLinkStatus.isDefault && <p className="prompt-link">{shownBase}/i/{slugFull}</p>}
+          {creatingSecondLink && (partialLinkStatus.isDefault || /partial/.test(partialLinkValue)) && <p className="prompt-link">{shownBase}/i/{partialLinkValue}</p>}
+          <p className="prompt-text">A link with your names looks more personal, like <strong>{shownBase}/i/{nameExample}</strong>. You can’t change it once guests have it.</p>
+        </Modal>
+      )}
+
+      {/* Celebration */}
       {showCelebration && (
         <div className="celebration-overlay" onClick={() => setShowCelebration(false)}>
-          <div className="celebration-modal" onClick={e => e.stopPropagation()}>
-            <div className="celebration-icon">🎉</div>
-            <div className="celebration-title">Your invitation is live!</div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
-              Share it with your guests and celebrate!
-            </p>
-            {event.slug && (
-              <div className="celebration-link">
-                <span className="celebration-link-text">{`${getInviteBaseUrl()}/i/${event.slug}`}</span>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${getInviteBaseUrl()}/i/${event.slug}`);
-                    toast('Link copied!', 'success');
-                  }}
-                >
-                  Copy
-                </button>
-              </div>
-            )}
-            <div className="celebration-actions">
-              {event.slug && (
-                <a
-                  className="btn btn-primary"
-                  href={whatsappShareUrl(`You're invited! View our wedding invitation: ${getInviteBaseUrl()}/i/${event.slug}`)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Share on WhatsApp
-                </a>
-              )}
-              <button className="btn btn-ghost" onClick={() => setShowCelebration(false)}>
-                Continue editing
+          <div className="celebration-modal" role="dialog" aria-modal="true" aria-labelledby="celebration-title" onClick={e => e.stopPropagation()}>
+            <div className="celebration-icon" aria-hidden="true">🎉</div>
+            <h2 className="celebration-title" id="celebration-title">Your invitation is live!</h2>
+            <p className="celebration-sub">Send your link to guests — on WhatsApp or anywhere.</p>
+            <div className="celebration-link">
+              <span className="celebration-link-text">{inviteUrl}</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyLink(inviteUrl)}>
+                <Copy size={16} aria-hidden="true" /> Copy
               </button>
             </div>
+            <div className="celebration-actions">
+              <a
+                className="btn btn-primary"
+                href={whatsappShareUrl(`You're invited to our ${eventTypeWord(event)}! View the invitation: ${inviteUrl}`)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Share2 size={18} aria-hidden="true" /> Share on WhatsApp
+              </a>
+              <Link to={`/events/${id}/share`} className="btn btn-secondary">More ways to share</Link>
+            </div>
+            <QrCode url={inviteUrl} fileName={`qr-${event.slug}.png`} size={132} />
+            <button type="button" className="btn btn-ghost" onClick={() => setShowCelebration(false)}>Done</button>
           </div>
         </div>
       )}
@@ -2359,92 +2426,103 @@ export default function GenerateInvitation() {
  * fixes how the name is spelt, not which role it is.
  */
 function PersonNameRow({ roleDef, label, locked, value, onChange, roleChoice = '', onRoleChoiceChange, roleChoiceRequired = false }) {
+  const id = useId();
   const options = roleDef.roleOptions || [];
   const showChoice = options.length > 0 && onRoleChoiceChange;
   const needsChoice = showChoice && roleChoiceRequired && String(value || '').trim() && !roleChoice;
   return (
-    <div className="form-row">
-      <div className="form-group">
-        <div className="item-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {label}
-          {roleDef.required && <span className="req">*</span>}
-          {locked && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒</span>}
-        </div>
-      </div>
-      <div className="form-group">
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            className="form-input"
-            style={{ flex: 1, minWidth: 0 }}
-            placeholder={DEMO_NAMES[roleDef.role] || `e.g. ${roleDef.label} Name`}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={locked}
-          />
-          {showChoice && (
+    <div className="person-row">
+      <label className="form-label" htmlFor={id}>
+        {label}
+        {!roleDef.required && <span className="form-optional">(optional)</span>}
+        {locked && <span className="lock-chip"><Lock size={12} aria-hidden="true" /> Locked</span>}
+      </label>
+      <div className="person-row-controls">
+        <input
+          id={id}
+          className="form-input"
+          placeholder={DEMO_NAMES[roleDef.role] || 'Full name'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={locked}
+          autoComplete="off"
+        />
+        {showChoice && (
+          <div className="role-choice">
             <select
-              className="form-input"
-              style={{ width: 'auto', flex: '0 0 auto', maxWidth: 140 }}
+              className="form-select"
               value={roleChoice}
               onChange={(e) => onRoleChoiceChange(e.target.value)}
-              aria-label={`Role for ${label}`}
+              aria-label={`Is ${label} the ${options.join(' or ')}?`}
               aria-invalid={needsChoice || undefined}
             >
-              <option value="">Role…</option>
+              <option value="">{options.join(' / ')}…</option>
               {options.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
-          )}
-        </div>
-        {needsChoice && (
-          <div className="form-hint" style={{ color: 'var(--red, #b42318)' }}>
-            Choose {options.join(' or ')}.
+            <InfoTip label={`Why we ask ${options.join(' or ')}`} align="end">
+              Used for wording on your invitation, like “Son of” and “Daughter of”.
+            </InfoTip>
           </div>
         )}
       </div>
+      {needsChoice && <div className="form-error">Choose {options.join(' or ')}.</div>}
     </div>
   );
 }
 
-function PreflyItem({ ok, label, onClick }) {
+/** A checklist line. Unfinished lines offer the fix; optional ones are a gentle nudge, never a blocker. */
+function PreflyItem({ ok, label, onClick, actionLabel = 'Fix', optional = false }) {
   return (
-    <div
-      className={`preflight-item ${ok ? 'ok' : 'nok'}${!ok && onClick ? ' clickable' : ''}`}
-      onClick={!ok && onClick ? onClick : undefined}
-    >
-      <span className="preflight-icon">{ok ? '✓' : '○'}</span>
-      <span>{label}</span>
-      {!ok && onClick && <span style={{ marginLeft: 'auto', color: 'var(--gold)', fontSize: '0.85rem' }}>→</span>}
-    </div>
+    <li className={`preflight-item ${ok ? 'ok' : optional ? 'soft' : 'nok'}`}>
+      <span className="preflight-icon" aria-hidden="true">{ok ? <Check size={15} /> : optional ? '•' : '!'}</span>
+      <span className="preflight-label">
+        {label}
+        {!ok && optional && <span className="preflight-optional"> — optional</span>}
+        <span className="sr-only">{ok ? ' (done)' : ' (not done yet)'}</span>
+      </span>
+      {!ok && onClick && (
+        <button type="button" className="btn btn-ghost btn-sm preflight-action" onClick={onClick}>{actionLabel}</button>
+      )}
+    </li>
   );
 }
 
 /**
- * Footer nav. "Next" doubles as the tab's save button — it persists the section
- * and only then unlocks the following one. `extra` sits just left of it.
+ * Step footer (pinned to the bottom on phones). Building: "Back" and
+ * "Save & continue". Live invitation: "Back to overview" and "Save changes".
+ * Every move saves first. When the main button is greyed out, `hint` says why.
  */
-function SectionNav({ sections, activeSection, onBack, onNext, nextDisabled, saving, extra }) {
+function SectionNav({ sections, activeSection, onBack, onNext, nextDisabled, saving, extra, isLive, hint }) {
+  if (activeSection === 'overview') return null;
   const idx = sections.findIndex(s => s.id === activeSection);
   const prev = sections[idx - 1];
   const next = sections[idx + 1];
+  const back = isLive ? sections.find(s => s.id === 'overview') : prev;
+  const showPrimary = isLive ? activeSection !== 'publish' : Boolean(next);
+  const primaryLabel = isLive ? 'Save changes' : next?.id === 'publish' ? 'Save & preview' : 'Save & continue';
   return (
     <div className="section-nav-footer">
-      {prev
-        ? <button className="btn btn-ghost btn-sm" onClick={() => onBack(prev.id)}>← {prev.short}</button>
-        : <span />}
-      <div className="section-nav-actions">
-        {extra}
-        {next && (
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={nextDisabled || saving}
-            onClick={onNext}
-            title={nextDisabled ? 'Fill in the required fields to continue' : undefined}
-          >
-            {saving ? <span className="btn-spinner" /> : null}
-            Next: {next.short} →
-          </button>
-        )}
+      <div className="section-nav-row">
+        {back
+          ? (
+            <button type="button" className="btn btn-ghost" onClick={() => onBack(back.id)} disabled={saving}>
+              <ArrowLeft size={18} aria-hidden="true" />
+              {isLive ? 'Back to overview' : 'Back'}
+            </button>
+          )
+          : <span />}
+        <div className="section-nav-actions">
+          {extra}
+          {showPrimary && (
+            <button type="button" className="btn btn-primary" disabled={nextDisabled || saving} onClick={onNext}>
+              {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
+              {saving ? 'Saving…' : primaryLabel}
+              {!saving && !isLive && <ArrowRight size={18} aria-hidden="true" />}
+            </button>
+          )}
+        </div>
       </div>
+      {hint && <p className="section-nav-hint">{hint}</p>}
     </div>
   );
 }

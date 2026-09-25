@@ -11,3 +11,6 @@ export function getInviteBaseUrl() {
   if (v && String(v).trim()) return String(v).replace(/\/$/, '');
   return import.meta.env.PROD ? PROD_API : 'http://localhost:4000';
 }
+
+/** The public website (catalogue, checkout) — for "Buy another design". */
+export const WEBSITE_URL = (import.meta.env.VITE_WEBSITE_URL || 'https://aamantran.online').replace(/\/$/, '');

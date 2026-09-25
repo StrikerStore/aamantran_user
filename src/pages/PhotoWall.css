@@ -53,3 +53,10 @@
 
 @media (max-width: 800px) { .masonry-grid { columns: 2; } }
 @media (max-width: 500px) { .masonry-grid { columns: 1; } }
+
+/* Revamp: the photo opens from a real button; delete is always reachable (touch + keyboard) */
+.masonry-open { display: block; width: 100%; padding: 0; border: none; background: none; cursor: zoom-in; border-radius: inherit; }
+.masonry-overlay { pointer-events: none; }
+.masonry-pin .masonry-delete { width: 36px; height: 36px; background: rgba(0,0,0,0.55); z-index: 2; }
+.masonry-pin:focus-within .masonry-overlay { opacity: 1; }
+@media (hover: none) { .masonry-overlay { opacity: 1; } }

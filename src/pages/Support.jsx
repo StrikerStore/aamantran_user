@@ -4,7 +4,19 @@ import { api } from '../lib/api';
 import { formatRelative } from '../lib/utils';
 import { useToast } from '../components/ui/Toast';
 import { Modal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { eventTitle } from '../lib/event';
+import { Plus, MessageCircle, ChevronRight } from 'lucide-react';
 import './Support.css';
+
+/** "open" / "resolved" in words a couple understands, based on who spoke last. */
+function ticketStatus(t) {
+  if (t.status === 'resolved') return { label: 'Solved', cls: 'resolved' };
+  const last = t.messages?.[t.messages.length - 1];
+  if (last && last.senderRole !== 'user') return { label: 'We replied', cls: 'replied' };
+  return { label: 'Waiting for us', cls: 'open' };
+}
 
 /** How often an open thread checks for new messages. */
 const POLL_MS = 5000;
@@ -34,7 +46,7 @@ export default function Support() {
 
   async function createTicket(e) {
     e.preventDefault();
-    if (!newForm.subject || !newForm.message) { toast('Subject and message are required', 'error'); return; }
+    if (!newForm.subject || !newForm.message) { toast('Tell us what it’s about and what’s happening.', 'error'); return; }
     setCreating(true);
     try {
       const r = await api.tickets.create({
@@ -45,7 +57,7 @@ export default function Support() {
       setTickets(t => [r.ticket, ...t]);
       setShowNew(false);
       setNewForm({ subject: '', message: '', relatedToEvent: false });
-      toast('Ticket submitted!', 'success');
+      toast('Message sent — we’ll reply here and by email.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -162,7 +174,7 @@ export default function Support() {
       // status badge do not lie once the modal closes.
       setTickets(list => list.map(t => (t.id === appended.id ? appended : t)));
       setReplyText('');
-      toast(r.reopened ? 'Reply sent - ticket reopened' : 'Reply sent', 'success');
+      toast(r.reopened ? 'Sent — we’ve reopened this conversation.' : 'Sent.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -174,64 +186,68 @@ export default function Support() {
 
   return (
     <div className="page-fade">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Support</h1>
-          <p className="page-subtitle">Get help with your invitation</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setShowNew(true)}>+ New Ticket</button>
-      </div>
+      <PageHeader
+        title="Support"
+        subtitle="Stuck on something? Message us — a real person replies, usually within a day."
+        actions={<button type="button" className="btn btn-primary" onClick={() => setShowNew(true)}><Plus size={18} aria-hidden="true" /> Message us</button>}
+      />
 
       {tickets.length === 0 ? (
         <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">💬</div>
-            <div className="empty-title">No support tickets</div>
-            <div className="empty-desc" style={{ marginBottom: 16 }}>Need help? Open a support ticket and we'll get back to you.</div>
-            <button className="btn btn-primary" onClick={() => setShowNew(true)}>Open Ticket</button>
-          </div>
+          <EmptyState
+            icon={MessageCircle}
+            tone="sky"
+            title="No messages yet"
+            action={<button type="button" className="btn btn-primary" onClick={() => setShowNew(true)}>Message us</button>}
+          >
+            Ask us anything about your invitation. We’ll reply here and by email.
+          </EmptyState>
         </div>
       ) : (
         <div className="card">
-          <div className="tickets-list">
-            {tickets.map(t => (
-              <div key={t.id} className="ticket-row" onClick={() => { setViewing(t); setReplyText(''); didInitialScroll.current = false; }}>
-                <div className="ticket-info">
-                  <div className="ticket-subject">{t.subject}</div>
-                  <div className="ticket-meta">
-                    {t.messages?.length} message{t.messages?.length !== 1 ? 's' : ''} · {formatRelative(t.createdAt)}
-                  </div>
-                </div>
-                <span className={`badge badge-${t.status === 'open' ? 'open' : 'resolved'}`}>
-                  {t.status}
-                </span>
-              </div>
-            ))}
-          </div>
+          <ul className="tickets-list">
+            {tickets.map(t => {
+              const st = ticketStatus(t);
+              return (
+                <li key={t.id}>
+                  <button type="button" className="ticket-row" onClick={() => { setViewing(t); setReplyText(''); didInitialScroll.current = false; }}>
+                    <div className="ticket-info">
+                      <div className="ticket-subject">{t.subject}</div>
+                      <div className="ticket-meta">
+                        {t.messages?.length} message{t.messages?.length !== 1 ? 's' : ''} · {formatRelative(t.createdAt)}
+                      </div>
+                    </div>
+                    <span className={`badge badge-ticket-${st.cls}`}>{st.label}</span>
+                    <ChevronRight size={18} aria-hidden="true" className="ticket-chev" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 
       {/* New ticket modal */}
       {showNew && (
-        <Modal title="Open Support Ticket" onClose={() => setShowNew(false)} footer={
+        <Modal title="Message us" onClose={() => setShowNew(false)} footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setShowNew(false)}>Cancel</button>
-            <button className="btn btn-primary" disabled={creating} onClick={createTicket}>
-              {creating ? <span className="btn-spinner" /> : null}
-              Submit Ticket
+            <button type="button" className="btn btn-secondary" onClick={() => setShowNew(false)}>Cancel</button>
+            <button type="button" className="btn btn-primary" disabled={creating} onClick={createTicket}>
+              {creating ? <span className="btn-spinner" aria-hidden="true" /> : null}
+              Send message
             </button>
           </>
         }>
           <form onSubmit={createTicket}>
             <div className="form-group">
-              <label className="form-label">Subject</label>
-              <input className="form-input" placeholder="What do you need help with?"
+              <label className="form-label" htmlFor="sup-subject">What’s it about?</label>
+              <input id="sup-subject" className="form-input" placeholder="e.g. Can’t change the ceremony date"
                 value={newForm.subject} onChange={e => setNewForm(f => ({ ...f, subject: e.target.value }))}
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Message</label>
-              <textarea className="form-textarea" rows={4} placeholder="Describe your issue in detail..."
+              <label className="form-label" htmlFor="sup-message">Tell us what’s happening</label>
+              <textarea id="sup-message" className="form-textarea" rows={4} placeholder="What did you try, and what did you expect to see?"
                 value={newForm.message} onChange={e => setNewForm(f => ({ ...f, message: e.target.value }))}
               />
             </div>
@@ -241,7 +257,7 @@ export default function Support() {
                   checked={newForm.relatedToEvent}
                   onChange={e => setNewForm(f => ({ ...f, relatedToEvent: e.target.checked }))}
                 />
-                Related to event: <strong>{activeEvent.slug}</strong>
+                This is about <strong>{eventTitle(activeEvent)}</strong>
               </label>
             )}
           </form>
@@ -251,12 +267,12 @@ export default function Support() {
       {/* View ticket modal */}
       {viewing && (
         <Modal title={viewing.subject} onClose={() => setViewing(null)} size="lg" footer={
-          <button className="btn btn-secondary" onClick={() => setViewing(null)}>Close</button>
+          <button type="button" className="btn btn-secondary" onClick={() => setViewing(null)}>Close</button>
         }>
           <div className="ticket-thread" ref={threadRef}>
             {viewing.messages?.map(m => (
               <div key={m.id} className={`thread-msg ${m.senderRole}`}>
-                <div className="thread-role">{m.senderRole === 'user' ? 'You' : 'Support'}</div>
+                <div className="thread-role">{m.senderRole === 'user' ? 'You' : 'Aamantran team'}</div>
                 <div className="thread-body">{m.body}</div>
                 <div className="thread-time">{formatRelative(m.createdAt)}</div>
               </div>
@@ -270,7 +286,7 @@ export default function Support() {
               rows={3}
               value={replyText}
               onChange={e => setReplyText(e.target.value)}
-              placeholder="Type your message..."
+              placeholder="Type your message"
               maxLength={5000}
               disabled={replying}
               /* Enter sends, Shift+Enter makes a new line - the convention in
@@ -280,11 +296,11 @@ export default function Support() {
             <div className="ticket-reply-actions">
               <span className="ticket-reply-hint">
                 {viewing.status === 'resolved'
-                  ? 'This ticket is resolved - replying will reopen it.'
-                  : "We'll also email you when support responds."}
+                  ? 'This was marked solved — replying opens it again.'
+                  : 'Press Enter to send. We’ll email you when we reply.'}
               </span>
               <button type="submit" className="btn btn-primary" disabled={replying || !replyText.trim()}>
-                {replying ? 'Sending...' : 'Send'}
+                {replying ? 'Sending…' : 'Send'}
               </button>
             </div>
           </form>

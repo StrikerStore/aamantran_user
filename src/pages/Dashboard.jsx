@@ -1,338 +1,303 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate, Link } from 'react-router-dom';
+import {
+  Copy, Share2, PencilLine, Sparkles, Eye, Check, ChevronRight, Users, CalendarHeart, Image as ImageIcon,
+  Radio, X, ShoppingBag, LifeBuoy, PartyPopper,
+} from 'lucide-react';
 import { api } from '../lib/api';
 import { formatDate, countdown } from '../lib/utils';
-import { getInviteBaseUrl } from '../lib/config';
+import { getInviteBaseUrl, WEBSITE_URL } from '../lib/config';
+import { eventTitle, liveLabel } from '../lib/event';
 import { useToast } from '../components/ui/Toast';
+import { EmptyState } from '../components/ui/EmptyState';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import './Dashboard.css';
 
-function stripHonorifics(name) {
-  if (!name) return '';
-  // Strip very common honorifics so the dashboard headline reads as a name,
-  // not a salutation. People can still see the full string elsewhere.
-  return String(name)
-    .replace(/^\s*(mr|mrs|ms|miss|sri|smt|shri|dr|prof)\.?\s+/i, '')
-    .trim();
+const WELCOME_KEY = 'aam_welcome_dismissed';
+
+function readFlag(key) {
+  try { return localStorage.getItem(key) === '1'; } catch { return false; }
+}
+
+/** "123 days to go" / "Tomorrow" / "Today" */
+function countdownText(date) {
+  const cd = countdown(date);
+  if (!cd || cd.past) return '';
+  if (cd.days === 0) return 'Today';
+  if (cd.days === 1) return 'Tomorrow';
+  return `${cd.days} days to go`;
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { activeEvent, events = [], setActiveEvent } = useOutletContext() || {};
+  const { activeEvent, events = [], setActiveEvent, eventsLoaded = true } = useOutletContext() || {};
 
   const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(false);
   const [eventDetail, setEventDetail] = useState(null);
-  const [loadingEvent, setLoadingEvent] = useState(false);
+  const [welcomeHidden, setWelcomeHidden] = useState(() => readFlag(WELCOME_KEY));
 
   const displayEvents = events.filter(ev => ev.inviteScope !== 'subset');
 
   useEffect(() => {
     if (!activeEvent?.id) return;
-    setLoadingStats(true);
-    setLoadingEvent(true);
+    let live = true;
     Promise.all([
-      api.events.stats(activeEvent.id),
+      api.events.stats(activeEvent.id).catch(() => ({ stats: null })),
       api.events.get(activeEvent.id),
     ]).then(([sr, er]) => {
+      if (!live) return;
       setStats(sr.stats);
       setEventDetail(er.event);
-    }).catch(() => {}).finally(() => {
-      setLoadingStats(false);
-      setLoadingEvent(false);
-    });
+    }).catch(() => {});
+    return () => { live = false; };
   }, [activeEvent?.id]);
 
-  // ── Pick the main couple from frozen names ──
-  // Required-role people are the headline names per the template schema.
-  // We never fall back to the slug — better to show "Your Wedding" placeholder
-  // than to surface raw URL strings on the dashboard.
-  const displayTitle = useMemo(() => {
-    if (loadingEvent) return null;                          // suppress placeholder while loading
-    if (!activeEvent?.namesAreFrozen) return 'Your Wedding';
+  function copy(url) {
+    navigator.clipboard?.writeText(url)
+      .then(() => toast('Link copied.', 'success'))
+      .catch(() => toast('Couldn’t copy — press and hold the link to copy it.', 'error'));
+  }
 
-    const people = eventDetail?.people || [];
-    if (!people.length) return 'Your Wedding';
+  function dismissWelcome() {
+    setWelcomeHidden(true);
+    try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* private mode */ }
+  }
 
-    // Try schema-required roles first (they identify the couple, e.g. person1/person2)
-    let schema = eventDetail?.template?.fieldSchema;
-    if (typeof schema === 'string') { try { schema = JSON.parse(schema); } catch { schema = null; } }
-    const requiredRoles = (schema?.people || [])
-      .filter(r => r && r.required && r.role)
-      .map(r => r.role);
+  if (!eventsLoaded) {
+    return <div className="page-fade" style={{ paddingTop: 8 }}><PageSkeleton stats={0} cards={2} /></div>;
+  }
 
-    let chosen = [];
-    if (requiredRoles.length) {
-      chosen = requiredRoles
-        .map(role => people.find(p => p.role === role))
-        .filter(Boolean);
-    }
-    if (!chosen.length) chosen = people.slice(0, 2);
-
-    const names = chosen
-      .map(p => stripHonorifics(p.name || p.displayName || ''))
-      .filter(Boolean);
-    return names.length ? names.join(' & ') : 'Your Wedding';
-  }, [loadingEvent, activeEvent?.namesAreFrozen, eventDetail]);
-
+  // ── No invitation on this account yet ──
   if (!activeEvent) {
     return (
       <div className="page-fade">
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Dashboard</h1>
-            <p className="page-subtitle">Manage your wedding invitation</p>
-          </div>
-        </div>
         <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">🎊</div>
-            <div className="empty-title">No events yet</div>
-            <div className="empty-desc" style={{ marginBottom: 20 }}>Set up your first event to start building your invitation.</div>
-            <button className="btn btn-primary" onClick={() => navigate('/onboarding')}>Set Up Event</button>
-          </div>
+          <EmptyState
+            icon={PartyPopper}
+            title="You don’t have an invitation yet"
+            action={(
+              <div className="empty-actions">
+                <a className="btn btn-primary" href={`${WEBSITE_URL}/templates`} target="_blank" rel="noreferrer">
+                  <ShoppingBag size={18} aria-hidden="true" /> Browse designs
+                </a>
+                <Link className="btn btn-secondary" to="/support"><LifeBuoy size={18} aria-hidden="true" /> Ask us for help</Link>
+              </div>
+            )}
+          >
+            Choose a design on our website — it appears here as soon as your order is complete.
+            If you’ve already paid and don’t see it, message us.
+          </EmptyState>
         </div>
       </div>
     );
   }
 
-  const firstFn = eventDetail?.functions?.[0];
-  const cd = firstFn?.date ? countdown(firstFn.date) : null;
+  const ev = eventDetail && eventDetail.id === activeEvent.id ? eventDetail : activeEvent;
+  const isLive = Boolean(activeEvent.isPublished);
+  const title = eventTitle(ev);
+  const firstFn = (ev.functions || []).filter(f => f.date).sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+  const cdText = firstFn?.date ? countdownText(firstFn.date) : '';
   const inviteBase = getInviteBaseUrl();
   const inviteUrl = `${inviteBase}/i/${activeEvent.slug}`;
+  const secondUrl = eventDetail?.pairedEvent?.slug ? `${inviteBase}/i/${eventDetail.pairedEvent.slug}` : null;
+  const buildBase = `/events/${activeEvent.id}/${isLive ? 'edit' : 'generate'}`;
 
-  // ── RSVP unique counts (max across functions ≈ unique respondents) ──
-  const fnAttending    = stats?.perFunction?.map(f => f.attending    || 0) ?? [];
-  const fnNotAttending = stats?.perFunction?.map(f => f.notAttending || 0) ?? [];
-  const fnResponded    = stats?.perFunction?.map((_, i) => (fnAttending[i] || 0) + (fnNotAttending[i] || 0)) ?? [];
-  const attending      = fnAttending.length    ? Math.max(...fnAttending)    : 0;
-  const declined       = fnNotAttending.length ? Math.max(...fnNotAttending) : 0;
-  const responded      = fnResponded.length    ? Math.max(...fnResponded)    : 0;
-  const guestCount     = stats?.guestCount ?? 0;
-  const pending        = Math.max(0, guestCount - responded);
-  const rsvpTotal      = responded;
-  const attPct         = guestCount > 0 ? Math.round((attending / guestCount) * 100) : 0;
-  const pendingPct     = guestCount > 0 ? Math.round((pending   / guestCount) * 100) : 0;
-  const donutTotal     = attending + declined + pending || 1;
-  const donutAttPct    = Math.round((attending / donutTotal) * 100);
-  const donutDecPct    = Math.round((declined  / donutTotal) * 100);
+  // Where the couple is, and the one thing to do next.
+  const namesDone = Boolean(ev.namesAreFrozen);
+  const ceremoniesDone = (ev.functions || []).length > 0;
+  const photosDone = (eventDetail?.media || []).length > 0;
+  const primary = isLive
+    ? { to: `/events/${activeEvent.id}/share`, label: 'Share your invitation', icon: Share2 }
+    : namesDone && ceremoniesDone
+      ? { to: `${buildBase}?step=publish`, label: 'Preview & go live', icon: Radio }
+      : { to: buildBase, label: (ev.people || []).length ? 'Continue building' : 'Start building', icon: Sparkles };
+  const PrimaryIcon = primary.icon;
+
+  const checklist = [
+    { done: namesDone, label: 'Add your names', to: `${buildBase}?step=people`, icon: Users },
+    { done: ceremoniesDone, label: 'Add your ceremonies', to: `${buildBase}?step=functions`, icon: CalendarHeart },
+    { done: photosDone, label: 'Add photos & music', to: `${buildBase}?step=media`, icon: ImageIcon, optional: true },
+    { done: isLive, label: 'Preview and go live', to: `${buildBase}?step=publish`, icon: Radio },
+  ];
+
+  // ── Guest replies (one set of numbers, one set of words) ──
+  const per = stats?.perFunction || [];
+  const coming = per.length ? Math.max(...per.map(f => f.attending || 0)) : 0;
+  const notComing = per.length ? Math.max(...per.map(f => f.notAttending || 0)) : 0;
+  const replied = per.length ? Math.max(...per.map(f => (f.attending || 0) + (f.notAttending || 0))) : 0;
+  const guestCount = stats?.guestCount ?? 0;
+  const noReply = Math.max(0, guestCount - replied);
+
+  const showWelcome = !welcomeHidden && !isLive;
 
   return (
     <div className="page-fade">
 
+      {/* ── First visit ── */}
+      {showWelcome && (
+        <section className="welcome-card" aria-labelledby="welcome-title">
+          <button type="button" className="welcome-close" onClick={dismissWelcome} aria-label="Hide welcome">
+            <X size={18} aria-hidden="true" />
+          </button>
+          <h2 className="welcome-title" id="welcome-title">
+            {(ev.people || []).length ? `Welcome, ${title}!` : 'Welcome to Aamantran!'}
+          </h2>
+          <p className="welcome-sub">Your invitation takes about 10 minutes. Here’s how it works:</p>
+          <ol className="welcome-steps">
+            <li><span className="welcome-num">1</span><span><strong>Add your names</strong> — exactly as they should appear.</span></li>
+            <li><span className="welcome-num">2</span><span><strong>Add ceremonies & photos</strong> — dates, places and pictures.</span></li>
+            <li><span className="welcome-num">3</span><span><strong>Preview and go live</strong> — then share your link on WhatsApp.</span></li>
+          </ol>
+          <div className="welcome-actions">
+            <Link className="btn btn-primary" to={buildBase}><Sparkles size={18} aria-hidden="true" /> Start building</Link>
+            <button type="button" className="btn btn-ghost" onClick={dismissWelcome}>I’ll look around first</button>
+          </div>
+        </section>
+      )}
+
       {/* ── Hero ── */}
-      <div className="dash-hero">
+      <section className="dash-hero" aria-label="Your invitation">
         <div className="dash-status-pills">
-          <span className={`dash-pill ${activeEvent.isPublished ? 'pill-live' : 'pill-draft'}`}>
-            <span className="pill-dot" />
-            {activeEvent.isPublished ? 'Live' : 'Draft'}
+          <span className={`dash-pill ${isLive ? 'pill-live' : 'pill-draft'}`}>
+            <span className="pill-dot" aria-hidden="true" />
+            {liveLabel(activeEvent)}
           </span>
-          {activeEvent.template?.name && (
-            <span className="dash-pill pill-neutral">{activeEvent.template.name}</span>
-          )}
+          {activeEvent.template?.name && <span className="dash-pill pill-neutral">{activeEvent.template.name}</span>}
         </div>
 
-        {displayTitle === null ? (
-          <div className="dash-name-skeleton" />
-        ) : (
-          <h1 className="dash-couple-name">{displayTitle}</h1>
-        )}
+        <h1 className="dash-couple-name">{title}</h1>
 
         {(firstFn?.date || firstFn?.venueName) && (
           <p className="dash-event-meta">
             {[firstFn.date && formatDate(firstFn.date), firstFn.venueName].filter(Boolean).join(' · ')}
+            {cdText && <span className="dash-countdown"> · {cdText}</span>}
           </p>
         )}
 
-        {/* Inline countdown — replaces the duplicate stat card */}
-        {cd && !cd.past && (
-          <div className="dash-cd-inline">
-            <span className="dash-cd-num">{cd.days}</span><span className="dash-cd-unit">d</span>
-            <span className="dash-cd-num">{cd.hours}</span><span className="dash-cd-unit">h</span>
-            <span className="dash-cd-num">{cd.minutes}</span><span className="dash-cd-unit">m</span>
-            <span className="dash-cd-tail">to your day</span>
-          </div>
-        )}
-
-        {activeEvent.isPublished && (
-          <div className="dash-url-bar">
-            <span className="dash-url-text">{inviteUrl}</span>
-            <button
-              className="dash-copy-btn"
-              onClick={() => { navigator.clipboard.writeText(inviteUrl); toast('Copied!', 'success'); }}
-            >
-              Copy
-            </button>
+        {isLive && (
+          <div className="dash-links">
+            <div className="dash-url-bar">
+              <span className="dash-url-label">Your link</span>
+              <span className="dash-url-text">{inviteUrl}</span>
+              <button type="button" className="dash-copy-btn" onClick={() => copy(inviteUrl)} aria-label="Copy your link">
+                <Copy size={16} aria-hidden="true" /> Copy
+              </button>
+            </div>
+            {secondUrl && (
+              <div className="dash-url-bar">
+                <span className="dash-url-label">Selected ceremonies</span>
+                <span className="dash-url-text">{secondUrl}</span>
+                <button type="button" className="dash-copy-btn" onClick={() => copy(secondUrl)} aria-label="Copy the link for selected ceremonies">
+                  <Copy size={16} aria-hidden="true" /> Copy
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         <div className="dash-hero-actions">
-          {activeEvent.isPublished && (
-            <button
-              className="btn btn-secondary"
-              onClick={() => navigate(`/events/${activeEvent.id}/share`)}
-            >
-              Share
-            </button>
-          )}
-          <Link
-            to={`/events/${activeEvent.id}/${activeEvent.isPublished ? 'edit' : 'generate'}`}
-            className="btn btn-primary"
-          >
-            {activeEvent.isPublished ? 'Edit Invitation' : 'Build Invitation'}
+          <Link to={primary.to} className="btn btn-primary">
+            <PrimaryIcon size={18} aria-hidden="true" /> {primary.label}
           </Link>
+          {isLive && (
+            <Link to={buildBase} className="btn btn-secondary">
+              <PencilLine size={18} aria-hidden="true" /> Edit invitation
+            </Link>
+          )}
         </div>
-      </div>
+      </section>
 
-      {/* ── Draft prompt ── */}
-      {!activeEvent.isPublished && eventDetail && (
-        <div className="card mb-24 whats-next-card">
-          <div className="card-title">What's Next</div>
-          <div className="whats-next-steps">
-            <div className="whats-next-step done">
-              <span className="wn-icon">✓</span>
-              <span className="wn-label">Event created</span>
-            </div>
-            <div className={`whats-next-step ${eventDetail.people?.length > 0 ? 'done' : ''}`}>
-              <span className="wn-icon">{eventDetail.people?.length > 0 ? '✓' : '○'}</span>
-              <span className="wn-label">People & names added</span>
-              {!(eventDetail.people?.length > 0) && (
-                <Link to={`/events/${activeEvent.id}/generate`} className="wn-cta">Do it →</Link>
-              )}
-            </div>
-            <div className={`whats-next-step ${activeEvent.namesAreFrozen ? 'done' : ''}`}>
-              <span className="wn-icon">{activeEvent.namesAreFrozen ? '✓' : '○'}</span>
-              <span className="wn-label">Names confirmed</span>
-              {!activeEvent.namesAreFrozen && (
-                <Link to={`/events/${activeEvent.id}/generate`} className="wn-cta">Do it →</Link>
-              )}
-            </div>
-            <div className="whats-next-step">
-              <span className="wn-icon">○</span>
-              <span className="wn-label">Publish invitation</span>
-              <Link to={`/events/${activeEvent.id}/generate`} className="wn-cta">Do it →</Link>
-            </div>
-          </div>
-        </div>
+      {/* ── Getting ready (not live yet) ── */}
+      {!isLive && eventDetail && (
+        <section className="card mb-24" aria-labelledby="ready-title">
+          <h2 className="card-title" id="ready-title">Getting ready</h2>
+          <ul className="ready-list">
+            {checklist.map(item => {
+              const Icon = item.icon;
+              return (
+                <li key={item.label}>
+                  <Link to={item.to} className={`ready-item${item.done ? ' is-done' : ''}`}>
+                    <span className="ready-icon" aria-hidden="true">{item.done ? <Check size={16} /> : <Icon size={16} />}</span>
+                    <span className="ready-label">
+                      {item.label}
+                      {item.optional && !item.done && <span className="ready-optional"> — optional</span>}
+                      <span className="sr-only">{item.done ? ' (done)' : ' (to do)'}</span>
+                    </span>
+                    {!item.done && <ChevronRight size={18} className="ready-chev" aria-hidden="true" />}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
-      {/* ── Guest glance (published only) ── */}
-      {activeEvent.isPublished && stats && (
-        <div className="dash-glance">
-          <div className="dash-glance-title">A glance at your guest list</div>
-          <div className="dash-glance-row">
-            <div className="glance-stat"><strong className="g-green">{attending}</strong><span>coming</span></div>
-            <div className="glance-stat"><strong>{pending}</strong><span>awaiting</span></div>
-            <div className="glance-stat"><strong className="g-red">{declined}</strong><span>declined</span></div>
-            <div className="glance-stat"><strong>{stats.opens ?? 0}</strong><span>opens</span></div>
+      {/* ── Guest replies (live) ── */}
+      {isLive && stats && (
+        <section className="card mb-24" aria-labelledby="replies-title">
+          <div className="card-head-row">
+            <h2 className="card-title" id="replies-title">Guest replies</h2>
+            <Link to={`/events/${activeEvent.id}/guests`} className="btn btn-ghost btn-sm">See all guests <ChevronRight size={16} aria-hidden="true" /></Link>
           </div>
-        </div>
-      )}
-
-      {/* ── Stat cards (only for published) ── */}
-      {activeEvent.isPublished && (
-        <div className="stats-grid">
-
-          {/* RSVPs progress */}
-          <div className="stat-card">
-            <div className="stat-card-hd">
-              <span className="stat-label">RSVPs</span>
-            </div>
-            <div className="stat-rsvp-main">
-              <span className="stat-value">{loadingStats ? '—' : rsvpTotal}</span>
-              {guestCount > 0 && <span className="stat-rsvp-of">of {guestCount} invited</span>}
-            </div>
-            {guestCount > 0 && stats && (
-              <div className="stat-prog-track">
-                <div className="stat-prog-fill fill-attending" style={{ width: `${attPct}%` }} />
-                <div className="stat-prog-fill fill-pending"   style={{ width: `${pendingPct}%` }} />
-              </div>
-            )}
+          <div className="reply-stats">
+            <div className="reply-stat"><strong className="g-green">{coming}</strong><span>Coming</span></div>
+            <div className="reply-stat"><strong className="g-red">{notComing}</strong><span>Not coming</span></div>
+            <div className="reply-stat"><strong>{noReply}</strong><span>No reply yet</span></div>
+            <div className="reply-stat"><strong>{stats.opens ?? 0}</strong><span>Opened your invitation</span></div>
           </div>
-
-          {/* Attending donut */}
-          <div className="stat-card">
-            <div className="stat-card-hd">
-              <span className="stat-label">Attending</span>
-              {stats && rsvpTotal > 0 && <span className="stat-tag">{attPct}%</span>}
-            </div>
-            <div className="stat-donut-row">
-              <div
-                className="rsvp-donut stat-donut-sm"
-                style={{
-                  background: rsvpTotal > 0
-                    ? `conic-gradient(
-                        var(--green) 0% ${donutAttPct}%,
-                        var(--red)   ${donutAttPct}% ${donutAttPct + donutDecPct}%,
-                        var(--bg-overlay) ${donutAttPct + donutDecPct}% 100%
-                      )`
-                    : 'var(--bg-overlay)',
-                }}
-              />
-              <div>
-                <div className="stat-value">{attending}</div>
-                <div className="stat-sub">confirmed</div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* ── Function Headcount ── */}
-      {stats?.perFunction?.length > 0 && (
-        <div className="card mb-24">
-          <div className="card-title">Function Headcount</div>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Function</th>
-                  <th>Yes</th>
-                  <th>No</th>
-                  <th>Pending</th>
-                  <th>+1s</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.perFunction.map(fn => (
-                  <tr key={fn.id}>
-                    <td style={{ fontWeight: 600 }}>{fn.name}</td>
-                    <td style={{ color: 'var(--green)' }}>{fn.attending}</td>
-                    <td style={{ color: 'var(--red)' }}>{fn.notAttending}</td>
-                    <td style={{ color: 'var(--text-muted)' }}>{fn.pending}</td>
-                    <td>{fn.plusOnes}</td>
+          {per.length > 1 && (
+            <div className="table-wrap" style={{ marginTop: 16 }}>
+              <table className="data-table">
+                <caption className="sr-only">Replies by ceremony</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Ceremony</th>
+                    <th scope="col">Coming</th>
+                    <th scope="col">Not coming</th>
+                    <th scope="col">No reply yet</th>
+                    <th scope="col">Extra guests</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  {per.map(fn => (
+                    <tr key={fn.id}>
+                      <th scope="row" style={{ fontWeight: 700, textAlign: 'left' }}>{fn.name}</th>
+                      <td className="g-green">{fn.attending}</td>
+                      <td className="g-red">{fn.notAttending}</td>
+                      <td>{fn.pending}</td>
+                      <td>{fn.plusOnes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
-      {/* ── Your Events (multi-event only) ── */}
+      {/* ── Several invitations ── */}
       {displayEvents.length > 1 && (
-        <div className="card mb-24">
-          <div className="card-title">Your Events</div>
-          {displayEvents.map(ev => (
-            <div
-              key={ev.id}
-              className={`event-row ${activeEvent.id === ev.id ? 'active' : ''}`}
-              onClick={() => setActiveEvent?.(ev)}
-            >
-              <div className="event-row-info">
-                <div className="event-row-name">{ev.slug}</div>
-                <div className="event-row-meta">{ev.community} {ev.eventType} · {formatDate(ev.createdAt)}</div>
-              </div>
-              <span className={`badge ${ev.isPublished ? 'badge-published' : 'badge-draft'}`}>
-                {ev.isPublished ? 'Published' : 'Draft'}
-              </span>
-              <Link to={`/events/${ev.id}/generate`} className="btn btn-secondary btn-sm" onClick={e => e.stopPropagation()}>
-                Open →
-              </Link>
-            </div>
-          ))}
-        </div>
+        <section className="card mb-24" aria-labelledby="events-title">
+          <h2 className="card-title" id="events-title">Your invitations</h2>
+          <div className="event-cards">
+            {displayEvents.map(e => (
+              <button
+                type="button"
+                key={e.id}
+                className={`event-card ${activeEvent.id === e.id ? 'active' : ''}`}
+                onClick={() => { setActiveEvent?.(e); navigate('/dashboard'); }}
+              >
+                <span className="event-card-name">{eventTitle(e)}</span>
+                <span className="event-card-meta">
+                  <span className={`event-dot ${e.isPublished ? 'is-live' : ''}`} aria-hidden="true" />
+                  {liveLabel(e)}{e.template?.name ? ` · ${e.template.name}` : ''}
+                </span>
+                {activeEvent.id === e.id ? <span className="event-card-current">Showing</span> : <span className="event-card-open">Open <Eye size={14} aria-hidden="true" /></span>}
+              </button>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

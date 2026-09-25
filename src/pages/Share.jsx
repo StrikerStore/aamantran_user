@@ -4,6 +4,8 @@ import { api } from '../lib/api';
 import { getInviteBaseUrl } from '../lib/config';
 import { WhatsAppShare } from '../components/WhatsAppShare';
 import { useToast } from '../components/ui/Toast';
+import { QrCode } from './invite/QrCode';
+import { ArrowLeft, Copy, Lock, AlertTriangle, QrCode as QrIcon, Radio } from 'lucide-react';
 import './Share.css';
 
 export default function Share() {
@@ -17,10 +19,9 @@ export default function Share() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
     api.events.get(id)
       .then(r => setEvent(r.event))
-      .catch(e => setError(e?.message || 'Could not load event'))
+      .catch(e => setError(e?.message || 'We couldn’t open this invitation.'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -41,6 +42,12 @@ export default function Share() {
   const inviteUrl  = event?.slug ? `${inviteBase}/i/${event.slug}` : '';
   const partialUrl = event?.pairedEvent?.slug ? `${inviteBase}/i/${event.pairedEvent.slug}` : null;
 
+  function copy(url) {
+    navigator.clipboard?.writeText(url)
+      .then(() => toast('Link copied.', 'success'))
+      .catch(() => toast('Couldn’t copy — press and hold the link to copy it.', 'error'));
+  }
+
   if (loading) {
     return (
       <div className="page-fade share-page">
@@ -53,10 +60,10 @@ export default function Share() {
     return (
       <div className="page-fade share-page">
         <div className="share-state-card">
-          <div className="share-state-emoji">⚠️</div>
-          <h2>Couldn't load event</h2>
-          <p>{error || 'This event no longer exists.'}</p>
-          <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>Back to Dashboard</button>
+          <div className="share-state-emoji" aria-hidden="true"><AlertTriangle size={30} /></div>
+          <h2>We couldn’t open this invitation</h2>
+          <p>{error || 'It may have been removed.'}</p>
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/dashboard')}>Back to Home</button>
         </div>
       </div>
     );
@@ -66,11 +73,11 @@ export default function Share() {
     return (
       <div className="page-fade share-page">
         <div className="share-state-card">
-          <div className="share-state-emoji">🔒</div>
-          <h2>Publish first to share</h2>
-          <p>Your invitation is still a draft. Publish it to generate a shareable link.</p>
-          <Link to={`/events/${event.id}/generate`} className="btn btn-primary">Go to Publish</Link>
-          <Link to="/dashboard" className="share-state-back">← Back to Dashboard</Link>
+          <div className="share-state-emoji" aria-hidden="true"><Lock size={30} /></div>
+          <h2>Go live first, then share</h2>
+          <p>Your invitation isn’t online yet. Put it live and come back here to send it to guests.</p>
+          <Link to={`/events/${event.id}/generate?step=publish`} className="btn btn-primary"><Radio size={18} aria-hidden="true" /> Preview & go live</Link>
+          <Link to="/dashboard" className="share-state-back">Back to Home</Link>
         </div>
       </div>
     );
@@ -80,32 +87,36 @@ export default function Share() {
     <div className="page-fade share-page">
 
       <div className="share-topcard">
-        <button className="share-back-btn" onClick={() => navigate(-1)} aria-label="Back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <button type="button" className="share-back-btn" onClick={() => navigate(-1)} aria-label="Go back">
+          <ArrowLeft size={20} aria-hidden="true" />
         </button>
         <div className="share-topcard-text">
-          <h1>Share Your Invitation</h1>
-          <p>Send a personalised message to every guest in seconds.</p>
+          <h1>Share your invitation</h1>
+          <p>Send your link on WhatsApp, or copy it anywhere.</p>
         </div>
       </div>
 
       <div className="share-link-card">
         <div className="share-link-row">
-          <span className="share-link-label">Full invite</span>
+          <span className="share-link-label">Your link</span>
           <div className="share-link-input">
             <span>{inviteUrl}</span>
-            <button onClick={() => { navigator.clipboard.writeText(inviteUrl); toast('Copied!', 'success'); }}>Copy</button>
+            <button type="button" onClick={() => copy(inviteUrl)}><Copy size={15} aria-hidden="true" /> Copy</button>
           </div>
         </div>
         {partialUrl && (
           <div className="share-link-row">
-            <span className="share-link-label">Partial invite</span>
+            <span className="share-link-label">Link for selected ceremonies</span>
             <div className="share-link-input">
               <span>{partialUrl}</span>
-              <button onClick={() => { navigator.clipboard.writeText(partialUrl); toast('Copied!', 'success'); }}>Copy</button>
+              <button type="button" onClick={() => copy(partialUrl)}><Copy size={15} aria-hidden="true" /> Copy</button>
             </div>
           </div>
         )}
+        <details className="share-qr">
+          <summary><QrIcon size={16} aria-hidden="true" /> QR code for printed cards</summary>
+          <QrCode url={inviteUrl} fileName={`qr-${event.slug}.png`} />
+        </details>
       </div>
 
       <WhatsAppShare

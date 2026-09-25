@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
-import { ConfirmModal } from '../components/ui/Modal';
+import { ConfirmModal, Modal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { toTimeInput, fromTimeInput } from './invite/time';
+import { Plus, Pencil, Trash2, MapPin, User, Clock, CalendarHeart } from 'lucide-react';
 import './Timeline.css';
+
+// Times are saved as "10:30 AM"; sort by the real clock time so 9:00 comes before 10:30.
+// Entries typed freely before the time picker ("after lunch") go last, in typed order.
+const clockKey = (t) => toTimeInput(t) || `~${t || ''}`;
+const byTime = (a, b) => clockKey(a.time).localeCompare(clockKey(b.time));
 
 const BLANK = { time: '', title: '', location: '', responsiblePerson: '', duration: '', notes: '', sortOrder: 0 };
 
@@ -27,7 +36,7 @@ export default function Timeline() {
         setFunctions(fns);
         if (fns.length) setActiveFn(fns[0].id);
       })
-      .catch(() => toast('Failed to load ceremonies', 'error'))
+      .catch(() => toast('We couldn’t load your ceremonies. Try again.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -42,7 +51,7 @@ export default function Timeline() {
   function openEdit(e) { setForm({ ...e }); setEditing(e.id); setShowModal(true); }
 
   async function save() {
-    if (!form.time || !form.title) { toast('Time and title are required', 'error'); return; }
+    if (!form.time || !form.title) { toast('Add a time and what happens first.', 'error'); return; }
     setSaving(true);
     try {
       if (editing) {
@@ -50,10 +59,10 @@ export default function Timeline() {
         setEntries(prev => prev.map(e => e.id === editing ? r.entry : e));
       } else {
         const r = await api.timeline.create(id, { ...form, functionId: activeFn });
-        setEntries(prev => [...prev, r.entry].sort((a, b) => a.time.localeCompare(b.time)));
+        setEntries(prev => [...prev, r.entry]);
       }
       setShowModal(false);
-      toast(editing ? 'Updated!' : 'Added!', 'success');
+      toast(editing ? 'Saved.' : 'Added to the timeline.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -71,24 +80,21 @@ export default function Timeline() {
     }
   }
 
-  const sorted = [...entries].sort((a, b) => a.time.localeCompare(b.time));
+  const sorted = [...entries].sort(byTime);
+  const activeName = functions.find(f => f.id === activeFn)?.name || 'this ceremony';
 
   if (loading) return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
 
   return (
     <div className="page-fade">
       <section className="feat-shell">
-        <header className="feat-head">
-          <div className="feat-head-text">
-            <h1 className="feat-title">Day-of timeline</h1>
-            <p className="feat-desc">Plan your ceremony schedule hour by hour</p>
-          </div>
-          <div className="feat-head-actions">
-            {activeFn && (
-              <button type="button" className="btn btn-primary" onClick={openNew}>+ Add entry</button>
-            )}
-          </div>
-        </header>
+        <PageHeader
+          title="Day-of timeline"
+          subtitle="Plan each ceremony hour by hour, so everyone knows what happens when."
+          helpMore="/guide#timeline"
+          help="Pick a ceremony, then add each moment — guests arrive, pheras, dinner. They sort themselves by time. Only you see this; guests don’t."
+          actions={activeFn ? <button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add a moment</button> : null}
+        />
 
         {functions.length > 0 && (
           <div className="feat-hub">
@@ -97,6 +103,7 @@ export default function Timeline() {
                 <button
                   type="button"
                   key={fn.id}
+                  aria-pressed={activeFn === fn.id}
                   className={`timeline-fn-tab ${activeFn === fn.id ? 'active' : ''}`}
                   onClick={() => setActiveFn(fn.id)}
                 >
@@ -110,20 +117,24 @@ export default function Timeline() {
 
       {functions.length === 0 ? (
         <div className="card">
-          <div className="empty-state" style={{ padding: '32px 0' }}>
-            <div className="empty-icon">🕐</div>
-            <div className="empty-title">No ceremonies added yet</div>
-            <div className="empty-desc">Add ceremonies in the Build Invitation section first.</div>
-          </div>
+          <EmptyState
+            icon={CalendarHeart}
+            title="Add your ceremonies first"
+            action={<Link to={`/events/${id}/generate?step=functions`} className="btn btn-primary">Add ceremonies</Link>}
+          >
+            Your timeline is planned per ceremony — Mehendi, Sangeet, Wedding… Add them in your invitation and they’ll show up here.
+          </EmptyState>
         </div>
       ) : (
         <div className="timeline-body">
           {sorted.length === 0 ? (
-            <div className="empty-state" style={{ padding: '32px 0' }}>
-              <div className="empty-icon">📋</div>
-              <div className="empty-title">No entries for this ceremony</div>
-              <div className="empty-desc">Add schedule entries to plan the day.</div>
-            </div>
+            <EmptyState
+              icon={Clock}
+              title={`Nothing planned for ${activeName} yet`}
+              action={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add a moment</button>}
+            >
+              Add each moment of the day — when guests arrive, the rituals, food, music.
+            </EmptyState>
           ) : (
             <div className="timeline-list">
               {sorted.map((entry, idx) => (
@@ -139,13 +150,13 @@ export default function Timeline() {
                   <div className="timeline-content">
                     <div className="timeline-entry-header">
                       <span className="timeline-title">{entry.title}</span>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(entry)}>✏️</button>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(entry)}>✕</button>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(entry)} aria-label={`Edit “${entry.title}”`}><Pencil size={15} aria-hidden="true" /> Edit</button>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(entry)} aria-label={`Delete “${entry.title}”`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
                       </div>
                     </div>
-                    {entry.location && <div className="timeline-meta">📍 {entry.location}</div>}
-                    {entry.responsiblePerson && <div className="timeline-meta">👤 {entry.responsiblePerson}</div>}
+                    {entry.location && <div className="timeline-meta"><MapPin size={14} aria-hidden="true" /> {entry.location}</div>}
+                    {entry.responsiblePerson && <div className="timeline-meta"><User size={14} aria-hidden="true" /> {entry.responsiblePerson}</div>}
                     {entry.notes && <div className="timeline-notes">{entry.notes}</div>}
                   </div>
                 </div>
@@ -156,56 +167,64 @@ export default function Timeline() {
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">{editing ? 'Edit Entry' : 'Add Entry'}</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Time <span className="req">*</span></label>
-                <input className="form-input" placeholder="e.g. 10:30 AM" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} autoFocus />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Duration</label>
-                <input className="form-input" placeholder="e.g. 30 mins" value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Title <span className="req">*</span></label>
-              <input className="form-input" placeholder="e.g. Guests arrive" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Location</label>
-                <input className="form-input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Hall, Garden…" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Responsible Person</label>
-                <input className="form-input" value={form.responsiblePerson} onChange={e => setForm(f => ({ ...f, responsiblePerson: e.target.value }))} placeholder="Name or role" />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Notes</label>
-              <textarea className="form-textarea" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? <span className="btn-spinner" /> : null}
-                {editing ? 'Update' : 'Add'}
+        <Modal
+          title={editing ? 'Edit this moment' : `Add a moment to ${activeName}`}
+          onClose={() => !saving && setShowModal(false)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                {editing ? 'Save changes' : 'Add moment'}
               </button>
+            </>
+          }
+        >
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="tl-time">Time</label>
+              <input
+                id="tl-time"
+                className="form-input"
+                type="time"
+                value={toTimeInput(form.time)}
+                onChange={e => setForm(f => ({ ...f, time: fromTimeInput(e.target.value) }))}
+              />
+              {form.time && !toTimeInput(form.time) && (
+                <div className="form-hint">Saved earlier as “{form.time}”. Pick a time to replace it.</div>
+              )}
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="tl-duration">How long? <span className="form-optional">(optional)</span></label>
+              <input id="tl-duration" className="form-input" placeholder="e.g. 30 mins" value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} />
             </div>
           </div>
-        </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="tl-title">What happens?</label>
+            <input id="tl-title" className="form-input" placeholder="e.g. Guests arrive" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="tl-place">Where? <span className="form-optional">(optional)</span></label>
+              <input id="tl-place" className="form-input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Hall, garden…" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="tl-who">Who’s in charge? <span className="form-optional">(optional)</span></label>
+              <input id="tl-who" className="form-input" value={form.responsiblePerson} onChange={e => setForm(f => ({ ...f, responsiblePerson: e.target.value }))} placeholder="Name or role" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="tl-notes">Notes <span className="form-optional">(optional)</span></label>
+            <textarea id="tl-notes" className="form-textarea" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+          </div>
+        </Modal>
       )}
 
       {deleting && (
         <ConfirmModal
-          title="Delete Entry"
-          message={`Delete "${deleting.title}"?`}
-          confirmText="Delete"
+          title="Delete this moment?"
+          message={`“${deleting.title}” will be removed from the timeline.`}
+          confirmText="Delete moment"
           onConfirm={() => deleteEntry(deleting.id)}
           onCancel={() => setDeleting(null)}
         />

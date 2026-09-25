@@ -114,3 +114,18 @@
 @media (max-width: 600px) {
   .guide-section-body { padding-left: 18px; }
 }
+
+/* Revamp: search, lucide icons, readable sizes, headings, target highlight */
+.guide-search { margin-bottom: 16px; }
+.guide-section-h { margin: 0; font: inherit; }
+.guide-section-head { min-height: 56px; font: inherit; }
+.guide-section-head:disabled { cursor: default; opacity: 1; }
+.guide-section-icon { display: inline-flex; color: var(--rose-deep); font-size: inherit; }
+.guide-section-title { font-size: 1rem; font-weight: 700; }
+.guide-section-chevron { width: 28px; height: 28px; padding: 4px; transition: transform var(--t-fast); }
+.guide-section.open .guide-section-chevron { transform: rotate(180deg); color: var(--gold-text); }
+.guide-item { scroll-margin-top: 80px; border-radius: var(--r-sm); }
+.guide-item.is-target { background: var(--lemon-soft); box-shadow: 0 0 0 8px var(--lemon-soft); }
+.guide-item-title { font-size: 0.95rem; }
+.guide-item-body { font-size: 0.92rem; margin: 0; }
+.guide-cta-body { font-size: 0.92rem; }

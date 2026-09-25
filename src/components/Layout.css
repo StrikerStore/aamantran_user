@@ -579,3 +579,61 @@ a.nav-item:nth-of-type(4n+4).active::before { background: var(--peach); }
 @media (max-width: 900px) {
   .profile-sheet { display: block; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   Revamp: navigation refinements
+   ══════════════════════════════════════════════════════════ */
+
+/* Event switcher shows who the invitation is for */
+.event-switcher-btn { min-height: 52px; padding: 8px 10px; }
+.event-switcher-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--rose-soft); color: var(--rose-deep);
+  font-family: var(--font-display); font-weight: 700; font-size: 0.95rem;
+}
+.event-switcher-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.event-switcher-name { font-size: 0.9rem; font-weight: 700; }
+.event-switcher-sub { font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+.event-switcher-chevron { transition: transform var(--t-fast); }
+.event-switcher-chevron.open { transform: rotate(180deg); }
+.event-switcher-heading { padding: 12px 14px 4px; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); }
+
+/* Live / not live dot */
+.event-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; display: inline-block; }
+.event-dot.is-live { background: var(--green); box-shadow: 0 0 0 3px var(--mint-soft); }
+
+/* Event options are real buttons now */
+.event-option { width: 100%; border: none; background: none; text-align: left; min-height: 52px; font: inherit; }
+.event-option-text { flex: 1; min-width: 0; }
+.event-option-name { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.event-option-sub { font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+.event-option-check { color: var(--gold-text); }
+.event-switcher-add { color: var(--gold-text); text-decoration: none; min-height: 48px; font-size: 0.88rem; }
+.event-switcher-add:hover { text-decoration: none; }
+
+/* Menu groups: readable headings */
+.nav-group-toggle { font-size: 0.74rem; letter-spacing: 0.06em; }
+.nav-item { width: 100%; font: inherit; font-size: 0.92rem; min-height: 42px; text-align: left; }
+button.nav-item { border: none; background: none; cursor: pointer; }
+.nav-item.disabled { color: var(--text-muted); opacity: 0.75; }
+.nav-item.disabled:hover { background: var(--bg-elevated); }
+.nav-icon { width: 19px; height: 19px; }
+
+/* Desktop top bar shows the page name */
+.topbar-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+.sidebar-toggle { width: 40px; height: 40px; }
+.sidebar-logout-btn { min-width: 36px; min-height: 36px; }
+
+/* Phone */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .topbar-event-chip { min-height: 40px; font-size: 0.85rem; max-width: min(240px, 100%); }
+  .bottom-nav-item[aria-disabled="true"],
+  .bottom-nav-share.is-locked .bnav-fab { opacity: 0.45; }
+  .bottom-sheet-row { min-height: 52px; }
+  .bottom-sheet-row.is-locked { opacity: 0.55; }
+  .bottom-sheet-row-icon { color: var(--rose-deep); display: flex; }
+  .more-sheet-account { display: flex; align-items: center; gap: 12px; padding: 4px 20px 14px; border-bottom: 1px solid var(--border-subtle); }
+}
+.profile-sheet-logout .bottom-sheet-row-label, .profile-sheet-logout .bottom-sheet-row-icon { color: var(--red); }

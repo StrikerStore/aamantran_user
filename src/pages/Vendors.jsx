@@ -3,16 +3,19 @@ import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
-import { ConfirmModal } from '../components/ui/Modal';
+import { ConfirmModal, Modal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Plus, Pencil, Trash2, Phone, Mail, Handshake, Filter } from 'lucide-react';
 import './Vendors.css';
 
 const VENDOR_TYPES = ['Photography', 'Catering', 'Decor', 'Music', 'Attire', 'Priest', 'Transport', 'Makeup', 'Mehendi', 'Other'];
 const VENDOR_STATUSES = [
   { key: 'contacted',    label: 'Contacted',    color: 'var(--text-muted)' },
   { key: 'negotiating', label: 'Negotiating',  color: 'var(--amber)' },
-  { key: 'booked',      label: 'Booked',       color: 'var(--teal)' },
-  { key: 'deposit-paid',label: 'Deposit Paid', color: 'var(--gold)' },
-  { key: 'fully-paid',  label: 'Fully Paid',   color: 'var(--green)' },
+  { key: 'booked',      label: 'Booked',       color: 'var(--sky-deep)' },
+  { key: 'deposit-paid',label: 'Advance paid', color: 'var(--gold-text)' },
+  { key: 'fully-paid',  label: 'Fully paid',   color: 'var(--mint-deep)' },
   { key: 'cancelled',   label: 'Cancelled',    color: 'var(--red)' },
 ];
 
@@ -35,7 +38,7 @@ export default function Vendors() {
   useEffect(() => {
     api.vendors.list(id)
       .then(r => setVendors(r.vendors || []))
-      .catch(() => toast('Failed to load vendors', 'error'))
+      .catch(() => toast('We couldn’t load your vendors. Try again.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -48,7 +51,7 @@ export default function Vendors() {
   }
 
   async function save() {
-    if (!form.name.trim()) { toast('Vendor name is required', 'error'); return; }
+    if (!form.name.trim()) { toast('Add the vendor’s name first.', 'error'); return; }
     setSaving(true);
     try {
       const payload = { ...form };
@@ -64,7 +67,7 @@ export default function Vendors() {
         setVendors(prev => [...prev, r.vendor]);
       }
       setShowModal(false);
-      toast(editing ? 'Updated!' : 'Added!', 'success');
+      toast(editing ? 'Vendor saved.' : 'Vendor added.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -91,20 +94,18 @@ export default function Vendors() {
   return (
     <div className="page-fade">
       <section className="feat-shell">
-        <header className="feat-head">
-          <div className="feat-head-text">
-            <h1 className="feat-title">Vendors</h1>
-            <p className="feat-desc">Manage your wedding service providers</p>
-          </div>
-          <div className="feat-head-actions">
-            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add Vendor</button>
-          </div>
-        </header>
+        <PageHeader
+          title="Vendors"
+          subtitle="Photographers, caterers, decorators — who you’ve spoken to and what you’ve paid."
+          helpMore="/guide#vendors"
+          help="Add each vendor you talk to, then update where things stand: Contacted → Negotiating → Booked → Advance paid → Fully paid. Call or email them straight from their card."
+          actions={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add vendor</button>}
+        />
 
         <div className="feat-stats">
           <div className="feat-stat">
             <span className="feat-stat-val">{vendors.length}</span>
-            <span className="feat-stat-label">Total</span>
+            <span className="feat-stat-label">Vendors</span>
           </div>
           <div className="feat-stat">
             <span className="feat-stat-val feat-stat-val--teal">{nBooked}</span>
@@ -118,9 +119,9 @@ export default function Vendors() {
 
         <div className="feat-hub">
           <div className="feat-hub-pills feat-hub-pills--scroll">
-            <button type="button" className={`pill ${!statusFilter ? 'active' : ''}`} onClick={() => setStatusFilter('')}>All</button>
+            <button type="button" aria-pressed={!statusFilter} className={`pill ${!statusFilter ? 'active' : ''}`} onClick={() => setStatusFilter('')}>All</button>
             {VENDOR_STATUSES.map(s => (
-              <button type="button" key={s.key} className={`pill ${statusFilter === s.key ? 'active' : ''}`} onClick={() => setStatusFilter(s.key)}>
+              <button type="button" key={s.key} aria-pressed={statusFilter === s.key} className={`pill ${statusFilter === s.key ? 'active' : ''}`} onClick={() => setStatusFilter(s.key)}>
                 {s.label}
               </button>
             ))}
@@ -129,11 +130,22 @@ export default function Vendors() {
       </section>
 
       {filtered.length === 0 ? (
-        <div className="empty-state" style={{ padding: '40px 0' }}>
-          <div className="empty-icon">🤝</div>
-          <div className="empty-title">No vendors yet</div>
-          <div className="empty-desc">Add photographers, caterers, decorators and more.</div>
-        </div>
+        vendors.length === 0 ? (
+          <EmptyState
+            icon={Handshake}
+            title="No vendors yet"
+            action={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add your first vendor</button>}
+          >
+            Add photographers, caterers, decorators and more to keep their numbers and payments in one place.
+          </EmptyState>
+        ) : (
+          <EmptyState
+            icon={Filter}
+            tone="sky"
+            title="No vendors with this status"
+            action={<button type="button" className="btn btn-secondary" onClick={() => setStatusFilter('')}>Show all vendors</button>}
+          />
+        )
       ) : (
         <div className="vendor-grid">
           {filtered.map(v => {
@@ -148,16 +160,16 @@ export default function Vendors() {
                     <div className="vendor-name">{v.name}</div>
                     <div className="vendor-type">{v.type}</div>
                   </div>
-                  <span className="vendor-status" style={{ background: `${statusMeta.color}20`, color: statusMeta.color }}>
+                  <span className="vendor-status" style={{ background: `color-mix(in srgb, ${statusMeta.color} 14%, transparent)`, color: statusMeta.color }}>
                     {statusMeta.label}
                   </span>
                 </div>
                 {v.contactName && <div className="vendor-contact-name">{v.contactName}</div>}
                 <div className="vendor-actions-row">
-                  {v.phone && <a href={`tel:${v.phone}`} className="btn btn-ghost btn-sm">📞 Call</a>}
-                  {v.email && <a href={`mailto:${v.email}`} className="btn btn-ghost btn-sm">📧 Email</a>}
-                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(v)}>✏️ Edit</button>
-                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', marginLeft: 'auto' }} onClick={() => setDeleting(v)}>✕</button>
+                  {v.phone && <a href={`tel:${v.phone}`} className="btn btn-ghost btn-sm"><Phone size={15} aria-hidden="true" /> Call</a>}
+                  {v.email && <a href={`mailto:${v.email}`} className="btn btn-ghost btn-sm"><Mail size={15} aria-hidden="true" /> Email</a>}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(v)} aria-label={`Edit ${v.name}`}><Pencil size={15} aria-hidden="true" /> Edit</button>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', marginLeft: 'auto' }} onClick={() => setDeleting(v)} aria-label={`Delete ${v.name}`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
                 </div>
                 {packageCost > 0 && (
                   <div className="vendor-payment">
@@ -176,81 +188,80 @@ export default function Vendors() {
         </div>
       )}
 
-      {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
-          <div className="modal-card modal-card-lg" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">{editing ? 'Edit Vendor' : 'Add Vendor'}</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Name <span className="req">*</span></label>
-                <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Type</label>
-                <Select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                  {VENDOR_TYPES.map(t => <option key={t}>{t}</option>)}
-                </Select>
-                {form.type === 'Other' && (
-                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Type name" value={form.customType || ''} onChange={e => setForm(f => ({ ...f, customType: e.target.value }))} />
-                )}
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Contact Name</label>
-                <input className="form-input" value={form.contactName} onChange={e => setForm(f => ({ ...f, contactName: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Phone</label>
-                <input className="form-input" type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Email</label>
-                <input className="form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Status</label>
-                <Select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                  {VENDOR_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </Select>
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Package Cost (₹)</label>
-                <input className="form-input" type="number" value={form.packageCost} onChange={e => setForm(f => ({ ...f, packageCost: e.target.value }))} placeholder="0" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Total Paid (₹)</label>
-                <input className="form-input" type="number" value={form.totalPaid} onChange={e => setForm(f => ({ ...f, totalPaid: e.target.value }))} placeholder="0" />
-              </div>
+        <Modal
+          size="lg"
+          title={editing ? 'Edit vendor' : 'Add a vendor'}
+          onClose={() => !saving && setShowModal(false)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                {editing ? 'Save changes' : 'Add vendor'}
+              </button>
+            </>
+          }
+        >
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="v-name">Business name</label>
+              <input id="v-name" className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Pixel Studio" />
             </div>
             <div className="form-group">
-              <label className="form-label">Notes</label>
-              <textarea className="form-textarea" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? <span className="btn-spinner" /> : null}
-                {editing ? 'Update' : 'Add Vendor'}
-              </button>
+              <label className="form-label" htmlFor="v-type">What do they do?</label>
+              <Select id="v-type" className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                {VENDOR_TYPES.map(t => <option key={t}>{t}</option>)}
+              </Select>
+              {form.type === 'Other' && (
+                <input className="form-input" style={{ marginTop: 6 }} placeholder="e.g. Florist" aria-label="What they do" value={form.customType || ''} onChange={e => setForm(f => ({ ...f, customType: e.target.value }))} />
+              )}
             </div>
           </div>
-        </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="v-contact">Person to talk to <span className="form-optional">(optional)</span></label>
+              <input id="v-contact" className="form-input" value={form.contactName} onChange={e => setForm(f => ({ ...f, contactName: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="v-phone">Phone <span className="form-optional">(optional)</span></label>
+              <input id="v-phone" className="form-input" type="tel" inputMode="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="v-email">Email <span className="form-optional">(optional)</span></label>
+              <input id="v-email" className="form-input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="v-status">Where things stand</label>
+              <Select id="v-status" className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                {VENDOR_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </Select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="v-cost">Total price (₹) <span className="form-optional">(optional)</span></label>
+              <input id="v-cost" className="form-input" type="number" inputMode="numeric" value={form.packageCost} onChange={e => setForm(f => ({ ...f, packageCost: e.target.value }))} placeholder="0" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="v-paid">Paid so far (₹) <span className="form-optional">(optional)</span></label>
+              <input id="v-paid" className="form-input" type="number" inputMode="numeric" value={form.totalPaid} onChange={e => setForm(f => ({ ...f, totalPaid: e.target.value }))} placeholder="0" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="v-notes">Notes <span className="form-optional">(optional)</span></label>
+            <textarea id="v-notes" className="form-textarea" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+          </div>
+        </Modal>
       )}
 
       {deleting && (
         <ConfirmModal
-          title="Remove Vendor"
-          message={`Remove "${deleting.name}"?`}
-          confirmText="Remove"
+          title="Delete this vendor?"
+          message={`${deleting.name} and their details will be deleted.`}
+          confirmText="Delete vendor"
           onConfirm={() => deleteVendor(deleting.id)}
           onCancel={() => setDeleting(null)}
         />

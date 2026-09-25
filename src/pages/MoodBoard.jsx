@@ -4,8 +4,11 @@ import { api } from '../lib/api';
 import { Select } from '../components/ui/Select';
 import { API_BASE } from '../lib/config';
 import { useToast } from '../components/ui/Toast';
-import { ConfirmModal } from '../components/ui/Modal';
+import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { GridSkeleton } from '../components/ui/Skeleton';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Plus, Trash2, X, Palette, ExternalLink } from 'lucide-react';
 import './MoodBoard.css';
 
 const CATEGORIES = ['Color Palette', 'Outfits', 'Decor', 'Flowers', 'Food', 'Jewellery', 'Pinterest', 'Other'];
@@ -137,9 +140,10 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
         type="button"
         className="masonry-delete mb-pinterest-delete"
         aria-label="Remove Pinterest board"
+        title="Remove board"
         onClick={onDelete}
       >
-        ✕
+        <Trash2 size={16} aria-hidden="true" />
       </button>
 
       <div className="mb-pinterest-body">
@@ -172,7 +176,7 @@ function PinterestBoardCard({ eventId, boardUrl, caption, onDelete }) {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Open on Pinterest ↗
+          Open on Pinterest <ExternalLink size={14} aria-hidden="true" />
         </a>
       </div>
     </div>
@@ -210,7 +214,7 @@ export default function MoodBoard() {
   useEffect(() => {
     api.moodboard.list(id)
       .then(r => setPins(r.pins || []))
-      .catch(() => toast('Failed to load mood board', 'error'))
+      .catch(() => toast('We couldn’t load your mood board. Try again.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -218,7 +222,7 @@ export default function MoodBoard() {
   function openNewPinterest() { setForm({ ...BLANK, category: 'Pinterest', customCategory: '' }); setFile(null); setShowModal(true); }
 
   async function save() {
-    if (!file && !form.imageUrl.trim()) { toast('Upload an image or enter a URL', 'error'); return; }
+    if (!file && !form.imageUrl.trim()) { toast('Choose a picture, or paste a link to one.', 'error'); return; }
     setSaving(true);
     try {
       let payloadCategory = form.category;
@@ -239,7 +243,7 @@ export default function MoodBoard() {
       const r = await api.moodboard.create(id, payload);
       setPins(prev => [...prev, r.pin]);
       setShowModal(false);
-      toast('Pin added!', 'success');
+      toast('Added to your mood board.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -267,35 +271,40 @@ export default function MoodBoard() {
   return (
     <div className="page-fade">
       <section className="feat-shell">
-        <header className="feat-head">
-          <div className="feat-head-text">
-            <h1 className="feat-title">Mood board</h1>
-            <p className="feat-desc">Collect inspiration for your dream wedding</p>
-          </div>
-          <div className="feat-head-actions">
-            <button type="button" className="btn btn-ghost" style={{ border: '1px solid var(--gold)', color: 'var(--gold)' }} onClick={openNewPinterest}>
-              + Pinterest board
-            </button>
-            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add pin</button>
-          </div>
-        </header>
+        <PageHeader
+          title="Mood board"
+          subtitle="Collect ideas — colours, outfits, décor — in one place. Only you can see it."
+          helpMore="/guide#moodboard"
+          help="Add a picture from your phone or a link to one. Already saving ideas on Pinterest? Add your board and it shows here."
+          actions={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={openNewPinterest}>
+                <Plus size={18} aria-hidden="true" /> Pinterest board
+              </button>
+              <button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add picture</button>
+            </>
+          }
+        />
 
         <div className="feat-hub">
           <div className="feat-hub-pills feat-hub-pills--scroll">
-            <button type="button" className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
+            <button type="button" aria-pressed={!catFilter} className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
             {CATEGORIES.map(c => (
-              <button type="button" key={c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
+              <button type="button" key={c} aria-pressed={catFilter === c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
             ))}
           </div>
         </div>
       </section>
 
       {filtered.length === 0 ? (
-        <div className="empty-state" style={{ padding: '40px 0' }}>
-          <div className="empty-icon">🎨</div>
-          <div className="empty-title">Your mood board is empty</div>
-          <div className="empty-desc">Add images from your phone or connect a Pinterest board.</div>
-        </div>
+        <EmptyState
+          icon={Palette}
+          tone="lemon"
+          title={catFilter ? `Nothing in ${catFilter} yet` : 'Your mood board is empty'}
+          action={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add picture</button>}
+        >
+          Add pictures from your phone, or add a Pinterest board.
+        </EmptyState>
       ) : (
         <div className={`mb-board-layout${splitBoardLayout ? ' mb-board-layout--split' : ''}`}>
           {pinterestBoards.length > 0 && (
@@ -317,7 +326,7 @@ export default function MoodBoard() {
               {regularPins.map(pin => {
                 const inner = (
                   <div className="masonry-pin">
-                    <img src={resolvePinHref(pin.imageUrl)} alt={pin.caption || 'pin'} className="masonry-img" loading="lazy" />
+                    <img src={resolvePinHref(pin.imageUrl)} alt={pin.caption || 'Mood board picture'} className="masonry-img" loading="lazy" />
                     <div className="masonry-overlay">
                       {pin.category && <span className="masonry-cat">{pin.category}</span>}
                       {pin.caption && <p className="masonry-caption">{pin.caption}</p>}
@@ -329,8 +338,10 @@ export default function MoodBoard() {
                           e.stopPropagation();
                           setDeleting(pin);
                         }}
+                        aria-label="Remove picture"
+                        title="Remove picture"
                       >
-                        ✕
+                        <Trash2 size={16} aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -378,51 +389,54 @@ export default function MoodBoard() {
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Add Pin</h2>
-              <button type="button" className="modal-close" onClick={() => setShowModal(false)}>✕</button>
-            </div>
-            {form.category !== 'Pinterest' && (
-              <div className="form-group">
-                <label className="form-label">Upload Image</label>
-                <input className="form-input" type="file" accept="image/*" onChange={e => { setFile(e.target.files?.[0] || null); setForm(f => ({ ...f, imageUrl: '' })); }} />
-              </div>
-            )}
-            {!file && (
-              <div className="form-group">
-                <label className="form-label">{form.category === 'Pinterest' ? 'Pinterest board or pin URL' : 'Or Image URL'}</label>
-                <input className="form-input" placeholder="https://…" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} />
-              </div>
-            )}
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <Select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                </Select>
-                {form.category === 'Other' && (
-                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
-                )}
-              </div>
-            <div className="form-group">
-              <label className="form-label">Caption (optional)</label>
-              <input className="form-input" value={form.caption} onChange={e => setForm(f => ({ ...f, caption: e.target.value }))} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
+        <Modal
+          title={form.category === 'Pinterest' ? 'Add a Pinterest board' : 'Add a picture'}
+          onClose={() => !saving && setShowModal(false)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
               <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? <span className="btn-spinner" /> : 'Add Pin'}
+                {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                {form.category === 'Pinterest' ? 'Add board' : 'Add picture'}
               </button>
+            </>
+          }
+        >
+          {form.category !== 'Pinterest' && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="mb-file">Choose a picture</label>
+              <input id="mb-file" className="form-input" type="file" accept="image/*" onChange={e => { setFile(e.target.files?.[0] || null); setForm(f => ({ ...f, imageUrl: '' })); }} />
             </div>
+          )}
+          {!file && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="mb-url">{form.category === 'Pinterest' ? 'Link to your Pinterest board or pin' : 'Or paste a link to a picture'}</label>
+              <input id="mb-url" className="form-input" type="url" inputMode="url" placeholder="https://…" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} />
+              {form.category === 'Pinterest' && <div className="form-hint">In Pinterest, open your board, press Share and copy the link.</div>}
+            </div>
+          )}
+          {form.category !== 'Pinterest' && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="mb-cat">Category</label>
+              <Select id="mb-cat" className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                {CATEGORIES.filter(c => c !== 'Pinterest').map(c => <option key={c}>{c}</option>)}
+              </Select>
+              {form.category === 'Other' && (
+                <input className="form-input" style={{ marginTop: 6 }} placeholder="Name the category" aria-label="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
+              )}
+            </div>
+          )}
+          <div className="form-group">
+            <label className="form-label" htmlFor="mb-cap">Caption <span className="form-optional">(optional)</span></label>
+            <input id="mb-cap" className="form-input" value={form.caption} onChange={e => setForm(f => ({ ...f, caption: e.target.value }))} />
           </div>
-        </div>
+        </Modal>
       )}
 
       {deleting && (
         <ConfirmModal
-          title="Remove Pin"
-          message="Remove this pin from your mood board?"
+          title={deleting.category === 'Pinterest' ? 'Remove this Pinterest board?' : 'Remove this picture?'}
+          message={deleting.category === 'Pinterest' ? 'It will disappear from your mood board. Your board on Pinterest isn’t touched.' : 'It will be removed from your mood board.'}
           confirmText="Remove"
           onConfirm={() => deletePin(deleting.id)}
           onCancel={() => setDeleting(null)}
@@ -446,7 +460,7 @@ export default function MoodBoard() {
               setPinLightbox(null);
             }}
           >
-            ✕
+            <X size={22} aria-hidden="true" />
           </button>
           <div className="mb-lightbox-inner" onClick={e => e.stopPropagation()}>
             <img
@@ -467,7 +481,7 @@ export default function MoodBoard() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Open original ↗
+                Open original <ExternalLink size={14} aria-hidden="true" />
               </a>
             </div>
           </div>

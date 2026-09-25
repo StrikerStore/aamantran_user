@@ -4,26 +4,32 @@ import { api } from '../lib/api';
 import { useCouple } from '../lib/couple';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
-import { ConfirmModal } from '../components/ui/Modal';
+import { ConfirmModal, Modal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Plus, Pencil, Trash2, MapPin, BellRing, Shirt, Gem, Flower2, UtensilsCrossed, FileText, Gift, Package, SearchX } from 'lucide-react';
 import './Inventory.css';
 
+// `label` is what is saved on the item (kept as-is so saved items still match);
+// `name` is what the couple reads.
 const CATEGORIES = [
   // "<couple>'s …" sub-categories are filled per event from the couple (see coupleSubs).
-  { label: 'Attire',     icon: '🎀', subs: ['Family','Accessories'], coupleSub: 'Outfit' },
-  { label: 'Jewelry',    icon: '💍', subs: ['Family'], coupleSub: 'Jewellery' },
-  { label: 'Decoration', icon: '🌸', subs: ['Flowers','Lighting','Mandap','Table Decor','Entrance'] },
-  { label: 'Catering',   icon: '🍽',  subs: ['Crockery','Furniture','Ingredients'] },
-  { label: 'Documents',  icon: '📄', subs: ['Marriage Cert','Venue Booking','Contracts'] },
-  { label: 'Gifts',      icon: '🎁', subs: ['Received','Return Gifts','Wrapping'] },
-  { label: 'Other',      icon: '📦', subs: [] },
+  { label: 'Attire',     icon: Shirt,           subs: ['Family','Accessories'], coupleSub: 'Outfit' },
+  { label: 'Jewelry',    name: 'Jewellery', icon: Gem, subs: ['Family'], coupleSub: 'Jewellery' },
+  { label: 'Decoration', icon: Flower2,         subs: ['Flowers','Lighting','Mandap','Table Decor','Entrance'] },
+  { label: 'Catering',   icon: UtensilsCrossed, subs: ['Crockery','Furniture','Ingredients'] },
+  { label: 'Documents',  icon: FileText,        subs: ['Marriage Cert','Venue Booking','Contracts'] },
+  { label: 'Gifts',      icon: Gift,            subs: ['Received','Return Gifts','Wrapping'] },
+  { label: 'Other',      icon: Package,         subs: [] },
 ];
+const catName = (c) => c.name || c.label;
 
 const STATUSES = [
-  { key: 'to-buy',   label: 'To Buy',    color: 'var(--amber)' },
-  { key: 'ordered',  label: 'Ordered',   color: 'var(--teal)' },
-  { key: 'received', label: 'Received',  color: 'var(--green)' },
+  { key: 'to-buy',   label: 'To buy',    color: 'var(--amber)' },
+  { key: 'ordered',  label: 'Ordered',   color: 'var(--sky-deep)' },
+  { key: 'received', label: 'Received',  color: 'var(--mint-deep)' },
   { key: 'packed',   label: 'Packed',    color: 'var(--maroon)' },
-  { key: 'at-venue', label: 'At Venue',  color: 'var(--gold)' },
+  { key: 'at-venue', label: 'At venue',  color: 'var(--gold-text)' },
   { key: 'done',     label: 'Done',      color: 'var(--text-muted)' },
 ];
 
@@ -49,7 +55,7 @@ export default function Inventory() {
   useEffect(() => {
     api.inventory.list(id)
       .then(r => setItems(r.items || []))
-      .catch(() => toast('Failed to load inventory', 'error'))
+      .catch(() => toast('We couldn’t load your items. Try again.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -69,7 +75,7 @@ export default function Inventory() {
   if (form.subCategory && selectedCat && !subOptions.includes(form.subCategory)) subOptions.unshift(form.subCategory);
 
   async function save() {
-    if (!form.name.trim()) { toast('Name is required', 'error'); return; }
+    if (!form.name.trim()) { toast('Give the item a name first.', 'error'); return; }
     setSaving(true);
     try {
       const payload = { ...form };
@@ -85,7 +91,7 @@ export default function Inventory() {
         setItems(prev => [...prev, r.item]);
       }
       setShowModal(false);
-      toast(editing ? 'Updated!' : 'Added!', 'success');
+      toast(editing ? 'Item saved.' : 'Item added.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -125,19 +131,17 @@ export default function Inventory() {
   return (
     <div className="page-fade">
       <section className="feat-shell">
-        <header className="feat-head">
-          <div className="feat-head-text">
-            <h1 className="feat-title">Inventory</h1>
-            <p className="feat-desc">Track everything you need for the wedding</p>
-          </div>
-          <div className="feat-head-actions">
-            <button type="button" className="btn btn-primary" onClick={openNew}>+ Add Item</button>
-          </div>
-        </header>
+        <PageHeader
+          title="Inventory"
+          subtitle="Everything you need to buy, collect and carry — and where it is."
+          helpMore="/guide#inventory"
+          help="Add each thing you need (outfits, jewellery, décor, documents…). Move it along from To buy → Ordered → Received → Packed → At venue. Set a reminder date to get a nudge here."
+          actions={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add item</button>}
+        />
 
         {reminders.length > 0 && (
-          <div className="inv-alert">
-            📅 {reminders.length} item{reminders.length > 1 ? 's' : ''} need your attention
+          <div className="inv-alert" role="status">
+            <BellRing size={18} aria-hidden="true" /> {reminders.length} item{reminders.length > 1 ? 's have' : ' has'} a reminder due
           </div>
         )}
 
@@ -156,18 +160,21 @@ export default function Inventory() {
           </div>
           <div className="feat-stat">
             <span className="feat-stat-val feat-stat-val--maroon">{stats.packed}</span>
-            <span className="feat-stat-label">Packed+</span>
+            <span className="feat-stat-label">Packed or at venue</span>
           </div>
         </div>
 
         <div className="feat-hub">
           <div className="feat-hub-pills feat-hub-pills--scroll">
-            <button type="button" className={`inv-cat-tab ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
-            {CATEGORIES.map(c => (
-              <button type="button" key={c.label} className={`inv-cat-tab ${catFilter === c.label ? 'active' : ''}`} onClick={() => setCatFilter(c.label)}>
-                {c.icon} {c.label}
-              </button>
-            ))}
+            <button type="button" aria-pressed={!catFilter} className={`inv-cat-tab ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
+            {CATEGORIES.map(c => {
+              const Icon = c.icon;
+              return (
+                <button type="button" key={c.label} aria-pressed={catFilter === c.label} className={`inv-cat-tab ${catFilter === c.label ? 'active' : ''}`} onClick={() => setCatFilter(c.label)}>
+                  <Icon size={15} aria-hidden="true" /> {catName(c)}
+                </button>
+              );
+            })}
           </div>
           <div className="feat-hub-tools">
             <input className="form-input" placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} aria-label="Search items" />
@@ -180,142 +187,158 @@ export default function Inventory() {
       </section>
 
       {/* Items grid */}
-      {filtered.length === 0 ? (
-        <div className="empty-state" style={{ padding: '40px 0' }}>
-          <div className="empty-icon">📦</div>
-          <div className="empty-title">No items found</div>
-          <div className="empty-desc">Add items to track what you need for your wedding.</div>
-        </div>
+      {items.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="No items yet"
+          action={<button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add your first item</button>}
+        >
+          Add outfits, jewellery, décor or documents so nothing gets forgotten on the day.
+        </EmptyState>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={SearchX}
+          tone="sky"
+          title="Nothing matches"
+          action={<button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setCatFilter(''); setStatusFilter(''); }}>Show all items</button>}
+        >
+          Try another word, or clear the filters.
+        </EmptyState>
       ) : (
         <div className="inv-grid">
           {filtered.map(item => {
             const statusMeta = STATUSES.find(s => s.key === item.status) || STATUSES[0];
             const catMeta    = CATEGORIES.find(c => c.label === item.category);
+            const CatIcon    = catMeta?.icon || Package;
             return (
-              <div key={item.id} className="inv-card" onClick={() => openEdit(item)}>
+              <div key={item.id} className="inv-card">
                 <div className="inv-card-top">
-                  <span className="inv-card-icon">{catMeta?.icon || '📦'}</span>
-                  <span className="inv-status-badge" style={{ background: `${statusMeta.color}20`, color: statusMeta.color }}>
+                  <span className="inv-card-icon" title={catMeta ? catName(catMeta) : item.category}><CatIcon size={20} aria-hidden="true" /></span>
+                  <span className="inv-status-badge" style={{ background: `color-mix(in srgb, ${statusMeta.color} 14%, transparent)`, color: statusMeta.color }}>
                     {statusMeta.label}
                   </span>
                 </div>
                 <div className="inv-card-name">{item.name}</div>
                 {item.subCategory && <div className="inv-card-sub">{item.subCategory}</div>}
-                {item.location && <div className="inv-card-meta">📍 {item.location}</div>}
+                {item.location && <div className="inv-card-meta"><MapPin size={13} aria-hidden="true" /> {item.location}</div>}
                 {item.quantity && <div className="inv-card-meta">{item.quantity} {item.unit || 'pcs'}</div>}
                 {item.reminderDate && item.reminderDate <= now && item.status !== 'done' && (
-                  <div className="inv-reminder-badge">⏰ Reminder past</div>
+                  <div className="inv-reminder-badge"><BellRing size={12} aria-hidden="true" /> Reminder due{item.reminderNote ? `: ${item.reminderNote}` : ''}</div>
                 )}
-                <button
-                  className="inv-delete-btn"
-                  onClick={e => { e.stopPropagation(); setDeleting(item); }}
-                >✕</button>
+                <div className="inv-card-actions">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(item)} aria-label={`Edit “${item.name}”`}>
+                    <Pencil size={15} aria-hidden="true" /> Edit
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(item)} aria-label={`Delete “${item.name}”`}>
+                    <Trash2 size={15} aria-hidden="true" /> Delete
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Add / edit */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
-          <div className="modal-card modal-card-lg" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">{editing ? 'Edit Item' : 'Add Item'}</h2>
-              <button className="modal-close" onClick={() => !saving && setShowModal(false)}>✕</button>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Name <span className="req">*</span></label>
-                <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Bridal lehenga" autoFocus />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Status</label>
-                <Select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                  {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </Select>
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <Select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))}>
-                  {CATEGORIES.map(c => <option key={c.label} value={c.label}>{c.icon} {c.label}</option>)}
-                </Select>
-                {form.category === 'Other' && (
-                  <input className="form-input" style={{ marginTop: 6 }} placeholder="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
-                )}
-              </div>
-              {subOptions.length > 0 && (
-                <div className="form-group">
-                  <label className="form-label">Sub-category</label>
-                  <Select className="form-select" value={form.subCategory} onChange={e => setForm(f => ({ ...f, subCategory: e.target.value }))}>
-                    <option value="">— Select —</option>
-                    {subOptions.map(s => <option key={s}>{s}</option>)}
-                  </Select>
-                </div>
-              )}
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Quantity</label>
-                <input className="form-input" type="number" min="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Unit</label>
-                <input className="form-input" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="pcs, sets, kg…" />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Location</label>
-                <input className="form-input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Where is it stored?" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Assigned To</label>
-                <input className="form-input" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} placeholder="Name or role" />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Est. Cost (₹)</label>
-                <input className="form-input" type="number" value={form.estimatedCost} onChange={e => setForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Actual Cost (₹)</label>
-                <input className="form-input" type="number" value={form.actualCost} onChange={e => setForm(f => ({ ...f, actualCost: e.target.value }))} placeholder="0" />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Reminder Date</label>
-                <input className="form-input" type="date" value={form.reminderDate} onChange={e => setForm(f => ({ ...f, reminderDate: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Reminder Note</label>
-                <input className="form-input" value={form.reminderNote} onChange={e => setForm(f => ({ ...f, reminderNote: e.target.value }))} placeholder="What to check" />
-              </div>
+        <Modal
+          size="lg"
+          title={editing ? 'Edit item' : 'Add an item'}
+          onClose={() => !saving && setShowModal(false)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                {editing ? 'Save changes' : 'Add item'}
+              </button>
+            </>
+          }
+        >
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-name">What is it?</label>
+              <input id="inv-name" className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Bridal lehenga" />
             </div>
             <div className="form-group">
-              <label className="form-label">Notes</label>
-              <textarea className="form-textarea" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? <span className="btn-spinner" /> : null}
-                {editing ? 'Update' : 'Add Item'}
-              </button>
+              <label className="form-label" htmlFor="inv-status">Where is it now?</label>
+              <Select id="inv-status" className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </Select>
             </div>
           </div>
-        </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-cat">Category</label>
+              <Select id="inv-cat" className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))}>
+                {CATEGORIES.map(c => <option key={c.label} value={c.label}>{catName(c)}</option>)}
+              </Select>
+              {form.category === 'Other' && (
+                <input className="form-input" style={{ marginTop: 6 }} placeholder="Name the category" aria-label="Category name" value={form.customCategory || ''} onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))} />
+              )}
+            </div>
+            {subOptions.length > 0 && (
+              <div className="form-group">
+                <label className="form-label" htmlFor="inv-sub">Type <span className="form-optional">(optional)</span></label>
+                <Select id="inv-sub" className="form-select" value={form.subCategory} onChange={e => setForm(f => ({ ...f, subCategory: e.target.value }))}>
+                  <option value="">Choose…</option>
+                  {subOptions.map(s => <option key={s}>{s}</option>)}
+                </Select>
+              </div>
+            )}
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-qty">How many?</label>
+              <input id="inv-qty" className="form-input" type="number" inputMode="numeric" min="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-unit">Counted in</label>
+              <input id="inv-unit" className="form-input" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="pcs, sets, kg…" />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-where">Kept where? <span className="form-optional">(optional)</span></label>
+              <input id="inv-where" className="form-input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Mum’s cupboard" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-who">Who’s looking after it? <span className="form-optional">(optional)</span></label>
+              <input id="inv-who" className="form-input" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} placeholder="Name or role" />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-est">Expected cost (₹) <span className="form-optional">(optional)</span></label>
+              <input id="inv-est" className="form-input" type="number" inputMode="numeric" value={form.estimatedCost} onChange={e => setForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-act">Paid (₹) <span className="form-optional">(optional)</span></label>
+              <input id="inv-act" className="form-input" type="number" inputMode="numeric" value={form.actualCost} onChange={e => setForm(f => ({ ...f, actualCost: e.target.value }))} placeholder="0" />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-rdate">Remind me on <span className="form-optional">(optional)</span></label>
+              <input id="inv-rdate" className="form-input" type="date" value={form.reminderDate} onChange={e => setForm(f => ({ ...f, reminderDate: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="inv-rnote">Remind me to… <span className="form-optional">(optional)</span></label>
+              <input id="inv-rnote" className="form-input" value={form.reminderNote} onChange={e => setForm(f => ({ ...f, reminderNote: e.target.value }))} placeholder="e.g. Collect from tailor" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="inv-notes">Notes <span className="form-optional">(optional)</span></label>
+            <textarea id="inv-notes" className="form-textarea" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+          </div>
+        </Modal>
       )}
 
       {deleting && (
         <ConfirmModal
-          title="Delete Item"
-          message={`Delete "${deleting.name}"?`}
-          confirmText="Delete"
+          title="Delete this item?"
+          message={`“${deleting.name}” will be removed from your inventory.`}
+          confirmText="Delete item"
           onConfirm={() => deleteItem(deleting.id)}
           onCancel={() => setDeleting(null)}
         />

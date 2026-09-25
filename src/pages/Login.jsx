@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { saveToken, hadSession, clearToken } from '../lib/auth';
 import { useToast } from '../components/ui/Toast';
+import { X } from 'lucide-react';
 import './Login.css';
 
 const RESEND_COOLDOWN_S = 60;
@@ -161,7 +162,7 @@ export default function Login() {
       setRecoveryStep('verify');
       setRecoveryData(d => ({ ...d, code: '' }));
     } catch (err) {
-      toast(err.message || 'Failed to send code', 'error');
+      toast(err.message || 'We couldn’t send the code. Try again.', 'error');
     } finally {
       setRecoveryLoading(false);
     }
@@ -276,13 +277,14 @@ export default function Login() {
         <div className="recovery-overlay" onClick={() => !recoveryLoading && setRecoveryOpen(false)}>
           <div className="recovery-card" onClick={e => e.stopPropagation()}>
             <div className="recovery-card-header">
-              <h2>Recover Account</h2>
+              <h2>Get back into your account</h2>
               <button
                 type="button"
                 className="modal-close"
                 onClick={() => !recoveryLoading && setRecoveryOpen(false)}
                 disabled={recoveryLoading}
-              >✕</button>
+                aria-label="Close"
+              ><X size={18} aria-hidden="true" /></button>
             </div>
 
             {recoveryStep === 'request' && (

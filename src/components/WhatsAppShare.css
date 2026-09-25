@@ -167,3 +167,9 @@
   .wa-actions { flex-direction: column; }
   .wa-actions .btn { width: 100%; justify-content: center; }
 }
+
+.wa-share-header h2 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
+.wa-icon { color: var(--green); display: flex; }
+.wa-upload-area { width: 100%; font: inherit; }
+.wa-upload-icon { color: var(--rose-deep); display: flex; }
+.wa-image-remove { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; }

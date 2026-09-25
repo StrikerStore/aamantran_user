@@ -3,6 +3,8 @@ import { getInviteBaseUrl } from '../lib/config';
 import { copyToClipboard, whatsappShareUrl } from '../lib/utils';
 import { useToast } from './ui/Toast';
 import { api } from '../lib/api';
+import { eventTypeWord } from '../lib/event';
+import { MessageCircle, ImagePlus, Trash2, Share2, Copy, Download } from 'lucide-react';
 import './WhatsAppShare.css';
 
 /**
@@ -70,7 +72,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
     const link = linkType === 'full' ? fullLink : (partialUrl || `${fullLink}-partial`);
 
     setMessageText(
-      `You are cordially invited to the wedding of ${names}! 🎉${dateLine}${venueLine}\n\nView our invitation:\n${link}\n\nMade with ❤️ on Aamantran`
+      `You are cordially invited to the ${eventTypeWord(event)} of ${names}! 🎉${dateLine}${venueLine}\n\nView our invitation:\n${link}\n\nMade with ❤️ on Aamantran`
     );
   }, [event, people, schemaPeopleRoles, functions, linkType, fullLink, partialUrl]);
 
@@ -102,7 +104,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
       setImagePreview(r.media.url);
       setImageFile(null);
       setSavedMediaId(r.media.id);
-      toast('Share image saved!', 'success');
+      toast('Photo saved.', 'success');
     } catch {
       // Keep local preview if upload fails
     } finally {
@@ -141,7 +143,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
       try {
         await navigator.share({ text: messageText, files: [shareFile] });
       } catch (err) {
-        if (err.name !== 'AbortError') toast('Share failed', 'error');
+        if (err.name !== 'AbortError') toast('Couldn’t open sharing. Try “Copy message” instead.', 'error');
       }
     } else {
       window.open(whatsappShareUrl(messageText), '_blank');
@@ -156,7 +158,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
 
   async function handleCopy() {
     const ok = await copyToClipboard(messageText);
-    toast(ok ? 'Message copied!' : 'Copy failed', ok ? 'success' : 'error');
+    toast(ok ? 'Message copied.' : 'Couldn’t copy — select the message and copy it yourself.', ok ? 'success' : 'error');
   }
 
   if (!event?.isPublished) return null;
@@ -166,47 +168,49 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
   return (
     <div className="wa-share">
       <div className="wa-share-header">
-        <span className="wa-icon">📲</span>
-        <h3>Share on WhatsApp</h3>
+        <span className="wa-icon" aria-hidden="true"><MessageCircle size={20} /></span>
+        <h2>Send on WhatsApp</h2>
       </div>
 
       {/* Share image — persisted for future use */}
       <div className="wa-section">
         <div className="wa-section-label">
-          Share Image
+          Photo to send with your message <span className="form-optional">(optional)</span>
         </div>
         {imagePreview ? (
           <div className="wa-image-preview-wrap">
             <img src={imagePreview} alt="Share preview" className="wa-image-preview" />
-            <button className="wa-image-remove" onClick={removeImage} disabled={uploading}>✕ Remove</button>
+            <button type="button" className="wa-image-remove" onClick={removeImage} disabled={uploading}>
+              <Trash2 size={14} aria-hidden="true" /> Remove photo
+            </button>
           </div>
         ) : (
-          <div className="wa-upload-area" onClick={() => !uploading && fileRef.current?.click()}>
-            <span className="wa-upload-icon">📷</span>
-            <span>{uploading ? 'Uploading…' : 'Upload a photo to attach with your message'}</span>
-            <span className="wa-upload-hint">e.g. couple photo or save-the-date card</span>
-          </div>
+          <button type="button" className="wa-upload-area" onClick={() => !uploading && fileRef.current?.click()}>
+            <span className="wa-upload-icon" aria-hidden="true"><ImagePlus size={28} /></span>
+            <span>{uploading ? 'Uploading…' : 'Add a photo'}</span>
+            <span className="wa-upload-hint">A couple photo or save-the-date card makes your message stand out.</span>
+          </button>
         )}
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageChange} />
-        {uploading && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>Saving share image…</div>}
+        {uploading && <div className="form-hint">Saving your photo…</div>}
       </div>
 
       {/* Link selector — only show if a real partial invite exists */}
       {hasPartial && (
         <div className="wa-section">
-          <div className="wa-section-label">Select Invitation Link</div>
+          <div className="wa-section-label">Which link?</div>
           <div className="wa-link-options">
             <label className={`wa-link-option ${linkType === 'full' ? 'selected' : ''}`}>
               <input type="radio" name="linkType" value="full" checked={linkType === 'full'} onChange={() => setLinkType('full')} />
               <div>
-                <div className="wa-link-label">Full Invitation (all functions)</div>
+                <div className="wa-link-label">Your link — every ceremony</div>
                 <div className="wa-link-url">{fullLink}</div>
               </div>
             </label>
             <label className={`wa-link-option ${linkType === 'partial' ? 'selected' : ''}`}>
               <input type="radio" name="linkType" value="partial" checked={linkType === 'partial'} onChange={() => setLinkType('partial')} />
               <div>
-                <div className="wa-link-label">Partial Invitation (selected functions only)</div>
+                <div className="wa-link-label">Link for selected ceremonies</div>
                 <div className="wa-link-url">{partialUrl}</div>
               </div>
             </label>
@@ -216,8 +220,10 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
 
       {/* Editable message */}
       <div className="wa-section">
-        <div className="wa-section-label">Message</div>
+        <label className="wa-section-label" htmlFor="wa-message">Message</label>
+        <div className="form-hint" style={{ marginBottom: 6 }}>Edit it however you like.</div>
         <textarea
+          id="wa-message"
           className="form-textarea wa-message"
           value={messageText}
           onChange={e => setMessageText(e.target.value)}
@@ -227,7 +233,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
 
       {/* Preview card */}
       <div className="wa-section">
-        <div className="wa-section-label">Preview</div>
+        <div className="wa-section-label">How it will look</div>
         <div className="wa-preview-card">
           {imagePreview && <img src={imagePreview} alt="" className="wa-preview-image" />}
           <p className="wa-preview-text">{messageText}</p>
@@ -236,23 +242,23 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
 
       {/* Actions */}
       <div className="wa-actions">
-        <button className="btn btn-primary" onClick={handleShare} disabled={uploading}>
-          <span>📱</span>
-          {isMobileShareAvailable ? 'Share via WhatsApp' : 'Open WhatsApp Web'}
+        <button type="button" className="btn btn-primary" onClick={handleShare} disabled={uploading}>
+          <Share2 size={18} aria-hidden="true" />
+          {isMobileShareAvailable ? 'Share' : 'Open WhatsApp'}
         </button>
         {imagePreview && !isMobileShareAvailable && (
-          <button className="btn btn-secondary" onClick={async () => {
+          <button type="button" className="btn btn-secondary" onClick={async () => {
             const a = document.createElement('a');
             a.href = imagePreview;
             a.download = 'share-image.jpg';
             a.target = '_blank';
             a.click();
           }}>
-            <span>⬇</span> Download Image
+            <Download size={18} aria-hidden="true" /> Download image
           </button>
         )}
-        <button className="btn btn-secondary" onClick={handleCopy}>
-          <span>📋</span> Copy Message
+        <button type="button" className="btn btn-secondary" onClick={handleCopy}>
+          <Copy size={18} aria-hidden="true" /> Copy message
         </button>
       </div>
     </div>

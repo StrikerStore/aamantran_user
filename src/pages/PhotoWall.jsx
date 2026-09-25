@@ -3,6 +3,9 @@ import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ImagePlus, Trash2, X, Camera } from 'lucide-react';
 import './PhotoWall.css';
 
 const CATEGORIES = ['Ceremony', 'Reception', 'Candid', 'Family', 'Couple'];
@@ -20,7 +23,7 @@ export default function PhotoWall() {
   useEffect(() => {
     api.photos.list(id)
       .then(r => setPhotos(r.photos || []))
-      .catch(() => toast('Failed to load photos', 'error'))
+      .catch(() => toast('We couldn’t load your photos. Try again.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -37,7 +40,7 @@ export default function PhotoWall() {
         const r = await api.photos.upload(id, fd);
         setPhotos(prev => [...prev, r.photo]);
       }
-      toast('Uploaded!', 'success');
+      toast(files.length > 1 ? `${files.length} photos added.` : 'Photo added.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -62,46 +65,48 @@ export default function PhotoWall() {
   return (
     <div className="page-fade">
       <section className="feat-shell">
-        <header className="feat-head">
-          <div className="feat-head-text">
-            <h1 className="feat-title">Photo wall</h1>
-            <p className="feat-desc">Your private wedding album — only you can see this</p>
-          </div>
-          <div className="feat-head-actions">
+        <PageHeader
+          title="Photo wall"
+          subtitle="Your private album — only you can see these photos, not your guests."
+          helpMore="/guide#photos"
+          help="Pick a category first (for example “Family”) and new uploads are filed under it. You can choose several photos at once."
+          actions={
             <label className={`btn btn-primary ${uploading ? 'disabled' : ''}`} style={{ cursor: uploading ? 'default' : 'pointer' }}>
-              {uploading ? <span className="btn-spinner" /> : null}
-              {uploading ? 'Uploading…' : '+ Upload photos'}
-              <input type="file" accept="image/*" multiple hidden onChange={uploadFiles} disabled={uploading} />
+              {uploading ? <span className="btn-spinner" aria-hidden="true" /> : <ImagePlus size={18} aria-hidden="true" />}
+              {uploading ? 'Uploading…' : 'Add photos'}
+              <input type="file" accept="image/*" multiple className="sr-only" onChange={uploadFiles} disabled={uploading} />
             </label>
-          </div>
-        </header>
+          }
+        />
 
         <div className="feat-hub">
           <div className="feat-hub-pills feat-hub-pills--scroll">
-            <button type="button" className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
+            <button type="button" aria-pressed={!catFilter} className={`pill ${!catFilter ? 'active' : ''}`} onClick={() => setCatFilter('')}>All</button>
             {CATEGORIES.map(c => (
-              <button type="button" key={c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
+              <button type="button" key={c} aria-pressed={catFilter === c} className={`pill ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>{c}</button>
             ))}
           </div>
         </div>
       </section>
 
       {filtered.length === 0 ? (
-        <div className="empty-state" style={{ padding: '40px 0' }}>
-          <div className="empty-icon">📸</div>
-          <div className="empty-title">No photos yet</div>
-          <div className="empty-desc">Upload your wedding photos to create a beautiful album.</div>
-        </div>
+        <EmptyState icon={Camera} tone="peach" title={catFilter ? `No ${catFilter.toLowerCase()} photos yet` : 'No photos yet'}>
+          Press “Add photos” to start your album.
+        </EmptyState>
       ) : (
         <div className="masonry-grid">
           {filtered.map(photo => (
-            <div key={photo.id} className="masonry-pin" onClick={() => setLightbox(photo)}>
-              <img src={photo.url} alt={photo.caption || 'photo'} className="masonry-img" loading="lazy" />
+            <div key={photo.id} className="masonry-pin">
+              <button type="button" className="masonry-open" onClick={() => setLightbox(photo)} aria-label={`Open ${photo.caption || 'photo'}`}>
+                <img src={photo.url} alt={photo.caption || ''} className="masonry-img" loading="lazy" />
+              </button>
               <div className="masonry-overlay">
                 {photo.category && <span className="masonry-cat">{photo.category}</span>}
                 {photo.caption && <p className="masonry-caption">{photo.caption}</p>}
-                <button className="masonry-delete" onClick={e => { e.stopPropagation(); setDeleting(photo); }}>✕</button>
               </div>
+              <button type="button" className="masonry-delete" onClick={() => setDeleting(photo)} aria-label="Delete photo" title="Delete photo">
+                <Trash2 size={16} aria-hidden="true" />
+              </button>
             </div>
           ))}
         </div>
@@ -109,8 +114,8 @@ export default function PhotoWall() {
 
       {/* Lightbox */}
       {lightbox && (
-        <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
-          <button className="lightbox-close" onClick={() => setLightbox(null)}>✕</button>
+        <div className="lightbox-overlay" role="dialog" aria-modal="true" aria-label={lightbox.caption || 'Photo'} onClick={() => setLightbox(null)}>
+          <button type="button" className="lightbox-close" onClick={() => setLightbox(null)} aria-label="Close"><X size={22} aria-hidden="true" /></button>
           <img src={lightbox.url} alt={lightbox.caption || 'photo'} className="lightbox-img" onClick={e => e.stopPropagation()} />
           {lightbox.caption && <p className="lightbox-caption">{lightbox.caption}</p>}
         </div>
@@ -118,9 +123,9 @@ export default function PhotoWall() {
 
       {deleting && (
         <ConfirmModal
-          title="Delete Photo"
-          message="Delete this photo permanently?"
-          confirmText="Delete"
+          title="Delete this photo?"
+          message="It will be removed from your album for good."
+          confirmText="Delete photo"
           onConfirm={() => deletePhoto(deleting.id)}
           onCancel={() => setDeleting(null)}
         />

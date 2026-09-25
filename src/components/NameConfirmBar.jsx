@@ -1,10 +1,11 @@
 import { Modal } from './ui/Modal';
+import { Lock, AlertTriangle, UserPlus, PencilLine } from 'lucide-react';
 import './NameConfirmBar.css';
 
 /**
  * NameConfirmBar — status banner shown in the People section of the build panel.
  *
- * Confirming is no longer done here: the "Next: Venues" button owns that gate and
+ * Confirming is no longer done here: the Names step's "Save & continue" owns that gate and
  * raises <ConfirmNamesModal /> itself. This component only reports the state.
  *
  * Props:
@@ -17,10 +18,10 @@ export function NameConfirmBar({ event, people = [] }) {
   if (event.namesAreFrozen) {
     return (
       <div className="name-confirm-bar frozen">
-        <span className="ncb-icon">🔒</span>
+        <span className="ncb-icon" aria-hidden="true"><Lock size={20} /></span>
         <div className="ncb-text">
           <strong>Names confirmed</strong>
-          <span>The main names are locked — raise a support ticket to change those. The rest stay editable.</span>
+          <span>The main names are locked. To change them, message us from Support. Family names stay editable.</span>
         </div>
       </div>
     );
@@ -30,13 +31,13 @@ export function NameConfirmBar({ event, people = [] }) {
 
   return (
     <div className={`name-confirm-bar ${hasNames ? 'pending' : 'empty'}`}>
-      <span className="ncb-icon">{hasNames ? '⚠️' : '👤'}</span>
+      <span className="ncb-icon" aria-hidden="true">{hasNames ? <AlertTriangle size={20} /> : <UserPlus size={20} />}</span>
       <div className="ncb-text">
         <strong>{hasNames ? 'Check your names' : 'Add people first'}</strong>
         <span>
           {hasNames
-            ? 'The main names lock permanently when you continue to Venues.'
-            : 'Fill in the names below, then continue to Venues to lock the main names in.'}
+            ? 'The main names are locked when you continue — check the spelling first.'
+            : 'Fill in the names below, then continue.'}
         </span>
       </div>
     </div>
@@ -62,14 +63,14 @@ export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConf
 
   return (
     <Modal
-      title="Confirm Names"
+      title="Are these names right?"
       onClose={onCancel}
       footer={
         <>
-          <button className="btn btn-secondary" onClick={onCancel}>Go back</button>
+          <button className="btn btn-secondary" onClick={onCancel}>Let me check</button>
           <button className="btn btn-primary" disabled={loading} onClick={onConfirm}>
             {loading ? <span className="btn-spinner" /> : null}
-            Confirm &amp; Continue
+            Yes, continue
           </button>
         </>
       }
@@ -77,7 +78,7 @@ export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConf
       <div style={{ padding: '8px 0' }}>
         <p className="ncb-modal-intro">
           {lockedRows.length > 0 ? (
-            <>Only the main names below get locked. <strong>This cannot be undone.</strong></>
+            <>The main names are locked once you continue. <strong>You can’t change them yourself afterwards.</strong></>
           ) : (
             <>You are about to confirm the following names.</>
           )}
@@ -86,8 +87,8 @@ export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConf
         {lockedRows.length > 0 && (
           <>
             <div className="ncb-group-head locked">
-              <span className="ncb-group-icon">🔒</span>
-              <span>Locked permanently</span>
+              <span className="ncb-group-icon" aria-hidden="true"><Lock size={15} /></span>
+              <span>These get locked</span>
             </div>
             <div className="ncb-names-list locked">
               {lockedRows.map(r => (
@@ -103,8 +104,8 @@ export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConf
         {editableRows.length > 0 && (
           <>
             <div className="ncb-group-head">
-              <span className="ncb-group-icon">✏️</span>
-              <span>You can still change these later</span>
+              <span className="ncb-group-icon" aria-hidden="true"><PencilLine size={15} /></span>
+              <span>You can still change these</span>
             </div>
             <div className="ncb-names-list">
               {editableRows.map(r => (
@@ -119,7 +120,7 @@ export function ConfirmNamesModal({ rows = [], loading = false, onCancel, onConf
 
         <p className="ncb-modal-note">
           {lockedRows.length > 0
-            ? 'To change a locked name afterwards, raise a support ticket. Every other name and detail stays editable.'
+            ? 'Need to change a locked name later? Message us from Support. Everything else stays editable.'
             : 'After confirmation, you can still edit all other details.'}
         </p>
       </div>

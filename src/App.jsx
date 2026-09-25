@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { isAuthenticated } from './lib/auth';
 import { Layout } from './components/Layout';
 import Login from './pages/Login';
-import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import GenerateInvitation from './pages/GenerateInvitation';
 import EditInvitation from './pages/EditInvitation';
@@ -39,7 +38,8 @@ export default function App() {
 
         {/* Protected */}
         <Route element={<RequireAuth><Layout /></RequireAuth>}>
-          <Route path="/onboarding" element={<Onboarding />} />
+          {/* The old set-up page is retired — invitations are created at checkout. */}
+          <Route path="/onboarding" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"  element={<Dashboard />} />
           <Route path="/events/:id/generate"  element={<GenerateInvitation />} />
           <Route path="/events/:id/edit"      element={<EditInvitation />} />

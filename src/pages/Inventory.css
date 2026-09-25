@@ -69,3 +69,13 @@
 
 @media (max-width: 900px) { .inv-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 540px) { .inv-grid { grid-template-columns: 1fr; } }
+
+/* Revamp: visible Edit / Delete (hover-only delete was unreachable on touch) */
+.inv-card { cursor: default; display: flex; flex-direction: column; }
+.inv-card-icon { display: inline-flex; color: var(--rose-deep); }
+.inv-card-meta { display: flex; align-items: center; gap: 4px; }
+.inv-reminder-badge { display: inline-flex; align-items: center; gap: 4px; }
+.inv-card-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
+.inv-cat-tab { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+.inv-alert { display: flex; align-items: center; gap: 8px; }
+.inv-status-badge { font-size: 0.75rem; }
