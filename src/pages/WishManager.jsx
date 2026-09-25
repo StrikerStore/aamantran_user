@@ -6,7 +6,7 @@ import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Eye, EyeOff, Trash2, Heart, SearchX, Search } from 'lucide-react';
+import { Eye, EyeOff, Trash2, Heart, SearchX, Search } from '../components/ui/icons';
 import './WishManager.css';
 
 export default function WishManager() {

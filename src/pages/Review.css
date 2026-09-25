@@ -42,7 +42,7 @@
 .review-submitted h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; }
 .review-submitted p { color: var(--text-muted); font-size: 0.9rem; }
 
-/* Revamp: lucide stars (44px targets), photo upload without inline styles */
+/* Revamp: stars (44px targets), photo upload without inline styles */
 .review-stars { border: none; padding: 0; margin: 0 0 16px; }
 .star-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .star-btn.active { color: #b7791f; }

@@ -6,7 +6,7 @@ import { useToast } from '../components/ui/Toast';
 import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Plus, Pencil, Trash2, Phone, Mail, Handshake, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, Phone, Mail, Handshake, Filter } from '../components/ui/icons';
 import './Vendors.css';
 
 const VENDOR_TYPES = ['Photography', 'Catering', 'Decor', 'Music', 'Attire', 'Priest', 'Transport', 'Makeup', 'Mehendi', 'Other'];

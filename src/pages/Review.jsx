@@ -5,7 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { eventTitle } from '../lib/event';
-import { Star, ImagePlus, Trash2, PartyPopper } from 'lucide-react';
+import { Star, ImagePlus, Trash2, PartyPopper } from '../components/ui/icons';
 import './Review.css';
 
 const RATING_WORDS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];

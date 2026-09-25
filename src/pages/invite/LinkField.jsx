@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2 } from '../../components/ui/icons';
 import { api } from '../../lib/api';
 import { cleanLinkInput } from './link';
 

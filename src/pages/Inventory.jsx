@@ -7,7 +7,7 @@ import { useToast } from '../components/ui/Toast';
 import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Plus, Pencil, Trash2, MapPin, BellRing, Shirt, Gem, Flower2, UtensilsCrossed, FileText, Gift, Package, SearchX } from 'lucide-react';
+import { Plus, Pencil, Trash2, MapPin, BellRing, Shirt, Gem, Flower2, UtensilsCrossed, FileText, Gift, Package, SearchX } from '../components/ui/icons';
 import './Inventory.css';
 
 // `label` is what is saved on the item (kept as-is so saved items still match);

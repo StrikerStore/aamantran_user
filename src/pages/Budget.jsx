@@ -6,7 +6,7 @@ import { useToast } from '../components/ui/Toast';
 import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Plus, Pencil, Trash2, Check, Wallet } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Wallet } from '../components/ui/icons';
 import './Budget.css';
 
 const EXPENSE_CATS = ['Venue', 'Catering', 'Photography', 'Attire', 'Decor', 'Music', 'Transport', 'Jewellery', 'Invitations', 'Other'];

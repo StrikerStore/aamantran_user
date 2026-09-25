@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Download } from 'lucide-react';
+import { Download } from '../../components/ui/icons';
 
 /**
  * QR code for an invitation link, drawn in the browser — the link is never

@@ -3,7 +3,7 @@ import { useOutletContext, useNavigate, Link } from 'react-router-dom';
 import {
   Copy, Share2, PencilLine, Sparkles, Eye, Check, ChevronRight, Users, CalendarHeart, Image as ImageIcon,
   Radio, X, ShoppingBag, LifeBuoy, PartyPopper, CloudOff, MessageCircleHeart,
-} from 'lucide-react';
+} from '../components/ui/icons';
 import { api } from '../lib/api';
 import { formatDate, countdown, formatRelative } from '../lib/utils';
 import { getInviteBaseUrl, WEBSITE_URL } from '../lib/config';

@@ -7,7 +7,7 @@ import { getToken } from '../lib/auth';
 import { useToast } from '../components/ui/Toast';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Download, Users, SearchX, Search } from 'lucide-react';
+import { Download, Users, SearchX, Search } from '../components/ui/icons';
 import './GuestManager.css';
 
 function rsvpFullTitle(r) {

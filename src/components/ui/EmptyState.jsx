@@ -1,6 +1,6 @@
 /**
  * What an empty area is for, and the one thing to do next.
- * `icon` is a lucide-react component; `tone` picks the pastel circle.
+ * `icon` is an icon from components/ui/icons; `tone` picks the pastel circle.
  */
 export function EmptyState({ icon: Icon, title, children, action, tone = 'rose' }) {
   return (

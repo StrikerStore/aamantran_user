@@ -4,7 +4,7 @@ import { copyToClipboard, whatsappShareUrl } from '../lib/utils';
 import { useToast } from './ui/Toast';
 import { api } from '../lib/api';
 import { eventTypeWord } from '../lib/event';
-import { MessageCircle, ImagePlus, Trash2, Share2, Copy, Download } from 'lucide-react';
+import { MessageCircle, ImagePlus, Trash2, Share2, Copy, Download } from './ui/icons';
 import './WhatsAppShare.css';
 
 /**

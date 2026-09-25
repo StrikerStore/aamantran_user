@@ -5,7 +5,7 @@ import { getInviteBaseUrl } from '../lib/config';
 import { WhatsAppShare } from '../components/WhatsAppShare';
 import { useToast } from '../components/ui/Toast';
 import { QrCode } from './invite/QrCode';
-import { ArrowLeft, Copy, Lock, AlertTriangle, QrCode as QrIcon, Radio } from 'lucide-react';
+import { ArrowLeft, Copy, Lock, AlertTriangle, QrCode as QrIcon, Radio } from '../components/ui/icons';
 import './Share.css';
 
 export default function Share() {

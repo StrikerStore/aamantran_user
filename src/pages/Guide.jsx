@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Rocket, Share2, Users, ClipboardList, Wallet, Camera, UserCog,
   ChevronDown, Search, MessageCircle, SearchX,
-} from 'lucide-react';
+} from '../components/ui/icons';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import './Guide.css';

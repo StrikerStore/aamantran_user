@@ -6,7 +6,7 @@ import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { toTimeInput, fromTimeInput } from './invite/time';
-import { Plus, Pencil, Trash2, MapPin, User, Clock, CalendarHeart } from 'lucide-react';
+import { Plus, Pencil, Trash2, MapPin, User, Clock, CalendarHeart } from '../components/ui/icons';
 import './Timeline.css';
 
 // Times are saved as "10:30 AM"; sort by the real clock time so 9:00 comes before 10:30.

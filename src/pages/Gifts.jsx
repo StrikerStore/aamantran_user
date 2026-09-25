@@ -6,7 +6,7 @@ import { useToast } from '../components/ui/Toast';
 import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Plus, Pencil, Trash2, Check, Gift, PartyPopper } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Gift, PartyPopper } from '../components/ui/icons';
 import './Gifts.css';
 
 const BLANK = { fromName: '', fromRelation: '', giftDescription: '', receivedDate: '', estimatedValue: '', thankYouSent: false, notes: '' };

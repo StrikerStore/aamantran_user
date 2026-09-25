@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Info } from 'lucide-react';
+import { Info } from './icons';
 
 /**
  * The "i" help button. Opens on click / tap (not hover), so it works the same

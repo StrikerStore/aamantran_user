@@ -113,8 +113,8 @@ a:hover { text-decoration: underline; text-underline-offset: 2px; }
 /* Only visible to screen readers. */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-/* Icons from lucide-react sit on the text baseline. */
-.lucide { flex-shrink: 0; }
+/* Icons (Hugeicons, components/ui/icons.jsx) never shrink inside flex rows. */
+.hgi { flex-shrink: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }

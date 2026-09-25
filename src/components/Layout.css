@@ -345,14 +345,15 @@ a.nav-item:nth-of-type(4n+4).active::before { background: var(--peach); }
     -webkit-tap-highlight-color: transparent;
     transition: color var(--t-fast);
   }
-  .bnav-icon { width: 24px; height: 24px; stroke-width: 1.8; transition: transform 90ms ease; }
+  .bnav-icon { width: 24px; height: 24px; transition: transform 90ms ease; }
   .bottom-nav-item:active .bnav-icon { transform: scale(0.9); }
   .bnav-label {
     font-size: 11px; line-height: 13px; font-weight: 700;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .bottom-nav-item.active { color: var(--rose-deep); }
-  .bottom-nav-item.active .bnav-icon { stroke-width: 2.25; }
+  /* Hugeicons draw at 1.5; the active tab gets a bolder line */
+  .bottom-nav-item.active .bnav-icon * { stroke-width: 2; }
   .bottom-nav-item.active::before {
     content: ''; position: absolute; top: 3px;
     width: 4px; height: 4px; border-radius: 50%; background: var(--gold);

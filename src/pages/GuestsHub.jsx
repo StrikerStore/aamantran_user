@@ -1,5 +1,5 @@
 import { Navigate, useParams, useSearchParams } from 'react-router-dom';
-import { Users, MessageCircleHeart } from 'lucide-react';
+import { Users, MessageCircleHeart } from '../components/ui/icons';
 import GuestManager from './GuestManager';
 import WishManager from './WishManager';
 

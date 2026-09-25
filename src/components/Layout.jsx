@@ -4,7 +4,7 @@ import {
   Home, Sparkles, PencilLine, Share2, Users, ListChecks, Clock3, Briefcase,
   Wallet, Package, Gift, Palette, Camera, BookOpen, LifeBuoy, Settings as SettingsIcon, Star,
   LogOut, Menu, ChevronDown, ChevronRight, Check, MoreHorizontal, ShoppingBag,
-} from 'lucide-react';
+} from './ui/icons';
 import { clearToken, getUserInfo } from '../lib/auth';
 import { api } from '../lib/api';
 import { WEBSITE_URL } from '../lib/config';

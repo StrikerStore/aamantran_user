@@ -1,5 +1,5 @@
 import { Modal } from './ui/Modal';
-import { Lock, AlertTriangle, UserPlus, PencilLine } from 'lucide-react';
+import { Lock, AlertTriangle, UserPlus, PencilLine } from './ui/icons';
 import './NameConfirmBar.css';
 
 /**

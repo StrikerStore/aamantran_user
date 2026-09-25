@@ -8,7 +8,7 @@ import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { GridSkeleton } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Plus, Trash2, X, Palette, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, X, Palette, ExternalLink } from '../components/ui/icons';
 import './MoodBoard.css';
 
 const CATEGORIES = ['Color Palette', 'Outfits', 'Decor', 'Flowers', 'Food', 'Jewellery', 'Pinterest', 'Other'];

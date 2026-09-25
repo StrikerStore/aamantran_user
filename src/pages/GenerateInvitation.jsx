@@ -14,7 +14,7 @@ import { eventTitle, eventMeta, eventTypeWord } from '../lib/event';
 import {
   Eye, Check, Lock, ArrowLeft, ArrowRight, ChevronLeft, ChevronDown, Users, CalendarHeart, Image as ImageIcon, FileText,
   Sparkles as SparklesIcon, Link2, Plus, MapPin, Trash2, PencilLine, Copy, Share2, Radio, Music,
-} from 'lucide-react';
+} from '../components/ui/icons';
 import { LinkField } from './invite/LinkField';
 import { QrCode } from './invite/QrCode';
 import { EditOverview } from './invite/EditOverview';

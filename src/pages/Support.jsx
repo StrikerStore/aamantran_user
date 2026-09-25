@@ -7,7 +7,7 @@ import { Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { eventTitle } from '../lib/event';
-import { Plus, MessageCircle, ChevronRight } from 'lucide-react';
+import { Plus, MessageCircle, ChevronRight } from '../components/ui/icons';
 import './Support.css';
 
 /** "open" / "resolved" in words a couple understands, based on who spoke last. */

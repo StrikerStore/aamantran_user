@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from '../../components/ui/icons';
 
 /**
  * Home of a live invitation: one card per area with what is filled in and an

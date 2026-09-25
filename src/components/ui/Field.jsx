@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useId } from 'react';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from './icons';
 import { InfoTip } from './InfoTip';
 
 /**

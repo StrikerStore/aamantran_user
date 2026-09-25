@@ -7,7 +7,7 @@ import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Plus, Pencil, Trash2, CalendarDays, AlertTriangle, PartyPopper, Play, Check, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, Trash2, CalendarDays, AlertTriangle, PartyPopper, Play, Check, RotateCcw } from '../components/ui/icons';
 import './Tasks.css';
 
 

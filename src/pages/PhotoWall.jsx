@@ -5,7 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { ImagePlus, Trash2, X, Camera } from 'lucide-react';
+import { ImagePlus, Trash2, X, Camera } from '../components/ui/icons';
 import './PhotoWall.css';
 
 const CATEGORIES = ['Ceremony', 'Reception', 'Candid', 'Family', 'Couple'];
