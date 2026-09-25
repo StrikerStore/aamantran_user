@@ -242,17 +242,19 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
 
 /** Demo placeholder names keyed by common role values from template schemas */
 const DEMO_NAMES = {
-  bride: 'e.g. Priya Sharma',
-  groom: 'e.g. Rahul Verma',
-  bride_father: 'e.g. Rajesh Sharma',
-  bride_mother: 'e.g. Sunita Sharma',
-  groom_father: 'e.g. Suresh Verma',
-  groom_mother: 'e.g. Kavita Verma',
-  father_bride: 'e.g. Rajesh Sharma',
-  mother_bride: 'e.g. Sunita Sharma',
-  father_groom: 'e.g. Suresh Verma',
-  mother_groom: 'e.g. Kavita Verma',
+  person1: 'e.g. Rahul Verma',
+  person2: 'e.g. Priya Sharma',
+  person1_father: 'e.g. Suresh Verma',
+  person1_mother: 'e.g. Kavita Verma',
+  person2_father: 'e.g. Rajesh Sharma',
+  person2_mother: 'e.g. Sunita Sharma',
 };
+
+/** "person1" → "Person 1", "birthday_person" → "Birthday person" — never show a raw role key. */
+function humanizeRole(role) {
+  const s = String(role || '').replace(/^person(\d+)/, 'person $1').replace(/_/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
 
 /** Suggestions for common custom field keys — shown as datalist options */
 const CUSTOM_FIELD_SUGGESTIONS = {
@@ -268,8 +270,8 @@ const CUSTOM_FIELD_SUGGESTIONS = {
   couple_story: ['We met at college and the rest is history', 'A chance meeting turned into a lifetime'],
   contact_name: ['Rahul Sharma', 'Priya Patel'],
   contact_phone: ['+91 98765 43210'],
-  bride_side_contact: ['e.g. +91 98765 43210'],
-  groom_side_contact: ['e.g. +91 98765 43210'],
+  person1_side_contact: ['e.g. +91 98765 43210'],
+  person2_side_contact: ['e.g. +91 98765 43210'],
   invitation_note: ['Dinner will be served', 'Cocktails at 7 PM', 'Ceremony starts promptly at 11 AM'],
 };
 
@@ -322,6 +324,8 @@ export default function GenerateInvitation() {
   const [personForm, setPersonForm] = useState({ role: '', name: '' }); // fallback mode only
   const [savingPerson, setSavingPerson] = useState(false);
   const [peopleInputs, setPeopleInputs] = useState({});
+  // role → the couple's pick from that name's roleOptions ("Groom", "Bride"…)
+  const [peopleRoleChoices, setPeopleRoleChoices] = useState({});
 
   // Functions — always-editable inline cards (admin-panel style)
   const [functions, setFunctions] = useState([]);
@@ -461,10 +465,12 @@ export default function GenerateInvitation() {
         role: String(r.role),
         label: String(r.label || r.role),
         required: Boolean(r.required),
+        // Set by the admin per name ("Groom, Bride"); empty means no dropdown.
+        roleOptions: Array.isArray(r.roleOptions) ? r.roleOptions.map(String).filter(Boolean) : [],
       }));
   }, [templateSchema]);
 
-  // Roles follow a prefix convention: "bride_father" hangs off "bride". That lets us
+  // Roles follow a prefix convention: "person1_father" hangs off "person1". That lets us
   // group parents under the person they belong to without hard-coding weddings —
   // principals first, then each principal's dependents, in that order.
   const peopleRoleGroups = useMemo(() => {
@@ -521,11 +527,25 @@ export default function GenerateInvitation() {
   useEffect(() => {
     if (!hasSchemaPeopleRoles) return;
     const next = {};
+    const choices = {};
     for (const roleDef of schemaPeopleRoles) {
       next[roleDef.role] = peopleByRole[roleDef.role]?.name || '';
+      if (roleDef.roleOptions.length) choices[roleDef.role] = peopleByRole[roleDef.role]?.extraData?.role_choice || '';
     }
     setPeopleInputs(next);
+    setPeopleRoleChoices(choices);
   }, [hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole]);
+
+  /**
+   * A named person whose role the couple still has to pick. Required before a
+   * new invitation moves on; a live one keeps working without it (the template
+   * falls back to its neutral wording), so it is never forced there.
+   */
+  const missingRoleChoice = (event && !event.isPublished)
+    ? schemaPeopleRoles.find((r) => r.roleOptions.length
+        && String(peopleInputs[r.role] || '').trim()
+        && !peopleRoleChoices[r.role])
+    : null;
 
   // ── Wizard gating ────────────────────────────────────────
   // The furthest reachable tab is derived from what is already saved, so a
@@ -666,14 +686,19 @@ export default function GenerateInvitation() {
   const draftNameRows = hasSchemaPeopleRoles
     ? peopleRoleGroups.ordered
         .filter(r => String(peopleInputs[r.role] || '').trim())
-        .map(r => ({ key: r.role, role: r.label, name: String(peopleInputs[r.role]).trim(), locked: r.required }))
-    : orderedPeople.map(p => ({ key: p.id, role: p.role, name: p.name, locked: true }));
+        .map(r => ({
+          key: r.role,
+          role: peopleRoleChoices[r.role] ? `${r.label} · ${peopleRoleChoices[r.role]}` : r.label,
+          name: String(peopleInputs[r.role]).trim(),
+          locked: r.required,
+        }))
+    : orderedPeople.map(p => ({ key: p.id, role: humanizeRole(p.role), name: p.name, locked: true }));
 
   // Only People and Ceremonies hold the user back; the rest are optional.
   const nextDisabled =
     activeSection === 'people'
       ? (hasSchemaPeopleRoles
-          ? schemaPeopleRoles.some(r => r.required && !String(peopleInputs[r.role] || '').trim())
+          ? schemaPeopleRoles.some(r => r.required && !String(peopleInputs[r.role] || '').trim()) || Boolean(missingRoleChoice)
           : people.length === 0)
       : activeSection === 'functions'
         ? functions.length === 0 || functions.some(f => !f.name || !f.date)
@@ -748,6 +773,10 @@ export default function GenerateInvitation() {
       toast(`"${missingRequired.label}" is required`, 'error');
       return false;
     }
+    if (missingRoleChoice) {
+      toast(`Choose ${missingRoleChoice.roleOptions.join(' or ')} for "${missingRoleChoice.label}"`, 'error');
+      return false;
+    }
     setSavingPerson(true);
     try {
       let nextPeople = [...people];
@@ -758,6 +787,16 @@ export default function GenerateInvitation() {
         const role = roleDef.role;
         const nextName = String(peopleInputs[role] || '').trim();
         const existing = nextPeople.find((p) => p.role === role);
+        // Only names with role options carry a choice; the rest of extraData
+        // is kept exactly as it was.
+        const nextChoice = roleDef.roleOptions.length ? (peopleRoleChoices[role] || '') : null;
+        const choiceChanged = nextChoice !== null && nextChoice !== (existing?.extraData?.role_choice || '');
+        const mergedExtra = () => {
+          const extra = { ...(existing?.extraData || {}) };
+          if (nextChoice) extra.role_choice = nextChoice;
+          else delete extra.role_choice;
+          return Object.keys(extra).length ? extra : null;
+        };
 
         if (existing && !nextName && !roleDef.required) {
           await api.people.remove(id, existing.id);
@@ -770,17 +809,26 @@ export default function GenerateInvitation() {
         if (existing) {
           // A frozen required name is rejected outright by the backend, so don't
           // even reorder it — older events have every sortOrder sitting at 0.
+          // Its role choice is the one thing that may still change.
           const editable = !(frozen && roleDef.required);
           const changed = String(existing.name || '').trim() !== nextName || existing.sortOrder !== sortOrder;
-          if (changed && editable) {
+          if (editable && (changed || choiceChanged)) {
             // The server decides from the template which roles are locked; the
             // client never has to vouch for it.
-            const r = await api.people.update(id, existing.id, { role, name: nextName, sortOrder });
+            const r = await api.people.update(id, existing.id, {
+              role, name: nextName, sortOrder, ...(choiceChanged && { extraData: mergedExtra() }),
+            });
+            nextPeople = nextPeople.map((p) => (p.id === existing.id ? r.person : p));
+            wrote = true;
+          } else if (!editable && choiceChanged) {
+            const r = await api.people.update(id, existing.id, { extraData: mergedExtra() });
             nextPeople = nextPeople.map((p) => (p.id === existing.id ? r.person : p));
             wrote = true;
           }
         } else {
-          const r = await api.people.add(id, { role, name: nextName, sortOrder });
+          const r = await api.people.add(id, {
+            role, name: nextName, sortOrder, ...(nextChoice && { extraData: { role_choice: nextChoice } }),
+          });
           nextPeople = [...nextPeople, r.person];
           wrote = true;
         }
@@ -1296,7 +1344,7 @@ export default function GenerateInvitation() {
                     <label className="form-label">Role <span className="form-hint-inline">(fallback mode)</span></label>
                     <input
                       className="form-input"
-                      placeholder="e.g. Bride, Groom, Father of Bride"
+                      placeholder="e.g. Person 1, Person 2, Host"
                       value={personForm.role}
                       onChange={e => setPersonForm(f => ({ ...f, role: e.target.value }))}
                     />
@@ -1337,7 +1385,7 @@ export default function GenerateInvitation() {
               <div className="inline-form">
                 <div className="form-hint" style={{ marginBottom: 10 }}>
                   {frozen
-                    ? 'Required names are locked after confirmation. You can still edit optional names below.'
+                    ? 'Required names are locked after confirmation. You can still edit optional names below, and change Bride/Groom-style roles.'
                     : 'Roles are fixed by template schema. Fill names only.'}
                 </div>
                 <div className="form-row" style={{ marginBottom: 8 }}>
@@ -1352,6 +1400,9 @@ export default function GenerateInvitation() {
                     locked={frozen && roleDef.required}
                     value={peopleInputs[roleDef.role] || ''}
                     onChange={(v) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: v }))}
+                    roleChoice={peopleRoleChoices[roleDef.role] || ''}
+                    onRoleChoiceChange={(v) => setPeopleRoleChoices((prev) => ({ ...prev, [roleDef.role]: v }))}
+                    roleChoiceRequired={!event.isPublished}
                   />
                 ))}
 
@@ -1371,6 +1422,9 @@ export default function GenerateInvitation() {
                             locked={frozen && roleDef.required}
                             value={peopleInputs[roleDef.role] || ''}
                             onChange={(v) => setPeopleInputs((prev) => ({ ...prev, [roleDef.role]: v }))}
+                            roleChoice={peopleRoleChoices[roleDef.role] || ''}
+                            onRoleChoiceChange={(v) => setPeopleRoleChoices((prev) => ({ ...prev, [roleDef.role]: v }))}
+                            roleChoiceRequired={!event.isPublished}
                           />
                         ))}
                       </div>
@@ -1405,7 +1459,7 @@ export default function GenerateInvitation() {
               <div className="empty-state" style={{ padding: '24px 0' }}>
                 <div className="empty-icon">👤</div>
                 <div className="empty-title">No people added yet</div>
-                <div className="empty-desc">Add the bride, groom, and family members.</div>
+                <div className="empty-desc">Add the couple and family members.</div>
               </div>
             )}
           <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
@@ -2247,7 +2301,15 @@ export default function GenerateInvitation() {
   );
 }
 
-function PersonNameRow({ roleDef, label, locked, value, onChange }) {
+/**
+ * One name. When the template gives this name role options ("Groom, Bride"),
+ * a dropdown sits beside it — never locked, even after the name is: confirming
+ * fixes how the name is spelt, not which role it is.
+ */
+function PersonNameRow({ roleDef, label, locked, value, onChange, roleChoice = '', onRoleChoiceChange, roleChoiceRequired = false }) {
+  const options = roleDef.roleOptions || [];
+  const showChoice = options.length > 0 && onRoleChoiceChange;
+  const needsChoice = showChoice && roleChoiceRequired && String(value || '').trim() && !roleChoice;
   return (
     <div className="form-row">
       <div className="form-group">
@@ -2258,13 +2320,34 @@ function PersonNameRow({ roleDef, label, locked, value, onChange }) {
         </div>
       </div>
       <div className="form-group">
-        <input
-          className="form-input"
-          placeholder={DEMO_NAMES[roleDef.role] || `e.g. ${roleDef.label} Name`}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={locked}
-        />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            className="form-input"
+            style={{ flex: 1, minWidth: 0 }}
+            placeholder={DEMO_NAMES[roleDef.role] || `e.g. ${roleDef.label} Name`}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={locked}
+          />
+          {showChoice && (
+            <select
+              className="form-input"
+              style={{ width: 'auto', flex: '0 0 auto', maxWidth: 140 }}
+              value={roleChoice}
+              onChange={(e) => onRoleChoiceChange(e.target.value)}
+              aria-label={`Role for ${label}`}
+              aria-invalid={needsChoice || undefined}
+            >
+              <option value="">Role…</option>
+              {options.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          )}
+        </div>
+        {needsChoice && (
+          <div className="form-hint" style={{ color: 'var(--red, #b42318)' }}>
+            Choose {options.join(' or ')}.
+          </div>
+        )}
       </div>
     </div>
   );

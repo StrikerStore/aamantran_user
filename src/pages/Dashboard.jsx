@@ -54,7 +54,7 @@ export default function Dashboard() {
     const people = eventDetail?.people || [];
     if (!people.length) return 'Your Wedding';
 
-    // Try schema-required roles first (they identify the bride/groom etc.)
+    // Try schema-required roles first (they identify the couple, e.g. person1/person2)
     let schema = eventDetail?.template?.fieldSchema;
     if (typeof schema === 'string') { try { schema = JSON.parse(schema); } catch { schema = null; } }
     const requiredRoles = (schema?.people || [])

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useCouple } from '../lib/couple';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
@@ -8,7 +9,8 @@ import './Tasks.css';
 
 const CATEGORIES = ['Venue', 'Catering', 'Photography', 'Attire', 'Invitations', 'Decor', 'Travel', 'Other'];
 const PRIORITIES  = ['low', 'medium', 'high'];
-const ASSIGNEES   = ['bride', 'groom', 'family', 'vendor'];
+// person1/person2 are the couple; they are shown by the role they picked ("Groom") or their name.
+const ASSIGNEES   = ['person1', 'person2', 'family', 'vendor'];
 const STATUSES    = ['todo', 'inprogress', 'done'];
 
 const COLUMN_META = {
@@ -23,7 +25,7 @@ function today() { return new Date().toISOString().slice(0, 10); }
 function isOverdue(t) { return t.status !== 'done' && t.dueDate && t.dueDate < today(); }
 function isDueToday(t) { return t.status !== 'done' && t.dueDate && t.dueDate === today(); }
 
-const BLANK = { title: '', category: 'Other', dueDate: '', priority: 'medium', assignedTo: 'bride', notes: '', status: 'todo' };
+const BLANK = { title: '', category: 'Other', dueDate: '', priority: 'medium', assignedTo: 'person1', notes: '', status: 'todo' };
 
 export default function Tasks() {
   const { id } = useParams();
@@ -37,6 +39,18 @@ export default function Tasks() {
   const [editing, setEditing]     = useState(null);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState(null);
+  const couple = useCouple(id);
+  // Tasks saved before the couple became person1/person2 say "bride"/"groom" —
+  // meaning whoever is the bride — so they follow the role each person picked.
+  const assigneeKey = (a) => {
+    if (a !== 'bride' && a !== 'groom') return a;
+    return couple.find((m) => m.role.toLowerCase() === a)?.key || a;
+  };
+  const assigneeLabel = (a) => {
+    const member = couple.find((m) => m.key === assigneeKey(a));
+    if (member) return member.label;
+    return a ? a.charAt(0).toUpperCase() + a.slice(1) : '';
+  };
 
   useEffect(() => {
     api.tasks.list(id)
@@ -48,7 +62,7 @@ export default function Tasks() {
   function openNew() { setForm({ ...BLANK, customCategory: '' }); setEditing(null); setShowModal(true); }
   function openEdit(t) {
     const isKnown = CATEGORIES.includes(t.category);
-    setForm({ ...t, category: isKnown ? t.category : 'Other', customCategory: isKnown ? '' : t.category });
+    setForm({ ...t, assignedTo: assigneeKey(t.assignedTo), category: isKnown ? t.category : 'Other', customCategory: isKnown ? '' : t.category });
     setEditing(t.id);
     setShowModal(true);
   }
@@ -203,7 +217,7 @@ export default function Tasks() {
                     </div>
                     <div className="task-meta-row">
                       {task.category && <span className="task-pill">{task.category}</span>}
-                      {task.assignedTo && <span className="task-pill task-pill-maroon">{task.assignedTo}</span>}
+                      {task.assignedTo && <span className="task-pill task-pill-maroon">{assigneeLabel(task.assignedTo)}</span>}
                       {task.dueDate && (
                         <span className={`task-due ${isOverdue(task) ? 'overdue' : ''}`}>
                           📅 {task.dueDate}
@@ -279,7 +293,7 @@ export default function Tasks() {
                     className={`pill ${form.assignedTo === a ? 'active' : ''}`}
                     onClick={() => setForm(f => ({ ...f, assignedTo: a }))}
                   >
-                    {a.charAt(0).toUpperCase() + a.slice(1)}
+                    {assigneeLabel(a)}
                   </button>
                 ))}
               </div>

@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useCouple } from '../lib/couple';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/Modal';
 import './Inventory.css';
 
 const CATEGORIES = [
-  { label: 'Attire',     icon: '🎀', subs: ['Bride\'s Outfit','Groom\'s Outfit','Family','Accessories'] },
-  { label: 'Jewelry',    icon: '💍', subs: ['Bridal Set','Groom\'s','Family'] },
+  // "<couple>'s …" sub-categories are filled per event from the couple (see coupleSubs).
+  { label: 'Attire',     icon: '🎀', subs: ['Family','Accessories'], coupleSub: 'Outfit' },
+  { label: 'Jewelry',    icon: '💍', subs: ['Family'], coupleSub: 'Jewellery' },
   { label: 'Decoration', icon: '🌸', subs: ['Flowers','Lighting','Mandap','Table Decor','Entrance'] },
   { label: 'Catering',   icon: '🍽',  subs: ['Crockery','Furniture','Ingredients'] },
   { label: 'Documents',  icon: '📄', subs: ['Marriage Cert','Venue Booking','Contracts'] },
@@ -42,6 +44,7 @@ export default function Inventory() {
   const [editing, setEditing]     = useState(null);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState(null);
+  const couple = useCouple(id);
 
   useEffect(() => {
     api.inventory.list(id)
@@ -59,7 +62,11 @@ export default function Inventory() {
   }
 
   const selectedCat = CATEGORIES.find(c => c.label === form.category);
-  const subOptions  = selectedCat?.subs || [];
+  // "Groom's Outfit" / "Bride's Outfit" — or "Rahul's Outfit" until a role is picked.
+  const coupleSubs  = selectedCat?.coupleSub ? couple.map(m => `${m.label}'s ${selectedCat.coupleSub}`) : [];
+  const subOptions  = [...coupleSubs, ...(selectedCat?.subs || [])];
+  // An item saved under an older name ("Bride's Outfit") keeps showing it.
+  if (form.subCategory && selectedCat && !subOptions.includes(form.subCategory)) subOptions.unshift(form.subCategory);
 
   async function save() {
     if (!form.name.trim()) { toast('Name is required', 'error'); return; }
