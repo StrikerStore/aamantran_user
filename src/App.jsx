@@ -3,7 +3,6 @@ import { isAuthenticated } from './lib/auth';
 import { Layout } from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Menu from './pages/Menu';
 import GenerateInvitation from './pages/GenerateInvitation';
 import EditInvitation from './pages/EditInvitation';
 import GuestManager from './pages/GuestManager';
@@ -42,7 +41,6 @@ export default function App() {
           {/* The old set-up page is retired — invitations are created at checkout. */}
           <Route path="/onboarding" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"  element={<Dashboard />} />
-          <Route path="/menu"       element={<Menu />} />
           <Route path="/events/:id/generate"  element={<GenerateInvitation />} />
           <Route path="/events/:id/edit"      element={<EditInvitation />} />
           <Route path="/events/:id/guests"    element={<GuestManager />} />

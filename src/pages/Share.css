@@ -1,20 +1,157 @@
-/* Share — Instagram share sheet, as a page */
-.share-page { max-width: var(--col); margin: 0 auto; }
+.share-page { max-width: 720px; }
 
-.share-links { border-top: 1px solid var(--separator); }
-.share-link-row { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 0; border-bottom: 1px solid var(--separator); }
-.share-link-label { font-weight: 600; }
-.share-link-url { overflow-wrap: anywhere; }
+/* ── Hero card ── */
+.share-topcard {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: linear-gradient(145deg, #ffffff 55%, var(--bg-elevated));
+  border: none;
+  border-radius: var(--r-xl);
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+}
 
-.share-qr { border-bottom: 1px solid var(--separator); }
-.share-qr summary { display: flex; align-items: center; gap: 12px; min-height: 56px; cursor: pointer; list-style: none; font-size: var(--fs-md); }
-.share-qr summary::-webkit-details-marker { display: none; }
-.share-qr summary::after { content: ''; width: 8px; height: 8px; margin-right: 6px; border-right: 1.5px solid var(--text); border-bottom: 1.5px solid var(--text); transform: rotate(45deg); transition: transform var(--t); }
-.share-qr[open] summary::after { transform: rotate(-135deg); }
-.share-qr .qr-block { padding: 0 0 16px 36px; }
+.share-back-btn {
+  flex-shrink: 0;
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.share-back-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-/* Not live / not found */
-.share-state-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 48px 16px; }
-.share-state-card h2 { font-size: var(--fs-lg); line-height: 25px; }
-.share-state-card p { color: var(--text-2); max-width: 36ch; margin-bottom: 8px; }
-.share-state-back { margin-top: 8px; font-weight: 600; }
+.share-topcard-text { flex: 1; min-width: 0; }
+.share-topcard h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+.share-topcard p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Link card ── */
+.share-link-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share-link-row { display: flex; flex-direction: column; gap: 6px; }
+.share-link-label {
+  font-size: max(12px, 0.66rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.share-link-input {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+}
+.share-link-input span {
+  flex: 1; min-width: 0;
+  font-size: max(12px, 0.82rem);
+  color: var(--teal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.share-link-input button {
+  flex-shrink: 0;
+  font-size: max(12px, 0.74rem); font-weight: 600;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.share-link-input button:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Skeleton / state cards ── */
+.share-skeleton {
+  height: 320px;
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-overlay) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--r-md);
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.share-state-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-xl);
+  padding: 40px 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.share-state-emoji { font-size: 2.5rem; }
+.share-state-card h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+.share-state-card p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  max-width: 320px;
+  margin: 0 0 8px;
+}
+.share-state-back {
+  font-size: max(12px, 0.85rem);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-top: 4px;
+}
+.share-state-back:hover { color: var(--gold); }
+
+@media (max-width: 600px) {
+  .share-topcard { padding: 18px 16px; }
+  .share-topcard h1 { font-size: 1.3rem; }
+}
+
+.share-qr { margin-top: 12px; }
+.share-qr summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-secondary); }
+.share-link-input button { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; }
+.share-state-emoji { color: var(--rose-deep); }
+
+/* Phone: Share is a bottom-bar tab — no own back button; links wrap instead of being cut off */
+@media (max-width: 900px) {
+  .share-back-btn { display: none; }
+  .share-topcard { padding: 14px 16px; margin-bottom: 12px; border-radius: 16px; }
+  .share-topcard h1 { font-size: 20px; line-height: 26px; margin-bottom: 2px; }
+  .share-topcard p { font-size: 14px; }
+  .share-link-card { padding: 12px 14px; margin-bottom: 12px; gap: 10px; }
+  .share-link-input { align-items: flex-start; }
+  .share-link-input span { white-space: normal; word-break: break-all; font-size: 13px; line-height: 18px; }
+}

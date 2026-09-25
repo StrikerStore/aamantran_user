@@ -1,5 +1,5 @@
 /**
- * Skeleton loading primitives (shimmer classes live in index.css).
+ * Clay skeleton loading primitives (shimmer classes live in index.css).
  * Use instead of a bare spinner on content-heavy pages so the layout
  * doesn't jump when data arrives.
  */

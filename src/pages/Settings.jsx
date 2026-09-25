@@ -145,7 +145,7 @@ export default function Settings() {
         {activeEvent && (
           <div className="card">
             <h2 className="card-title">How long your invitation stays online</h2>
-            <p className="settings-note">
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 16 }}>
               Your invitation stays online until 6 months after your last ceremony.
             </p>
             <div className="form-group">
@@ -163,7 +163,7 @@ export default function Settings() {
         {/* Delete account (DPDP right to erasure) */}
         <div className="card">
           <h2 className="card-title">Delete your account</h2>
-          <p className="settings-note">
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 16 }}>
             This deletes your account and everything in it for good — invitations, guest lists,
             replies, photos and profile. Guests will no longer be able to open your invitation.
             Payment records are kept without your name, as tax law requires.

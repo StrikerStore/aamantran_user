@@ -137,15 +137,15 @@ export default function Gifts() {
                   <tr key={g.id} className={g.thankYouSent ? 'gift-done' : ''}>
                     <td data-label="From">
                       <div style={{ fontWeight: 600 }}>{g.fromName}</div>
-                      {g.fromRelation && <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-2)' }}>{g.fromRelation}</div>}
+                      {g.fromRelation && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{g.fromRelation}</div>}
                     </td>
                     <td data-label="Gift">{g.giftDescription || '—'}</td>
-                    <td data-label="Received" style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-2)' }}>{shortDate(g.receivedDate) || '—'}</td>
+                    <td data-label="Received" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{shortDate(g.receivedDate) || '—'}</td>
                     <td data-label="Thank-you">
                       <button
                         type="button"
                         className={`btn btn-sm ${g.thankYouSent ? 'btn-secondary' : 'btn-ghost'}`}
-                        style={{ color: g.thankYouSent ? 'var(--success)' : undefined }}
+                        style={{ color: g.thankYouSent ? 'var(--green)' : undefined }}
                         aria-pressed={!!g.thankYouSent}
                         onClick={() => toggleThankYou(g)}
                       >
@@ -155,7 +155,7 @@ export default function Gifts() {
                     <td>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(g)} aria-label={`Edit gift from ${g.fromName}`}><Pencil size={15} aria-hidden="true" /> Edit</button>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-text)' }} onClick={() => setDeleting(g)} aria-label={`Delete gift from ${g.fromName}`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(g)} aria-label={`Delete gift from ${g.fromName}`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
                       </div>
                     </td>
                   </tr>

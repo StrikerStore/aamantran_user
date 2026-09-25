@@ -1,16 +1,47 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, Check, Menu as MenuIcon, LogOut, ShoppingBag, CircleHelp, Eye } from 'lucide-react';
-import { clearToken } from '../lib/auth';
+import {
+  Home, Sparkles, PencilLine, Share2, Users, MessageCircleHeart, ListChecks, Clock3, Briefcase,
+  Wallet, Package, Gift, Palette, Camera, BookOpen, LifeBuoy, Settings as SettingsIcon, Star,
+  LogOut, Menu, ChevronDown, ChevronRight, Check, MoreHorizontal, ShoppingBag,
+} from 'lucide-react';
+import { clearToken, getUserInfo } from '../lib/auth';
 import { api } from '../lib/api';
 import { WEBSITE_URL } from '../lib/config';
-import { eventTitle, eventMeta, liveLabel, coupleInitials } from '../lib/event';
-import { buildNav, blockedReason, titleFor, isMainTab, isFlowPage } from '../lib/nav';
+import { eventTitle, eventMeta, liveLabel } from '../lib/event';
 import { useToast } from './ui/Toast';
 import { Modal } from './ui/Modal';
 import './Layout.css';
 
+const NAV_STATE_KEY = 'aam_nav_state';
+const SIDEBAR_RAIL_KEY = 'aam_sidebar_rail';
 const ACTIVE_EVENT_KEY = 'aam_active_event';
+
+/** Page names for the browser tab and the desktop top bar. */
+const PAGE_TITLES = [
+  [/^\/dashboard/, 'Home'],
+  [/\/generate$/, 'Build your invitation'],
+  [/\/edit$/, 'Edit your invitation'],
+  [/\/share$/, 'Share'],
+  [/\/guests$/, 'Guests'],
+  [/\/wishes$/, 'Wishes'],
+  [/\/tasks$/, 'Tasks'],
+  [/\/timeline$/, 'Day-of timeline'],
+  [/\/vendors$/, 'Vendors'],
+  [/\/budget$/, 'Budget'],
+  [/\/inventory$/, 'Inventory'],
+  [/\/gifts$/, 'Gifts'],
+  [/\/moodboard$/, 'Mood board'],
+  [/\/photos$/, 'Photo wall'],
+  [/^\/guide/, 'Guide'],
+  [/^\/support/, 'Support'],
+  [/^\/settings/, 'Settings'],
+  [/^\/review/, 'Leave a review'],
+];
+
+function titleFor(path) {
+  return PAGE_TITLES.find(([re]) => re.test(path))?.[1] || '';
+}
 
 function readStored(key, fallback) {
   try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
@@ -19,34 +50,47 @@ function writeStored(key, value) {
   try { localStorage.setItem(key, value); } catch { /* private mode */ }
 }
 
-/** The couple's round avatar; a story-style ring when the invitation is live. */
-export function CoupleAvatar({ event, size = 24, ring = true }) {
-  const avatar = (
-    <span className="ig-avatar" style={{ width: size, height: size, fontSize: Math.max(10, Math.round(size * 0.36)) }} aria-hidden="true">
-      {coupleInitials(event)}
-    </span>
-  );
-  if (!ring) return avatar;
-  return <span className={`ig-avatar-ring${event?.isPublished ? ' is-live' : ''}`}>{avatar}</span>;
-}
-
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const info = getUserInfo();
+  const [railCollapsed, setRailCollapsed] = useState(() => readStored(SIDEBAR_RAIL_KEY, '0') === '1');
   const [events, setEvents] = useState([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   // The invitation picked last (remembered across refreshes).
   const [chosenId, setChosenId] = useState(() => readStored(ACTIVE_EVENT_KEY, ''));
-  const [switcherOpen, setSwitcherOpen] = useState(false);   // desktop popover
-  const [switchSheet, setSwitchSheet] = useState(false);     // phone bottom sheet
-  const [moreOpen, setMoreOpen] = useState(false);           // desktop "More" popover
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [switchSheet, setSwitchSheet] = useState(false);   // phone: invitation switcher as a bottom sheet
+  // Phone: the top bar slides away while scrolling down and returns on scroll up.
+  // Remembered per page, so it is always shown again after moving to another page.
+  const [hiddenOnPath, setHiddenOnPath] = useState(null);
+  // Phone: while typing, the bottom bar steps aside so the keyboard has room.
+  const [typing, setTyping] = useState(false);
   const switcherRef = useRef(null);
-  const moreRef = useRef(null);
+
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return JSON.parse(readStored(NAV_STATE_KEY, '{}')); } catch { return {}; }
+  });
+
+  function toggleGroup(section) {
+    setCollapsed((prev) => {
+      const next = { ...prev, [section]: !prev[section] };
+      writeStored(NAV_STATE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function toggleRail() {
+    setRailCollapsed((c) => {
+      writeStored(SIDEBAR_RAIL_KEY, c ? '0' : '1');
+      return !c;
+    });
+  }
 
   // The event in the address wins; otherwise the one chosen last time; otherwise the newest.
-  const path = location.pathname;
-  const routeEventId = (path.match(/^\/events\/([^/]+)/) || [])[1] || null;
+  const routeEventId = (location.pathname.match(/^\/events\/([^/]+)/) || [])[1] || null;
   const mainEvents = useMemo(() => events.filter((ev) => ev.inviteScope !== 'subset'), [events]);
   const activeEvent = useMemo(
     () => mainEvents.find((ev) => ev.id === routeEventId)
@@ -69,25 +113,70 @@ export function Layout() {
       .finally(() => setEventsLoaded(true));
   }, []);
 
-  /** Reload the invitations (after going live, for example, so the menu says "Edit"). */
+  /** Reload the invitations (after publishing, for example, so the menu says "Edit"). */
   function refreshEvents() {
     return api.events.list().then((r) => setEvents(r.events || [])).catch(() => {});
   }
 
-  // Close desktop popovers on an outside click or Esc.
   useEffect(() => {
-    if (!switcherOpen && !moreOpen) return undefined;
-    const onDown = (e) => {
+    function handler(e) {
       if (switcherRef.current && !switcherRef.current.contains(e.target)) setSwitcherOpen(false);
-      if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
-    };
-    const onKey = (e) => { if (e.key === 'Escape') { setSwitcherOpen(false); setMoreOpen(false); } };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
-  }, [switcherOpen, moreOpen]);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
-  const pageTitle = titleFor(path);
+  // ── Phone: top bar quick-return ──
+  // One passive, frame-throttled listener. Small jitters (< 12px) are ignored so
+  // the bar never flickers; near the top of the page it is always shown.
+  const pathRef = useRef(location.pathname);
+  const hiddenRef = useRef(null);
+  useEffect(() => { pathRef.current = location.pathname; }, [location.pathname]);
+  useEffect(() => { hiddenRef.current = hiddenOnPath; }, [hiddenOnPath]);
+  useEffect(() => {
+    const phone = window.matchMedia('(max-width: 900px)');
+    let lastY = window.scrollY;
+    let raf = 0;
+    const set = (hide) => {
+      const isHidden = hiddenRef.current === pathRef.current;
+      if (hide === isHidden) return;
+      hiddenRef.current = hide ? pathRef.current : null;
+      setHiddenOnPath(hiddenRef.current);
+    };
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const y = window.scrollY;
+        if (!phone.matches || y < 56) { set(false); lastY = y; return; }
+        const delta = y - lastY;
+        if (Math.abs(delta) < 12) return;
+        set(delta > 0);
+        lastY = y;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+
+  // ── Phone: hide the bottom bar while the keyboard is up ──
+  useEffect(() => {
+    const TEXT_LIKE = /^(text|search|email|tel|url|number|password|date|time|datetime-local|month|week)$/;
+    const isField = (el) => Boolean(el) && (
+      el.tagName === 'TEXTAREA' || el.isContentEditable
+      || (el.tagName === 'INPUT' && TEXT_LIKE.test(el.type || 'text'))
+    );
+    let timer = 0;
+    const onIn = (e) => { if (isField(e.target)) { clearTimeout(timer); setTyping(true); } };
+    // Wait a moment: focus often moves straight to the next field.
+    const onOut = () => { clearTimeout(timer); timer = setTimeout(() => setTyping(isField(document.activeElement)), 100); };
+    document.addEventListener('focusin', onIn);
+    document.addEventListener('focusout', onOut);
+    return () => { clearTimeout(timer); document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut); };
+  }, []);
+
+  // Browser tab names the page ("Guests · Aamantran").
+  const pageTitle = titleFor(location.pathname);
   useEffect(() => {
     document.title = pageTitle ? `${pageTitle} · Aamantran` : 'Aamantran';
   }, [pageTitle]);
@@ -97,12 +186,12 @@ export function Layout() {
     navigate('/');
   }
 
-  /** Switch invitation and stay on the same kind of page for the new one. */
+  /** Switch event and stay on the same kind of page for the new one. */
   function selectEvent(ev) {
     setSwitcherOpen(false);
     setSwitchSheet(false);
     setActiveEvent(ev);
-    const m = path.match(/^\/events\/[^/]+\/([^/]+)/);
+    const m = location.pathname.match(/^\/events\/[^/]+\/([^/]+)/);
     if (m) {
       let sub = m[1];
       if (sub === 'generate' || sub === 'edit') sub = ev.isPublished ? 'edit' : 'generate';
@@ -111,194 +200,247 @@ export function Layout() {
     }
   }
 
-  async function openPreview() {
-    if (!activeEvent?.id) return;
-    try {
-      const r = await api.events.previewToken(activeEvent.id);
-      window.open(r.previewUrl, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      toast(err.message || 'We couldn’t open the preview. Try again.', 'error');
-    }
+  const initial = (info?.username?.[0] || 'U').toUpperCase();
+  const username = info?.username || 'You';
+  const published = activeEvent?.isPublished ?? false;
+  const eid = activeEvent?.id;
+
+  function ePath(sub) { return eid ? `/events/${eid}/${sub}` : '#'; }
+  const buildPath = ePath(published ? 'edit' : 'generate');
+
+  const NAV = [
+    {
+      section: 'Invitation',
+      items: [
+        { label: 'Home', to: '/dashboard', icon: Home },
+        published
+          ? { label: 'Edit invitation', icon: PencilLine, to: buildPath, needsEvent: true }
+          : { label: 'Build invitation', icon: Sparkles, to: buildPath, needsEvent: true },
+        { label: 'Share', icon: Share2, to: ePath('share'), needsEvent: true, needsLive: true },
+        { label: 'Guests', icon: Users, to: ePath('guests'), needsEvent: true },
+        { label: 'Wishes', icon: MessageCircleHeart, to: ePath('wishes'), needsEvent: true },
+      ],
+    },
+    {
+      section: 'Planning',
+      items: [
+        { label: 'Tasks', icon: ListChecks, to: ePath('tasks'), needsEvent: true },
+        { label: 'Day-of timeline', icon: Clock3, to: ePath('timeline'), needsEvent: true },
+        { label: 'Vendors', icon: Briefcase, to: ePath('vendors'), needsEvent: true },
+      ],
+    },
+    {
+      section: 'Money & items',
+      items: [
+        { label: 'Budget', icon: Wallet, to: ePath('budget'), needsEvent: true },
+        { label: 'Inventory', icon: Package, to: ePath('inventory'), needsEvent: true },
+        { label: 'Gifts', icon: Gift, to: ePath('gifts'), needsEvent: true },
+      ],
+    },
+    {
+      section: 'Memories',
+      items: [
+        { label: 'Mood board', icon: Palette, to: ePath('moodboard'), needsEvent: true },
+        { label: 'Photo wall', icon: Camera, to: ePath('photos'), needsEvent: true },
+      ],
+    },
+    {
+      section: 'Help & account',
+      items: [
+        { label: 'Guide', to: '/guide', icon: BookOpen },
+        { label: 'Support', to: '/support', icon: LifeBuoy },
+        { label: 'Settings', to: '/settings', icon: SettingsIcon },
+        { label: 'Leave a review', to: '/review', icon: Star },
+      ],
+    },
+  ];
+
+  /** Why a menu item can't be opened yet, or null if it can. */
+  function blockedReason(item) {
+    if (item.needsEvent && !eid) return 'You don’t have an invitation yet';
+    if (item.needsLive && !published) return 'Publish your invitation first — then you can share it';
+    return null;
   }
 
-  function goBack() {
-    // Back inside the app when there is somewhere to go back to; otherwise to the Menu.
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/menu');
-  }
+  const path = location.pathname;
+  const bottomActive = {
+    home: path === '/dashboard',
+    invite: /\/(generate|edit)$/.test(path),
+    guests: /\/guests$/.test(path),
+    more: !/^\/dashboard/.test(path) && !/\/(generate|edit|guests|share)$/.test(path),
+  };
 
-  const nav = buildNav(activeEvent);
-  const allItems = nav.flatMap((g) => g.items);
-  const item = (key) => allItems.find((i) => i.key === key);
-  const isActive = (it) => it.to !== '#' && (path === it.to || path.startsWith(`${it.to}/`)
-    || (it.key === 'invite' && isFlowPage(path)));
-
-  /** Follow a nav item, or say why it can't open yet. */
-  function go(it) {
-    const reason = blockedReason(it, activeEvent);
-    if (reason) { toast(reason, 'info'); return; }
-    setMoreOpen(false);
-    navigate(it.to);
-  }
-
-  const title = activeEvent ? eventTitle(activeEvent) : 'Aamantran';
-  const mainTab = isMainTab(path);
-  const flow = isFlowPage(path);
-
-  function renderEventList() {
+  function renderEventList(onPick) {
     return (
-      <div className="switch-list">
+      <>
         {mainEvents.map((ev) => (
-          <button type="button" key={ev.id} className="ig-row switch-row" onClick={() => selectEvent(ev)}>
-            <CoupleAvatar event={ev} size={40} />
-            <span className="ig-row-text">
-              <span className="switch-name">{eventTitle(ev)}</span>
-              <span className="ig-row-sub">{liveLabel(ev)}{eventMeta(ev) ? ` · ${eventMeta(ev)}` : ''}</span>
-            </span>
-            {activeEvent?.id === ev.id && <Check size={20} className="ig-row-end" aria-label="Selected" />}
-          </button>
-        ))}
-        <a className="ig-row switch-row switch-buy" href={`${WEBSITE_URL}/templates`} target="_blank" rel="noreferrer">
-          <span className="switch-buy-icon" aria-hidden="true"><ShoppingBag size={20} /></span>
-          <span className="ig-row-text">Buy another design</span>
-        </a>
-      </div>
-    );
-  }
-
-  /** One rail / tab item. */
-  function renderNavButton(it, variant) {
-    const Icon = it.icon;
-    const active = isActive(it);
-    const reason = blockedReason(it, activeEvent);
-    const label = variant === 'tab' ? it.short || it.label : it.label;
-    const showTabLabel = variant === 'tab' && (it.key === 'invite' || it.key === 'share');
-    return (
-      <button
-        key={it.key}
-        type="button"
-        className={`${variant}-item${active ? ' active' : ''}${reason ? ' is-locked' : ''}`}
-        aria-current={active ? 'page' : undefined}
-        aria-disabled={reason ? true : undefined}
-        aria-label={variant === 'tab' ? label : undefined}
-        title={reason || (variant === 'rail' ? it.label : undefined)}
-        onClick={() => go(it)}
-      >
-        <Icon size={24} strokeWidth={active ? 2.5 : 2} fill={active && it.key !== 'invite' ? 'currentColor' : 'none'} aria-hidden="true" />
-        {variant === 'rail' && <span className="rail-label">{it.label}</span>}
-        {showTabLabel && <span className="tab-label" aria-hidden="true">{label}</span>}
-      </button>
-    );
-  }
-
-  const moreItems = nav.flatMap((g) => g.items.filter((i) => !i.main && !i.rail).map((i) => ({ ...i, section: g.section })));
-
-  return (
-    <div className={`app-shell${flow ? ' is-flow' : ''}${mainTab ? '' : ' is-subpage'}`}>
-      {/* ── Desktop: Instagram-web rail ── */}
-      <aside className="rail" aria-label="Main menu">
-        <NavLink to="/dashboard" className="rail-logo" aria-label="Aamantran home">
-          <img src="/logo.png" alt="" width="28" height="28" decoding="async" />
-          <span className="rail-wordmark">Aamantran</span>
-        </NavLink>
-
-        <div className="rail-switcher" ref={switcherRef}>
           <button
             type="button"
-            className="rail-item rail-switch-btn"
-            onClick={() => setSwitcherOpen((o) => !o)}
-            aria-expanded={switcherOpen}
-            aria-haspopup="true"
-            title={title}
+            key={ev.id}
+            className={`event-option ${activeEvent?.id === ev.id ? 'active' : ''}`}
+            onClick={() => onPick(ev)}
           >
-            {activeEvent ? <CoupleAvatar event={activeEvent} size={24} /> : <CoupleAvatar event={null} size={24} ring={false} />}
-            <span className="rail-label rail-switch-name">{title}</span>
-            <ChevronDown size={16} className="rail-label rail-switch-chev" aria-hidden="true" />
-          </button>
-          {switcherOpen && (
-            <div className="popover rail-popover">
-              <div className="popover-title">Your invitations</div>
-              {renderEventList()}
-            </div>
-          )}
-        </div>
-
-        <nav className="rail-nav">
-          {allItems.filter((i) => i.main || i.rail).map((it) => renderNavButton(it, 'rail'))}
-        </nav>
-
-        <div className="rail-more" ref={moreRef}>
-          {moreOpen && (
-            <div className="popover rail-more-popover" role="menu">
-              {nav.filter((g) => g.items.some((i) => !i.main && !i.rail)).map((g) => (
-                <div key={g.section} className="popover-group">
-                  <div className="popover-group-title">{g.section}</div>
-                  {g.items.filter((i) => !i.main && !i.rail).map((it) => {
-                    const Icon = it.icon;
-                    return (
-                      <button type="button" role="menuitem" key={it.key} className={`popover-row${isActive(it) ? ' active' : ''}`} onClick={() => go(it)}>
-                        <Icon size={20} aria-hidden="true" /> {it.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-              <div className="popover-group">
-                <button type="button" role="menuitem" className="popover-row is-danger" onClick={handleLogout}>
-                  <LogOut size={20} aria-hidden="true" /> Log out
-                </button>
+            <div className="event-option-text">
+              <div className="event-option-name">{eventTitle(ev)}</div>
+              <div className="event-option-sub">
+                <span className={`event-dot ${ev.isPublished ? 'is-live' : ''}`} aria-hidden="true" />
+                {liveLabel(ev)}{eventMeta(ev) ? ` · ${eventMeta(ev)}` : ''}
               </div>
             </div>
-          )}
-          <button
-            type="button"
-            className={`rail-item${moreOpen || moreItems.some(isActive) ? ' active' : ''}`}
-            onClick={() => setMoreOpen((o) => !o)}
-            aria-expanded={moreOpen}
-            aria-haspopup="menu"
-            title="More"
-          >
-            <MenuIcon size={24} strokeWidth={moreOpen ? 2.5 : 2} aria-hidden="true" />
-            <span className="rail-label">More</span>
+            {activeEvent?.id === ev.id && <Check size={16} className="event-option-check" aria-label="Selected" />}
           </button>
+        ))}
+        <a className="event-switcher-add" href={`${WEBSITE_URL}/templates`} target="_blank" rel="noreferrer">
+          <ShoppingBag size={16} aria-hidden="true" /> Buy another design
+        </a>
+      </>
+    );
+  }
+
+  return (
+    <div className={`app-shell${railCollapsed ? ' rail' : ''}${hiddenOnPath === location.pathname && !moreOpen && !switchSheet ? ' shell-top-hidden' : ''}${typing ? ' shell-typing' : ''}`}>
+      {/* Sidebar (desktop) */}
+      <aside className="sidebar" aria-label="Main menu">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-row">
+            <img src="/logo.png" alt="" className="sidebar-logo-img" width="40" height="40" decoding="async" />
+            <div className="logotype">Aamantran</div>
+          </div>
+        </div>
+
+        {/* Event switcher */}
+        <div className="sidebar-event-switcher">
+          <div className="event-switcher-wrapper" ref={switcherRef}>
+            <button
+              type="button"
+              className="event-switcher-btn"
+              onClick={() => setSwitcherOpen((o) => !o)}
+              aria-expanded={switcherOpen}
+              aria-haspopup="listbox"
+              title={railCollapsed ? (activeEvent ? eventTitle(activeEvent) : 'Your invitation') : undefined}
+            >
+              <span className="event-switcher-avatar" aria-hidden="true">
+                {(activeEvent ? eventTitle(activeEvent) : 'A').charAt(0).toUpperCase()}
+              </span>
+              <span className="event-switcher-text">
+                <span className="event-switcher-name">{activeEvent ? eventTitle(activeEvent) : 'No invitation yet'}</span>
+                <span className="event-switcher-sub">
+                  {activeEvent ? (
+                    <>
+                      <span className={`event-dot ${published ? 'is-live' : ''}`} aria-hidden="true" />
+                      {liveLabel(activeEvent)}
+                    </>
+                  ) : 'Buy a design to get started'}
+                </span>
+              </span>
+              <ChevronDown size={16} className={`event-switcher-chevron${switcherOpen ? ' open' : ''}`} aria-hidden="true" />
+            </button>
+
+            {switcherOpen && (
+              <div className="event-switcher-dropdown">
+                {mainEvents.length > 0 && <div className="event-switcher-heading">Your invitations</div>}
+                {renderEventList(selectEvent)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <nav className="sidebar-nav">
+          {NAV.map((group) => (
+            <div key={group.section} className="nav-group">
+              <button
+                type="button"
+                className="nav-section-label nav-group-toggle"
+                onClick={() => toggleGroup(group.section)}
+                aria-expanded={!collapsed[group.section]}
+              >
+                <span className="nav-group-label-text">{group.section}</span>
+                <ChevronDown size={14} className={`nav-group-chevron${collapsed[group.section] ? ' closed' : ''}`} aria-hidden="true" />
+              </button>
+              {(railCollapsed || !collapsed[group.section]) && group.items.map((item) => {
+                const reason = blockedReason(item);
+                const Icon = item.icon;
+                if (reason) {
+                  return (
+                    <button
+                      type="button"
+                      key={item.label}
+                      className="nav-item disabled"
+                      aria-disabled="true"
+                      title={reason}
+                      onClick={() => toast(reason, 'info')}
+                    >
+                      <Icon className="nav-icon" aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                }
+                return (
+                  <NavLink
+                    key={item.label}
+                    to={item.to}
+                    title={railCollapsed ? item.label : undefined}
+                    className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                  >
+                    <Icon className="nav-icon" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <div className="sidebar-avatar" aria-hidden="true">{initial}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{username}</div>
+              <div className="sidebar-user-email">{info?.email || ''}</div>
+            </div>
+            <button type="button" className="sidebar-logout-btn" onClick={handleLogout} aria-label="Sign out" title="Sign out">
+              <LogOut size={16} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </aside>
 
+      {/* Main */}
       <div className="main">
-        {/* ── Phone: top bar ── */}
         <header className="topbar">
-          {mainTab ? (
-            <>
-              <button
-                type="button"
-                className="topbar-switch"
-                onClick={() => setSwitchSheet(true)}
-                aria-haspopup="dialog"
-                aria-label={`${title}. Switch invitation`}
-              >
-                <span className="topbar-switch-name">{title}</span>
-                <ChevronDown size={20} strokeWidth={2.5} aria-hidden="true" />
-              </button>
-              <div className="topbar-actions">
-                {activeEvent && (
-                  <button type="button" className="icon-btn" onClick={openPreview} aria-label="Preview your invitation" title="Preview">
-                    <Eye size={24} aria-hidden="true" />
-                  </button>
-                )}
-                <button type="button" className="icon-btn" onClick={() => navigate('/guide')} aria-label="Help guide" title="Help">
-                  <CircleHelp size={24} aria-hidden="true" />
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <button type="button" className="icon-btn" onClick={goBack} aria-label="Back">
-                <ChevronLeft size={28} aria-hidden="true" />
-              </button>
-              <div className="topbar-title">{pageTitle}</div>
-              <span className="topbar-spacer" aria-hidden="true" />
-            </>
-          )}
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={toggleRail}
+            aria-label={railCollapsed ? 'Show full menu' : 'Show icons only'}
+            title={railCollapsed ? 'Show full menu' : 'Show icons only'}
+          >
+            <Menu size={18} aria-hidden="true" />
+          </button>
+          {pageTitle && <div className="topbar-title">{pageTitle}</div>}
+
+          <NavLink to="/dashboard" className="topbar-mobile-brand" aria-label="Aamantran home">
+            <img src="/logo.png" alt="" className="topbar-logo-img" />
+            <span className="topbar-logotype">Aamantran</span>
+          </NavLink>
+
+          {/* Phone: which invitation you're looking at */}
+          <div className="topbar-mobile-switcher">
+            <button
+              type="button"
+              className="topbar-event-chip"
+              onClick={() => setSwitchSheet(true)}
+              aria-haspopup="dialog"
+              aria-label={`${activeEvent ? eventTitle(activeEvent) : 'No invitation yet'}, ${activeEvent ? liveLabel(activeEvent) : ''}. Switch invitation`}
+            >
+              <span className={`event-dot ${published ? 'is-live' : ''}`} aria-hidden="true" />
+              <span className="topbar-event-name">{activeEvent ? eventTitle(activeEvent) : 'No invitation yet'}</span>
+              <ChevronDown size={14} className="topbar-event-chev" aria-hidden="true" />
+            </button>
+          </div>
+          <button type="button" className="topbar-mobile-avatar" onClick={() => setMoreOpen(true)} aria-label="Menu and account">
+            {initial}
+          </button>
         </header>
 
         <main className="page-content" id="main">
@@ -306,26 +448,129 @@ export function Layout() {
         </main>
       </div>
 
-      {/* ── Phone: Instagram tab bar ── */}
-      <nav className="tabbar" aria-label="Main menu">
-        {['home', 'invite', 'share', 'guests'].map((k) => renderNavButton(item(k), 'tab'))}
+      {/* Phone: bottom menu — the four places couples use most, plus More */}
+      <nav className="bottom-nav" aria-label="Main menu">
         <button
           type="button"
-          className={`tab-item tab-profile${path === '/menu' ? ' active' : ''}`}
-          aria-current={path === '/menu' ? 'page' : undefined}
-          aria-label="Menu"
-          onClick={() => navigate('/menu')}
+          className={`bottom-nav-item ${bottomActive.home ? 'active' : ''}`}
+          aria-current={bottomActive.home ? 'page' : undefined}
+          aria-label="Home"
+          onClick={() => { setMoreOpen(false); navigate('/dashboard'); }}
         >
-          <CoupleAvatar event={activeEvent} size={26} ring={false} />
+          <Home className="bnav-icon" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-item ${bottomActive.invite ? 'active' : ''}${!eid ? ' is-locked' : ''}`}
+          aria-current={bottomActive.invite ? 'page' : undefined}
+          aria-disabled={!eid || undefined}
+          onClick={() => (eid ? navigate(buildPath) : toast('You don’t have an invitation yet', 'info'))}
+        >
+          {published ? <PencilLine className="bnav-icon" aria-hidden="true" /> : <Sparkles className="bnav-icon" aria-hidden="true" />}
+          <span className="bnav-label">Invite</span>
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-item bottom-nav-share ${path.endsWith('/share') ? 'active' : ''}${!eid || !published ? ' is-locked' : ''}`}
+          aria-current={path.endsWith('/share') ? 'page' : undefined}
+          aria-disabled={!eid || !published || undefined}
+          onClick={() => {
+            if (!eid) toast('You don’t have an invitation yet', 'info');
+            else if (!published) toast('Publish your invitation first — then you can share it', 'info');
+            else navigate(`/events/${eid}/share`);
+          }}
+        >
+          <Share2 className="bnav-icon" aria-hidden="true" />
+          <span className="bnav-label">Share</span>
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-item ${bottomActive.guests ? 'active' : ''}${!eid ? ' is-locked' : ''}`}
+          aria-current={bottomActive.guests ? 'page' : undefined}
+          aria-disabled={!eid || undefined}
+          onClick={() => (eid ? navigate(ePath('guests')) : toast('You don’t have an invitation yet', 'info'))}
+        >
+          <Users className="bnav-icon" aria-hidden="true" />
+          <span className="bnav-label">Guests</span>
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-item ${bottomActive.more || moreOpen ? 'active' : ''}`}
+          onClick={() => setMoreOpen((o) => !o)}
+          aria-expanded={moreOpen}
+        >
+          <MoreHorizontal className="bnav-icon" aria-hidden="true" />
+          <span className="bnav-label">More</span>
         </button>
       </nav>
 
-      {/* ── Phone: invitation switcher (Instagram account switcher) ── */}
+      {/* Phone: which invitation you're looking at — a bottom sheet */}
       {switchSheet && (
         <Modal title="Your invitations" onClose={() => setSwitchSheet(false)}>
-          {renderEventList()}
+          <div className="switch-sheet">{renderEventList(selectEvent)}</div>
         </Modal>
+      )}
+
+      {/* Phone: More — everything else in one place, including your account */}
+      {moreOpen && (
+        <>
+          <div className="bottom-sheet-overlay" onClick={() => setMoreOpen(false)} />
+          <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label="More">
+            <div className="bottom-sheet-handle" />
+            <div className="more-sheet-account">
+              <div className="profile-sheet-avatar" aria-hidden="true">{initial}</div>
+              <div className="profile-sheet-id">
+                <div className="profile-sheet-name">{username}</div>
+                <div className="profile-sheet-email">{info?.email || ''}</div>
+              </div>
+            </div>
+            <div className="bottom-sheet-sections">
+              {NAV.map((sec) => {
+                const items = sec.items.filter((it) => !['Home', 'Build invitation', 'Edit invitation', 'Share', 'Guests'].includes(it.label));
+                if (!items.length) return null;
+                return (
+                  <div key={sec.section} className="bottom-sheet-section">
+                    <div className="bottom-sheet-section-label">{sec.section}</div>
+                    <div className="bottom-sheet-section-items">
+                      {items.map((item) => {
+                        const reason = blockedReason(item);
+                        const active = item.to !== '#' && (path === item.to || path.startsWith(`${item.to}/`));
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            type="button"
+                            key={item.label}
+                            className={`bottom-sheet-row ${active ? 'active' : ''}${reason ? ' is-locked' : ''}`}
+                            aria-disabled={reason ? true : undefined}
+                            onClick={() => {
+                              if (reason) { toast(reason, 'info'); return; }
+                              setMoreOpen(false);
+                              navigate(item.to);
+                            }}
+                          >
+                            <span className="bottom-sheet-row-icon"><Icon size={20} aria-hidden="true" /></span>
+                            <span className="bottom-sheet-row-label">{item.label}</span>
+                            <ChevronRight size={18} className="bottom-sheet-row-chev" aria-hidden="true" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="bottom-sheet-section">
+                <div className="bottom-sheet-section-items">
+                  <button type="button" className="bottom-sheet-row profile-sheet-logout" onClick={() => { setMoreOpen(false); handleLogout(); }}>
+                    <span className="bottom-sheet-row-icon"><LogOut size={20} aria-hidden="true" /></span>
+                    <span className="bottom-sheet-row-label">Sign out</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
+

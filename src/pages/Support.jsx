@@ -266,7 +266,7 @@ export default function Support() {
 
       {/* View ticket modal */}
       {viewing && (
-        <Modal title={viewing.subject} onClose={() => setViewing(null)} size="lg" footer={
+        <Modal title={viewing.subject} onClose={() => setViewing(null)} size="full" footer={
           <button type="button" className="btn btn-secondary" onClick={() => setViewing(null)}>Close</button>
         }>
           <div className="ticket-thread" ref={threadRef}>

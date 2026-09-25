@@ -167,19 +167,19 @@ export default function Budget() {
               </div>
               <div className="budget-stat">
                 <span className="budget-stat-label">Booked</span>
-                <span className="budget-stat-val" style={{ color: 'var(--accent-text)' }}>₹{fmt(totalSpent)}</span>
+                <span className="budget-stat-val" style={{ color: 'var(--gold-text)' }}>₹{fmt(totalSpent)}</span>
               </div>
               <div className="budget-stat">
                 <span className="budget-stat-label">Paid</span>
-                <span className="budget-stat-val" style={{ color: 'var(--success)' }}>₹{fmt(totalPaid)}</span>
+                <span className="budget-stat-val" style={{ color: 'var(--green)' }}>₹{fmt(totalPaid)}</span>
               </div>
               <div className="budget-stat">
                 <span className="budget-stat-label">Still to pay</span>
-                <span className="budget-stat-val" style={{ color: 'var(--warning)' }}>₹{fmt(totalPending)}</span>
+                <span className="budget-stat-val" style={{ color: 'var(--amber)' }}>₹{fmt(totalPending)}</span>
               </div>
               <div className="budget-stat">
                 <span className="budget-stat-label">{remaining < 0 ? 'Over budget' : 'Left in budget'}</span>
-                <span className="budget-stat-val" style={{ color: remaining < 0 ? 'var(--danger-text)' : 'var(--success)' }}>
+                <span className="budget-stat-val" style={{ color: remaining < 0 ? 'var(--red)' : 'var(--green)' }}>
                   ₹{fmt(Math.abs(remaining))}
                 </span>
               </div>
@@ -192,9 +192,9 @@ export default function Budget() {
                 <div className="budget-bar-spent" style={{ width: `${Math.max(0, spentPct - paidPct)}%` }} />
               </div>
               <div className="budget-bar-labels">
-                <span style={{ color: 'var(--success)' }}>Paid {paidPct}%</span>
-                <span style={{ color: 'var(--accent-text)' }}>Booked {spentPct}%</span>
-                <span style={{ color: 'var(--text-2)' }}>Left {100 - spentPct}%</span>
+                <span style={{ color: 'var(--green)' }}>Paid {paidPct}%</span>
+                <span style={{ color: 'var(--gold-text)' }}>Booked {spentPct}%</span>
+                <span style={{ color: 'var(--text-muted)' }}>Left {100 - spentPct}%</span>
               </div>
             </div>
           </>
@@ -238,14 +238,14 @@ export default function Budget() {
               <tbody>
                 {expenses.map(e => (
                   <tr key={e.id}>
-                    <td data-label="What for" style={{ fontWeight: 600 }}>{e.description}{e.vendor ? <span style={{ color: 'var(--text-2)', fontWeight: 400 }}> · {e.vendor}</span> : ''}</td>
+                    <td data-label="What for" style={{ fontWeight: 600 }}>{e.description}{e.vendor ? <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {e.vendor}</span> : ''}</td>
                     <td data-label="Category">{e.category}</td>
                     <td data-label="Amount" style={{ fontWeight: 600 }}>₹{fmt(e.amount)}</td>
                     <td data-label="Paid?">
                       <button
                         type="button"
                         className={`btn btn-sm ${e.paid ? 'btn-secondary' : 'btn-ghost'}`}
-                        style={{ color: e.paid ? 'var(--success)' : undefined }}
+                        style={{ color: e.paid ? 'var(--green)' : undefined }}
                         aria-pressed={!!e.paid}
                         onClick={() => togglePaid(e)}
                       >
@@ -255,7 +255,7 @@ export default function Budget() {
                     <td>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(e)} aria-label={`Edit “${e.description}”`}><Pencil size={15} aria-hidden="true" /> Edit</button>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-text)' }} onClick={() => setDeleting(e)} aria-label={`Delete “${e.description}”`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(e)} aria-label={`Delete “${e.description}”`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
                       </div>
                     </td>
                   </tr>

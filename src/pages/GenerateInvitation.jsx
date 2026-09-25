@@ -148,30 +148,30 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
         border: '1px solid var(--border-subtle, rgba(0,0,0,0.06))',
       }}
     >
-      <div className="section-title" style={{ marginBottom: 4 }}>{slot.label}</div>
-      <p className="form-hint" style={{ marginBottom: 12 }}>
+      <div className="section-title" style={{ fontSize: '1rem', marginBottom: 4 }}>{slot.label}</div>
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10 }}>
         {slot.multiple ? `Up to ${slot.max} files — select multiple on desktop or mobile where supported.` : 'Single file — a new upload replaces the previous one.'}
       </p>
       {slotItems.length > 0 && (
-        <div className="items-list" style={{ marginBottom: 12 }}>
+        <div className={`items-list${slot.type === 'photo' ? ' media-grid' : ''}`} style={{ marginBottom: 12 }}>
           {slotItems.map((m) => (
             <div key={m.id} className="item-row">
               <div className="item-info">
                 <span className="item-label">{m.type}{m.caption ? ` — ${m.caption}` : ''}</span>
-                {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" />}
+                {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" loading="lazy" />}
                 {m.type === 'music' && (
-                  <div className="media-audio">
-                    <div className="media-audio-label"><Music size={14} aria-hidden="true" /> Background music</div>
+                  <div style={{ marginTop: 8, width: '100%', background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)', boxSizing: 'border-box' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}><Music size={14} aria-hidden="true" /> Background music</div>
                     <audio
                       controls
                       src={m.url}
-                      className="media-audio-player"
+                      style={{ width: '100%', maxWidth: '100%', display: 'block', minWidth: 0, height: 40 }}
                       controlsList="nodownload"
                       preload="metadata"
                     />
                   </div>
                 )}
-                {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" className="media-link">Play video</a>}
+                {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
               </div>
               <div className="item-actions">
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemoveRequest(m)}>Remove</button>
@@ -233,8 +233,8 @@ function MediaSlotCard({ slot, eventId, slotItems, refreshMedia, onRemoveRequest
             const selected = globalAssets.find(a => a.id === selectedAssetId);
             if (!selected) return null;
             return (
-              <div className="media-audio">
-                <div className="media-audio-label">Preview: {selected.name}</div>
+              <div style={{ marginTop: 8, background: 'var(--bg-surface)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Preview: {selected.name}</div>
                 <audio controls src={selected.url} style={{ width: '100%', height: 40 }} preload="metadata" controlsList="nodownload" />
               </div>
             );
@@ -326,12 +326,12 @@ export default function GenerateInvitation() {
   // Wizard gating: index of the furthest tab the user may open. Tabs past it are locked.
   const [unlockedIdx, setUnlockedIdx] = useState(0);
   const [confirmingNames, setConfirmingNames] = useState(false);
-  // Phone: the step list opens as a sheet from the bar's title.
+  // Phone: the list of steps opens as a sheet from the step bar
   const [stepSheet, setStepSheet] = useState(false);
-  const navigate = useNavigate();
-  // Why "Next" can't move on yet — shown at the top of the step.
+  // Why "Next" can't move on yet — shown at the top of the step
   const [flowHint, setFlowHint] = useState('');
   const flowHintRef = useRef(null);
+  const navigate = useNavigate();
 
   // People
   const [people, setPeople] = useState([]);
@@ -1326,30 +1326,38 @@ export default function GenerateInvitation() {
         : 'Fill in the names marked “Must do” to continue.')
     : activeSection === 'functions' ? 'Give every ceremony a name and a date to continue.' : '';
 
-  // ── Phone bar ──
+  // ── Phone step bar ──
   const stepNo = Math.max(1, stepSections.findIndex(sec => sec.id === activeSection) + 1);
-  // Short names in the phone bar so they fit on small screens ("Go live", not "Preview & go live").
-  const activeLabel = sections.find(sec => sec.id === activeSection)?.short || '';
+  // Short names so the step always fits the bar ("Go live", not "Preview & go live")
+  const activeShort = sections.find(sec => sec.id === activeSection)?.short || '';
   const prevSection = sections[activeIdx - 1];
   const backLabel = isLive
-    ? (activeSection === 'overview' ? 'Back to Home' : 'Back to overview')
-    : (prevSection && prevSection.id !== 'overview' ? `Back to ${prevSection.label}` : 'Back to Home');
+    ? (activeSection === 'overview' ? 'Back to Home' : 'Back to overview (saves first)')
+    : (prevSection && prevSection.id !== 'overview' ? `Back to ${prevSection.label} (saves first)` : 'Back to Home');
 
-  function handleBack() {
+  async function handleBack() {
     if (isLive && activeSection !== 'overview') { goToSection('overview'); return; }
     if (!isLive && prevSection && prevSection.id !== 'overview') { goToSection(prevSection.id); return; }
+    if (!(await saveActive())) return;
     navigate('/dashboard');
   }
 
   function showFlowHint(text) {
     if (!text) return;
     setFlowHint(text);
-    // Bring the reason into view, then put the cursor in the first empty field.
+    // Take the couple to the first empty field that isn't marked "(optional)"
+    // and say why; with no such field, show the reason at the top of the step.
     requestAnimationFrame(() => {
-      flowHintRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       const empty = [...document.querySelectorAll('.invite-form-body input.form-input, .invite-form-body input[type="date"]')]
-        .find((el) => !el.disabled && !el.value && el.offsetParent !== null);
-      empty?.focus({ preventScroll: true });
+        .find((el) => !el.disabled && !el.value && el.offsetParent !== null
+          && !el.closest('.form-group, .person-row')?.querySelector('.form-optional'));
+      if (empty) {
+        empty.focus({ preventScroll: true });
+        empty.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        toast(text, 'info');
+      } else {
+        flowHintRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
     });
   }
 
@@ -1387,77 +1395,49 @@ export default function GenerateInvitation() {
 
   return (
     <div className="invite-form-page page-fade">
-      {/* Phone: the builder's own bar, like Instagram's "New post" */}
-      <header className="flow-bar">
-        <button type="button" className="icon-btn" onClick={handleBack} aria-label={backLabel} disabled={savingActive}>
-          <ChevronLeft size={28} aria-hidden="true" />
-        </button>
-        <button type="button" className="flow-title" onClick={() => setStepSheet(true)} aria-haspopup="dialog" aria-label={`${activeLabel}. See all steps`}>
-          <span className="flow-title-text">{activeLabel}</span>
-          {activeSection !== 'overview' && <span className="flow-count">{stepNo}/{stepSections.length}</span>}
-          <ChevronDown size={16} strokeWidth={2.5} aria-hidden="true" />
-        </button>
-        <button type="button" className="icon-btn" onClick={openPreview} disabled={loadingPreview} aria-label="Preview your invitation" title="Preview">
-          <Eye size={24} aria-hidden="true" />
-        </button>
-        {barAction ? (
-          <button type="button" className="flow-next" onClick={barAction.onClick} disabled={savingActive || publishing}>
-            {savingActive || publishing ? <span className="btn-spinner" aria-hidden="true" /> : barAction.label}
+      {/* Phone: one slim step bar — back, where you are, preview and the next action */}
+      <div className="invite-stepbar">
+        <div className="stepbar-row">
+          <button type="button" className="stepbar-icon" onClick={handleBack} aria-label={backLabel} title={backLabel} disabled={savingActive}>
+            <ChevronLeft size={24} aria-hidden="true" />
           </button>
-        ) : <span className="flow-next-spacer" aria-hidden="true" />}
-      </header>
-      {!isEditMode && (
-        <div className="story-segments flow-segments" role="progressbar" aria-label={`${mustDoneCount} of 3 must-do steps done`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-          {stepSections.map((sec) => (
-            <span key={sec.id} className={sectionComplete[sec.id] ? 'is-done' : sec.id === activeSection ? 'is-current' : ''} />
-          ))}
+          <button type="button" className="stepbar-title" onClick={() => setStepSheet(true)} aria-haspopup="dialog" aria-label={`${activeShort}. See all steps`}>
+            {activeSection !== 'overview' && <span className="stepbar-count">{stepNo}/{stepSections.length}</span>}
+            <span className="stepbar-name">{activeShort}</span>
+            <ChevronDown size={16} aria-hidden="true" className="stepbar-chev" />
+          </button>
+          <button type="button" className="stepbar-icon" onClick={openPreview} disabled={loadingPreview} aria-label="Preview your invitation" title="Preview">
+            <Eye size={22} aria-hidden="true" />
+          </button>
+          {barAction ? (
+            <button type="button" className="stepbar-next" onClick={barAction.onClick} disabled={savingActive || publishing}>
+              {savingActive || publishing ? <span className="btn-spinner" aria-hidden="true" /> : barAction.label}
+            </button>
+          ) : <span className="stepbar-spacer" aria-hidden="true" />}
         </div>
-      )}
+        {!isEditMode && (
+          <div className="stepbar-segments" role="progressbar" aria-label={`${mustDoneCount} of 3 must-do steps done`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+            {stepSections.map((sec) => (
+              <span key={sec.id} className={sectionComplete[sec.id] ? 'is-done' : sec.id === activeSection ? 'is-current' : ''} />
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Desktop: page header, progress and step tabs */}
       <div className="builder-head">
         <div className="builder-head-text">
-          <h1 className="builder-title">{isEditMode ? 'Edit your invitation' : 'Build your invitation'}</h1>
-          <p className="builder-sub">
-            <span className={isEditMode ? 'builder-live' : ''}>{isEditMode ? 'Live' : 'Not live yet'}</span>
-            {' · '}{[eventTitle({ ...event, people }), eventMeta({ ...event, functions })].filter(Boolean).join(' · ')}
-          </p>
+          <div className={`builder-status${isEditMode ? ' is-live' : ''}`}>
+            <span className={`event-dot${isEditMode ? ' is-live' : ''}`} aria-hidden="true" />
+            {isEditMode ? 'Live invitation' : 'Not live yet'}
+          </div>
+          <h1 className="ph-title">{isEditMode ? 'Edit your invitation' : 'Build your invitation'}</h1>
+          <p className="ph-subtitle">{[eventTitle({ ...event, people }), eventMeta({ ...event, functions })].filter(Boolean).join(' · ')}</p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={openPreview} disabled={loadingPreview}>
-          <Eye size={16} aria-hidden="true" />
+          <Eye size={18} aria-hidden="true" />
           {loadingPreview ? 'Opening…' : 'Preview'}
         </button>
       </div>
-      {!isEditMode && (
-        <div className="builder-progress">
-          <p className="builder-progress-text">
-            <strong>{mustDoneCount} of 3 must-do steps done.</strong>{' '}
-            {mustDoneCount === 2 ? 'Last step: preview and go live.' : 'You can come back and change anything later.'}
-          </p>
-          <div className="builder-progress-bar" aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
-        </div>
-      )}
-      <nav className="ig-tabs builder-tabs" aria-label="Steps">
-        {sections.map((sec) => {
-          const locked = sections.indexOf(sec) > unlockedIdx;
-          const done = sectionComplete[sec.id];
-          const active = activeSection === sec.id;
-          return (
-            <button
-              type="button"
-              key={sec.id}
-              className={`ig-tab${active ? ' active' : ''}`}
-              aria-current={active ? 'step' : undefined}
-              aria-disabled={locked || undefined}
-              title={locked ? lockedReason : undefined}
-              onClick={() => (locked ? toast(lockedReason, 'info') : goToSection(sec.id))}
-            >
-              {sec.id === 'overview' ? <Eye size={14} aria-hidden="true" /> : done ? <Check size={14} aria-hidden="true" /> : locked ? <Lock size={12} aria-hidden="true" /> : null}
-              {sec.short}
-            </button>
-          );
-        })}
-      </nav>
 
       {isEditMode && (
         <div className="live-banner" role="status">
@@ -1465,11 +1445,61 @@ export default function GenerateInvitation() {
           <span>Your invitation is live. Changes you save show to guests right away.</span>
         </div>
       )}
-      {flowHint && (
-        <p className="flow-hint" role="alert" ref={flowHintRef} tabIndex={-1}>{flowHint}</p>
-      )}
+
+      {/* The outer box holds the sticky position and a frozen height; only the
+          inner chrome shrinks, so the document never changes length. */}
+      <div className="invite-sticky">
+       <div className="invite-sticky-inner">
+        {!isEditMode && (
+          <div className="invite-progress-wrap">
+            <div className="invite-progress-header">
+              <span className="invite-progress-label">{mustDoneCount} of 3 must-do steps done</span>
+              <span className="invite-progress-sub">
+                {mustDoneCount === 2 ? 'Last step: preview and go live' : 'You can come back and change anything later'}
+              </span>
+            </div>
+            <div className="invite-progress-bar" role="progressbar" aria-label="Invitation progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+              <div className="invite-progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* Steps */}
+        <nav className="section-tabs" aria-label="Steps">
+          {sections.map((s, i) => {
+            const locked = i > unlockedIdx;
+            const done = sectionComplete[s.id];
+            const active = activeSection === s.id;
+            const number = sections.filter(x => x.id !== 'overview').findIndex(x => x.id === s.id) + 1;
+            return (
+              <button
+                type="button"
+                key={s.id}
+                className={`section-tab ${active ? 'active' : ''} ${done ? 'done' : ''} ${locked ? 'locked' : ''}`}
+                aria-current={active ? 'step' : undefined}
+                aria-disabled={locked || undefined}
+                title={locked ? lockedReason : undefined}
+                onClick={() => {
+                  if (locked) { toast(lockedReason, 'info'); return; }
+                  goToSection(s.id);
+                }}
+              >
+                <span className="step-num" aria-hidden="true">
+                  {s.id === 'overview' ? <Eye size={13} /> : done ? <Check size={14} /> : locked ? <Lock size={12} /> : number}
+                </span>
+                <span className="step-label">{s.label}</span>
+                {!locked && !done && s.must && !isEditMode && <span className="tab-required">Must do</span>}
+              </button>
+            );
+          })}
+        </nav>
+       </div>
+      </div>
 
       <div className="invite-form-body">
+        {flowHint && (
+          <p className="flow-hint" role="alert" ref={flowHintRef} tabIndex={-1}>{flowHint}</p>
+        )}
 
         {/* ── OVERVIEW (live invitation) ── */}
         {activeSection === 'overview' && (
@@ -1809,6 +1839,12 @@ export default function GenerateInvitation() {
             {functions.length > 1 && (
               <div className="partial-box">
                 <label className="partial-switch">
+                  <input
+                    type="checkbox"
+                    checked={partialEnabled}
+                    disabled={Boolean(event.invitePairId)}
+                    onChange={e => setPartialEnabled(e.target.checked)}
+                  />
                   <span className="partial-switch-text">
                     <strong>Some guests are only invited to a few ceremonies</strong>
                     <span className="form-hint">
@@ -1816,15 +1852,6 @@ export default function GenerateInvitation() {
                         ? 'You have a second link — tick below which ceremonies it shows.'
                         : 'You’ll get a second link that shows only the ceremonies you tick.'}
                     </span>
-                  </span>
-                  <span className="ig-switch">
-                    <input
-                      type="checkbox"
-                      checked={partialEnabled}
-                      disabled={Boolean(event.invitePairId)}
-                      onChange={e => setPartialEnabled(e.target.checked)}
-                    />
-                    <span aria-hidden="true" />
                   </span>
                 </label>
                 <InfoTip label="About the second link" align="end" learnMore="/guide#selected-ceremonies">
@@ -1870,16 +1897,16 @@ export default function GenerateInvitation() {
                 ))}
                 {media.some((m) => !m.slotKey) && (
                   <div className="items-list" style={{ marginTop: 8 }}>
-                    <div className="section-title" style={{ marginBottom: 8 }}>Other uploads (not shown in this design)</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 8 }}>Other uploads (not shown in this design)</div>
                     {media
                       .filter((m) => !m.slotKey)
                       .map((m) => (
                         <div key={m.id} className="item-row">
                           <div className="item-info">
                             <span className="item-label">{({ photo: 'Photo', music: 'Music', video: 'Video' })[m.type] || 'File'}</span>
-                            {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" />}
+                            {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" loading="lazy" />}
                             {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
-                            {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" className="media-link">Play video</a>}
+                            {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
                           </div>
                           <div className="item-actions">
                             <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeletingMedia(m)}>Remove</button>
@@ -1924,9 +1951,9 @@ export default function GenerateInvitation() {
                       <div key={m.id} className="item-row">
                         <div className="item-info">
                           <span className="item-label">{({ photo: 'Photo', music: 'Music', video: 'Video' })[m.type] || 'File'}</span>
-                          {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" />}
+                          {m.type === 'photo' && <img src={m.url} alt={m.caption || 'Your photo'} className="media-thumb" loading="lazy" />}
                           {m.type === 'music' && <audio controls src={m.url} style={{ width: '100%', marginTop: 6 }} />}
-                          {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" className="media-link">Play video</a>}
+                          {m.type === 'video' && <a href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--gold)', display: 'block', marginTop: 4 }}>▶ View Video</a>}
                           {m.caption && <span className="item-meta">{m.caption}</span>}
                         </div>
                         <div className="item-actions">
@@ -2261,7 +2288,13 @@ export default function GenerateInvitation() {
 
       {stepSheet && (
         <Modal title="Steps" onClose={() => setStepSheet(false)}>
-          <ul className="ig-list">
+          {!isEditMode && (
+            <p className="steps-sheet-progress">
+              <strong>{mustDoneCount} of 3 must-do steps done.</strong>{' '}
+              {mustDoneCount === 2 ? 'Last step: preview and go live.' : 'You can come back and change anything later.'}
+            </p>
+          )}
+          <ul className="steps-sheet-list">
             {sections.map((sec) => {
               const locked = sections.indexOf(sec) > unlockedIdx;
               const done = sectionComplete[sec.id];
@@ -2271,21 +2304,21 @@ export default function GenerateInvitation() {
                 <li key={sec.id}>
                   <button
                     type="button"
-                    className={`ig-row step-row${active ? ' is-current' : ''}`}
+                    className={`steps-sheet-row${active ? ' is-current' : ''}${locked ? ' is-locked' : ''}`}
                     aria-current={active ? 'step' : undefined}
                     aria-disabled={locked || undefined}
                     onClick={() => (locked ? toast(lockedReason, 'info') : goToSection(sec.id))}
                   >
-                    <span className={`step-dot${done ? ' is-done' : ''}${active ? ' is-current' : ''}`} aria-hidden="true">
-                      {sec.id === 'overview' ? <Eye size={14} /> : done ? <Check size={14} /> : locked ? <Lock size={12} /> : num}
+                    <span className={`step-num${done ? ' is-done' : ''}`} aria-hidden="true">
+                      {sec.id === 'overview' ? <Eye size={13} /> : done ? <Check size={14} /> : locked ? <Lock size={12} /> : num}
                     </span>
-                    <span className="ig-row-text">
-                      {sec.label}
-                      {(locked || (sec.must && !done && !isEditMode)) && (
-                        <span className="ig-row-sub">{locked ? lockedReason : 'Must do'}</span>
-                      )}
+                    <span className="steps-sheet-text">
+                      <span className="steps-sheet-name">{sec.label}</span>
+                      {locked
+                        ? <span className="steps-sheet-sub">{lockedReason}</span>
+                        : (sec.must && !done && !isEditMode) ? <span className="steps-sheet-sub is-must">Must do</span> : null}
                     </span>
-                    {active && <Check size={20} className="ig-row-end" aria-label="You are here" />}
+                    {active && <Check size={18} className="steps-sheet-here" aria-label="You are here" />}
                   </button>
                 </li>
               );
@@ -2298,16 +2331,9 @@ export default function GenerateInvitation() {
       {venueModal && (
         <Modal
           title={editingVenue ? 'Edit venue' : 'Add a venue'}
+          size="full"
           onClose={() => { setVenueModal(null); setEditingVenue(null); }}
-          footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => { setVenueModal(null); setEditingVenue(null); }}>Cancel</button>
-              <button type="button" className="btn btn-primary" disabled={savingVenue} onClick={saveVenueFromModal}>
-                {savingVenue && <span className="btn-spinner" aria-hidden="true" />}
-                Save venue
-              </button>
-            </>
-          }
+          primaryAction={{ label: 'Save venue', onClick: saveVenueFromModal, loading: savingVenue }}
         >
           {(() => {
             const v = editingVenue || venueForm;

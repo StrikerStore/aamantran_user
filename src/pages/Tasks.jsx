@@ -23,7 +23,7 @@ const COLUMN_META = {
   done:       { label: 'Done',        empty: 'Finished tasks appear here.' },
 };
 
-const PRIORITY_COLOR = { high: 'var(--danger-text)', medium: 'var(--warning)', low: 'var(--success)' };
+const PRIORITY_COLOR = { high: 'var(--red)', medium: 'var(--amber)', low: 'var(--green)' };
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function isOverdue(t) { return t.status !== 'done' && t.dueDate && t.dueDate < today(); }
@@ -43,7 +43,7 @@ export default function Tasks() {
   const [editing, setEditing]     = useState(null);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState(null);
-  // Phones show one column at a time, picked from tabs.
+  // Phones show one status column at a time, picked from a segmented control
   const [phoneCol, setPhoneCol]   = useState('todo');
   const couple = useCouple(id);
   // Tasks saved before the couple became person1/person2 say "bride"/"groom" —
@@ -165,14 +165,14 @@ export default function Tasks() {
             <span className="feat-stat-label">To do</span>
           </div>
           <div className="feat-stat">
-            <span className="feat-stat-val">{nDoing}</span>
+            <span className="feat-stat-val feat-stat-val--gold">{nDoing}</span>
             <span className="feat-stat-label">In progress</span>
           </div>
           <div className="feat-stat">
             <span className="feat-stat-val feat-stat-val--green">{nDone}</span>
             <span className="feat-stat-label">Done</span>
           </div>
-          <div className="feat-stat">
+          <div className="feat-stat feat-stat--phone-hide">
             <span className={`feat-stat-val ${urgentCount ? 'feat-stat-val--amber' : ''}`}>{urgentCount}</span>
             <span className="feat-stat-label">Due now</span>
           </div>
@@ -196,17 +196,17 @@ export default function Tasks() {
       </section>
 
       {/* Kanban */}
-      <div className="ig-tabs tasks-tabs" role="tablist" aria-label="Task status">
+      <div className="tasks-segmented" role="tablist" aria-label="Task status">
         {STATUSES.map(status => (
           <button
             type="button"
             role="tab"
             key={status}
             aria-selected={phoneCol === status}
-            className={`ig-tab${phoneCol === status ? ' active' : ''}`}
+            className={`tasks-seg${phoneCol === status ? ' active' : ''}`}
             onClick={() => setPhoneCol(status)}
           >
-            {COLUMN_META[status].label} · {filtered.filter(t => t.status === status).length}
+            {COLUMN_META[status].label} <span className="tasks-seg-count">{filtered.filter(t => t.status === status).length}</span>
           </button>
         ))}
       </div>
@@ -227,7 +227,7 @@ export default function Tasks() {
                   <div
                     key={task.id}
                     className={`task-card ${task.status === 'done' ? 'done' : ''} ${isOverdue(task) ? 'overdue' : ''}`}
-                    style={{ borderLeftColor: PRIORITY_COLOR[task.priority] || 'var(--separator)' }}
+                    style={{ borderLeftColor: PRIORITY_COLOR[task.priority] || 'var(--border-default)' }}
                   >
                     <div className="task-card-header">
                       <span className="task-title">{task.title}</span>
@@ -247,7 +247,7 @@ export default function Tasks() {
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => moveStatus(task, 'inprogress')}><Play size={15} aria-hidden="true" /> Start</button>
                       )}
                       {task.status === 'inprogress' && (
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--success)' }} onClick={() => moveStatus(task, 'done')}><Check size={15} aria-hidden="true" /> Mark done</button>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--green)' }} onClick={() => moveStatus(task, 'done')}><Check size={15} aria-hidden="true" /> Mark done</button>
                       )}
                       {task.status === 'done' && (
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => moveStatus(task, 'todo')}><RotateCcw size={15} aria-hidden="true" /> Reopen</button>
@@ -255,7 +255,7 @@ export default function Tasks() {
                       <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => openEdit(task)} aria-label={`Edit “${task.title}”`}>
                         <Pencil size={15} aria-hidden="true" /> Edit
                       </button>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-text)' }} onClick={() => setDeleting(task)} aria-label={`Delete “${task.title}”`}>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(task)} aria-label={`Delete “${task.title}”`}>
                         <Trash2 size={15} aria-hidden="true" /> Delete
                       </button>
                     </div>

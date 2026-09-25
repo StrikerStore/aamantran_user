@@ -51,34 +51,3 @@ export function eventMeta(ev) {
 export function liveLabel(ev) {
   return ev?.isPublished ? 'Live' : 'Not live yet';
 }
-
-/** "KA" for Keval & Avani — the letters on the couple's avatar. */
-export function coupleInitials(ev) {
-  const names = coupleNames(ev);
-  if (!names) return 'A';
-  return names.split('&').map((n) => n.trim()[0] || '').join('').slice(0, 2).toUpperCase() || 'A';
-}
-
-/** "34 days to go" / "Today" / '' once the first ceremony has passed. */
-export function daysToGo(ev) {
-  const fns = Array.isArray(ev?.functions) ? ev.functions : [];
-  const dated = fns.map((f) => new Date(f.date)).filter((d) => !Number.isNaN(d.getTime())).sort((a, b) => a - b);
-  if (!dated.length) return '';
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const first = new Date(dated[0]); first.setHours(0, 0, 0, 0);
-  const days = Math.round((first - start) / 86400000);
-  if (days < 0) return '';
-  if (days === 0) return 'Today';
-  return `${days} day${days === 1 ? '' : 's'} to go`;
-}
-
-/** Guest replies as one set of numbers (a guest counts once, at their busiest ceremony). */
-export function replySummary(stats) {
-  const per = stats?.perFunction || [];
-  const most = (fn) => (per.length ? Math.max(...per.map(fn)) : 0);
-  const coming = most((f) => f.attending || 0);
-  const notComing = most((f) => f.notAttending || 0);
-  const replied = most((f) => (f.attending || 0) + (f.notAttending || 0));
-  const guestCount = stats?.guestCount ?? 0;
-  return { coming, notComing, noReply: Math.max(0, guestCount - replied), opens: stats?.opens ?? 0, guestCount };
-}

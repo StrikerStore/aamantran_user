@@ -25,12 +25,12 @@ const CATEGORIES = [
 const catName = (c) => c.name || c.label;
 
 const STATUSES = [
-  { key: 'to-buy',   label: 'To buy',    color: 'var(--warning)' },
-  { key: 'ordered',  label: 'Ordered',   color: 'var(--text)' },
-  { key: 'received', label: 'Received',  color: 'var(--success)' },
-  { key: 'packed',   label: 'Packed',    color: 'var(--text)' },
-  { key: 'at-venue', label: 'At venue',  color: 'var(--accent-text)' },
-  { key: 'done',     label: 'Done',      color: 'var(--text-2)' },
+  { key: 'to-buy',   label: 'To buy',    color: 'var(--amber)' },
+  { key: 'ordered',  label: 'Ordered',   color: 'var(--sky-deep)' },
+  { key: 'received', label: 'Received',  color: 'var(--mint-deep)' },
+  { key: 'packed',   label: 'Packed',    color: 'var(--maroon)' },
+  { key: 'at-venue', label: 'At venue',  color: 'var(--gold-text)' },
+  { key: 'done',     label: 'Done',      color: 'var(--text-muted)' },
 ];
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -229,7 +229,7 @@ export default function Inventory() {
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(item)} aria-label={`Edit “${item.name}”`}>
                     <Pencil size={15} aria-hidden="true" /> Edit
                   </button>
-                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-text)' }} onClick={() => setDeleting(item)} aria-label={`Delete “${item.name}”`}>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => setDeleting(item)} aria-label={`Delete “${item.name}”`}>
                     <Trash2 size={15} aria-hidden="true" /> Delete
                   </button>
                 </div>
@@ -242,18 +242,10 @@ export default function Inventory() {
       {/* Add / edit */}
       {showModal && (
         <Modal
-          size="lg"
+          size="full"
           title={editing ? 'Edit item' : 'Add an item'}
           onClose={() => !saving && setShowModal(false)}
-          footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
-                {editing ? 'Save changes' : 'Add item'}
-              </button>
-            </>
-          }
+          primaryAction={{ label: editing ? 'Save' : 'Add item', onClick: save, loading: saving }}
         >
           <div className="form-row">
             <div className="form-group">

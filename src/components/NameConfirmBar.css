@@ -1,0 +1,113 @@
+.name-confirm-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--r-md);
+  margin-bottom: 20px;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.name-confirm-bar.frozen {
+  background: var(--mint-soft);
+  color: var(--green);
+}
+
+.name-confirm-bar.pending {
+  background: var(--lemon-soft);
+}
+
+.name-confirm-bar.empty {
+  background: var(--bg-elevated);
+}
+
+.ncb-icon { font-size: 1.3rem; flex-shrink: 0; }
+
+.ncb-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ncb-text strong {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ncb-text span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.name-confirm-bar.frozen .ncb-text strong { color: var(--green); }
+.name-confirm-bar.frozen .ncb-text span   { color: var(--green); opacity: 0.8; }
+
+/* ── Confirm Names modal ── */
+.ncb-modal-intro {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.ncb-modal-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 16px;
+  line-height: 1.5;
+}
+
+/* Heading over each group, so the locked names read as separate from the
+   ones that stay editable. */
+.ncb-group-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+  font-size: max(12px, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+/* Only a heading that follows a list needs the gap above it. */
+.ncb-names-list + .ncb-group-head { margin-top: 18px; }
+.ncb-group-head.locked { color: var(--rose-deep); }
+.ncb-group-icon { font-size: max(12px, 0.85rem); letter-spacing: normal; }
+
+.ncb-names-list {
+  background: var(--bg-elevated);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+/* The locked group carries a touch more weight than the editable one. */
+.ncb-names-list.locked { border-color: var(--rose); }
+.ncb-names-list.locked .ncb-name-value { font-weight: 700; }
+
+.ncb-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ncb-name-row:last-child { border-bottom: none; }
+
+.ncb-name-role {
+  font-size: max(12px, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  min-width: 90px;
+}
+
+.ncb-name-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}

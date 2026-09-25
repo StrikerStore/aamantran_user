@@ -11,12 +11,12 @@ import './Vendors.css';
 
 const VENDOR_TYPES = ['Photography', 'Catering', 'Decor', 'Music', 'Attire', 'Priest', 'Transport', 'Makeup', 'Mehendi', 'Other'];
 const VENDOR_STATUSES = [
-  { key: 'contacted',    label: 'Contacted',    color: 'var(--text-2)' },
-  { key: 'negotiating', label: 'Negotiating',  color: 'var(--warning)' },
-  { key: 'booked',      label: 'Booked',       color: 'var(--text)' },
-  { key: 'deposit-paid',label: 'Advance paid', color: 'var(--accent-text)' },
-  { key: 'fully-paid',  label: 'Fully paid',   color: 'var(--success)' },
-  { key: 'cancelled',   label: 'Cancelled',    color: 'var(--danger-text)' },
+  { key: 'contacted',    label: 'Contacted',    color: 'var(--text-muted)' },
+  { key: 'negotiating', label: 'Negotiating',  color: 'var(--amber)' },
+  { key: 'booked',      label: 'Booked',       color: 'var(--sky-deep)' },
+  { key: 'deposit-paid',label: 'Advance paid', color: 'var(--gold-text)' },
+  { key: 'fully-paid',  label: 'Fully paid',   color: 'var(--mint-deep)' },
+  { key: 'cancelled',   label: 'Cancelled',    color: 'var(--red)' },
 ];
 
 function fmt(n) { return Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
@@ -169,7 +169,7 @@ export default function Vendors() {
                   {v.phone && <a href={`tel:${v.phone}`} className="btn btn-ghost btn-sm"><Phone size={15} aria-hidden="true" /> Call</a>}
                   {v.email && <a href={`mailto:${v.email}`} className="btn btn-ghost btn-sm"><Mail size={15} aria-hidden="true" /> Email</a>}
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(v)} aria-label={`Edit ${v.name}`}><Pencil size={15} aria-hidden="true" /> Edit</button>
-                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-text)', marginLeft: 'auto' }} onClick={() => setDeleting(v)} aria-label={`Delete ${v.name}`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', marginLeft: 'auto' }} onClick={() => setDeleting(v)} aria-label={`Delete ${v.name}`}><Trash2 size={15} aria-hidden="true" /> Delete</button>
                 </div>
                 {packageCost > 0 && (
                   <div className="vendor-payment">
@@ -190,18 +190,10 @@ export default function Vendors() {
 
       {showModal && (
         <Modal
-          size="lg"
+          size="full"
           title={editing ? 'Edit vendor' : 'Add a vendor'}
           onClose={() => !saving && setShowModal(false)}
-          footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? <span className="btn-spinner" aria-hidden="true" /> : null}
-                {editing ? 'Save changes' : 'Add vendor'}
-              </button>
-            </>
-          }
+          primaryAction={{ label: editing ? 'Save' : 'Add vendor', onClick: save, loading: saving }}
         >
           <div className="form-row">
             <div className="form-group">

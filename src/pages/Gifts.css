@@ -1,3 +1,17 @@
-/* Gifts — the table becomes list rows on phones (see .table-stack) */
-.gifts-pill-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: var(--fs-xs); font-weight: 700; }
-.pill.active .gifts-pill-count { background: #fff; color: var(--text); }
+.feat-shell + .card {
+  margin-top: 8px;
+}
+
+.gifts-pill-count {
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--amber);
+  color: #fff;
+  border-radius: 99px;
+  padding: 0 6px;
+  font-size: max(12px, 0.68rem);
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+tr.gift-done td { opacity: 0.55; }

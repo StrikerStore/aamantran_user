@@ -29,7 +29,7 @@ function passwordStrength(pw) {
   return { score: 4, label: 'Strong' };
 }
 
-function PasswordInput({ id, value, onChange, placeholder, autoComplete, autoFocus, onCapsLock }) {
+function PasswordInput({ value, onChange, placeholder, autoComplete, autoFocus, onCapsLock }) {
   const [visible, setVisible] = useState(false);
 
   function handleKey(e) {
@@ -41,7 +41,6 @@ function PasswordInput({ id, value, onChange, placeholder, autoComplete, autoFoc
   return (
     <div className="pw-field">
       <input
-        id={id}
         className="form-input"
         type={visible ? 'text' : 'password'}
         value={value}
@@ -214,21 +213,21 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <img src="/logo.png" alt="" className="login-logo-img" width="44" height="44" decoding="async" />
+          <img src="/logo.png" alt="" className="login-logo-img" width="56" height="56" decoding="async" />
           <div className="login-logotype">Aamantran</div>
+          <div className="login-tagline">User Dashboard</div>
         </div>
 
-        <h1 className="login-title">Log in to your invitation</h1>
-        <p className="login-sub">Build it, share it and see who’s coming.</p>
+        <h1 className="login-title">Welcome back</h1>
+        <p className="login-sub">Sign in to build your wedding invitation</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label className="form-label" htmlFor="login-username">Username</label>
+            <label className="form-label">Username</label>
             <input
-              id="login-username"
               className="form-input"
               type="text"
-              placeholder="Username"
+              placeholder="your_username"
               value={form.username}
               onChange={e => set('username', e.target.value)}
               autoFocus
@@ -237,16 +236,15 @@ export default function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="login-password">Password</label>
+            <label className="form-label">Password</label>
             <PasswordInput
-              id="login-password"
               value={form.password}
               onChange={e => set('password', e.target.value)}
-              placeholder="Password"
+              placeholder="••••••••"
               autoComplete="current-password"
               onCapsLock={setCapsLock}
             />
-            {capsLock && <div className="capslock-hint">Caps Lock is on</div>}
+            {capsLock && <div className="capslock-hint">⇪ Caps Lock is on</div>}
           </div>
 
           <label className="keep-signed-in-label">
@@ -261,18 +259,19 @@ export default function Login() {
           {error && <div className="login-error">{error}</div>}
 
           <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
-            {loading ? <span className="btn-spinner" aria-hidden="true" /> : 'Log in'}
+            {loading ? <span className="btn-spinner" /> : null}
+            Sign In
           </button>
         </form>
 
-        <button type="button" className="login-link login-forgot" onClick={openRecovery}>
-          Forgot username or password?
-        </button>
+        <p className="login-footer">
+          <button type="button" className="login-link" onClick={openRecovery}>
+            Forgot username or password?
+          </button>
+          <br />
+          Need help? <a href="mailto:aamantran@plexzuu.com">Contact support</a>
+        </p>
       </div>
-
-      <p className="login-card login-footer">
-        Need help? <a href="mailto:aamantran@plexzuu.com">Contact us</a>
-      </p>
 
       {recoveryOpen && (
         <div className="recovery-overlay" onClick={() => !recoveryLoading && setRecoveryOpen(false)}>
@@ -291,7 +290,7 @@ export default function Login() {
             {recoveryStep === 'request' && (
               <form onSubmit={requestCode} className="login-form">
                 <div className="form-group">
-                  <label className="form-label">Email you signed up with</label>
+                  <label className="form-label">Registered Email</label>
                   <input
                     className="form-input"
                     type="email"
@@ -304,19 +303,19 @@ export default function Login() {
                 </div>
                 <button type="submit" className="btn btn-primary login-btn" disabled={recoveryLoading}>
                   {recoveryLoading ? <span className="btn-spinner" /> : null}
-                  Send code
+                  Send Recovery Code
                 </button>
               </form>
             )}
 
             {recoveryStep === 'verify' && (
               <form onSubmit={verifyCode} className="login-form">
-                <p className="login-sub">
+                <p className="login-sub" style={{ marginBottom: 14 }}>
                   We sent a 6-digit code to <strong>{maskEmail(recoveryData.email.trim())}</strong>.
                   It expires in 10 minutes.
                 </p>
                 <div className="form-group">
-                  <label className="form-label">Code from your email</label>
+                  <label className="form-label">Recovery Code</label>
                   <input
                     className="form-input recovery-code-input"
                     type="text"
@@ -332,7 +331,7 @@ export default function Login() {
                 </div>
                 <button type="submit" className="btn btn-primary login-btn" disabled={recoveryLoading}>
                   {recoveryLoading ? <span className="btn-spinner" /> : null}
-                  Check code
+                  Verify Code
                 </button>
                 <div className="resend-row">
                   {resendIn > 0 ? (
@@ -353,11 +352,11 @@ export default function Login() {
 
             {recoveryStep === 'reset' && (
               <form onSubmit={resetPassword} className="login-form">
-                <p className="login-sub">
+                <p className="login-sub" style={{ marginBottom: 14 }}>
                   Username found: <strong>{recoveryData.username || 'N/A'}</strong>
                 </p>
                 <div className="form-group">
-                  <label className="form-label">New password</label>
+                  <label className="form-label">New Password</label>
                   <PasswordInput
                     value={recoveryData.newPassword}
                     onChange={e => setRecoveryData(d => ({ ...d, newPassword: e.target.value }))}
@@ -375,7 +374,7 @@ export default function Login() {
                   )}
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Type it again</label>
+                  <label className="form-label">Confirm Password</label>
                   <PasswordInput
                     value={recoveryData.confirmPassword}
                     onChange={e => setRecoveryData(d => ({ ...d, confirmPassword: e.target.value }))}
@@ -388,7 +387,7 @@ export default function Login() {
                 </div>
                 <button type="submit" className="btn btn-primary login-btn" disabled={recoveryLoading}>
                   {recoveryLoading ? <span className="btn-spinner" /> : null}
-                  Save new password
+                  Reset Password
                 </button>
               </form>
             )}

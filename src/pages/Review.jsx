@@ -76,7 +76,7 @@ export default function Review() {
     return (
       <div className="page-fade">
         <div className="review-submitted" role="status">
-          <div className="review-submitted-icon" aria-hidden="true"><PartyPopper size={32} strokeWidth={1.5} /></div>
+          <div className="review-submitted-icon" aria-hidden="true"><PartyPopper size={40} /></div>
           <h2>Thank you for your review!</h2>
           <p>It helps other couples choose their design.</p>
         </div>
@@ -123,7 +123,7 @@ export default function Review() {
                     onBlur={() => setHover(0)}
                     onClick={() => setForm(f => ({ ...f, rating: n }))}
                   >
-                    <Star size={24} aria-hidden="true" fill={n <= shown ? 'currentColor' : 'none'} />
+                    <Star size={30} aria-hidden="true" fill={n <= shown ? 'currentColor' : 'none'} />
                   </button>
                 ))}
                 {shown > 0 && <span className="rating-label" aria-hidden="true">{RATING_WORDS[shown]}</span>}
@@ -163,7 +163,7 @@ export default function Review() {
               {photoPreview ? (
                 <div className="review-photo">
                   <img src={photoPreview} alt="Your photo" className="review-photo-img" />
-                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-text)' }} onClick={removePhoto}>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={removePhoto}>
                     <Trash2 size={15} aria-hidden="true" /> Remove photo
                   </button>
                 </div>

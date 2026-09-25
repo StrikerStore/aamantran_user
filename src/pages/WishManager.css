@@ -1,13 +1,63 @@
-/* Wishes — Instagram comment rows */
-.wish-controls { align-items: center; }
-.wish-list { display: flex; flex-direction: column; }
-.wish-item { padding: 12px 0; border-bottom: 1px solid var(--separator); }
-.wish-item:last-child { border-bottom: none; }
-.wish-item.hidden .wish-message, .wish-item.hidden .wish-author { color: var(--text-2); }
-.wish-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.wish-author { font-weight: 700; line-height: 18px; }
-.wish-meta { display: flex; align-items: center; gap: 8px; }
-.wish-time { font-size: var(--fs-sm); color: var(--text-2); }
-.wish-message { margin-top: 2px; line-height: 18px; overflow-wrap: anywhere; white-space: pre-line; }
-.wish-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; }
-.wish-delete-btn { color: var(--danger-text); }
+.wish-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.wish-list {
+  display: grid;
+  gap: 12px;
+}
+
+.wish-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.wish-item.hidden {
+  background: #fbfbfc;
+}
+
+.wish-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wish-author {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.wish-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wish-time {
+  color: var(--text-muted);
+  font-size: max(12px, 0.78rem);
+}
+
+.wish-message {
+  color: var(--text);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.wish-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.wish-delete-btn {
+  color: var(--red);
+}

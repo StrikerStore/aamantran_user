@@ -168,7 +168,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
   return (
     <div className="wa-share">
       <div className="wa-share-header">
-        <span className="wa-icon" aria-hidden="true"><MessageCircle size={24} /></span>
+        <span className="wa-icon" aria-hidden="true"><MessageCircle size={20} /></span>
         <h2>Send on WhatsApp</h2>
       </div>
 
@@ -186,7 +186,7 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
           </div>
         ) : (
           <button type="button" className="wa-upload-area" onClick={() => !uploading && fileRef.current?.click()}>
-            <span className="wa-upload-icon" aria-hidden="true"><ImagePlus size={24} /></span>
+            <span className="wa-upload-icon" aria-hidden="true"><ImagePlus size={28} /></span>
             <span>{uploading ? 'Uploading…' : 'Add a photo'}</span>
             <span className="wa-upload-hint">A couple photo or save-the-date card makes your message stand out.</span>
           </button>
@@ -221,24 +221,25 @@ export function WhatsAppShare({ event, people = [], schemaPeopleRoles = [], func
       {/* Editable message */}
       <div className="wa-section">
         <label className="wa-section-label" htmlFor="wa-message">Message</label>
-        <div className="form-hint wa-hint">Edit it however you like.</div>
+        <div className="form-hint" style={{ marginBottom: 6 }}>Edit it however you like.</div>
         <textarea
           id="wa-message"
           className="form-textarea wa-message"
           value={messageText}
           onChange={e => setMessageText(e.target.value)}
-          rows={7}
+          rows={5}
         />
       </div>
 
       {/* Preview card */}
-      <div className="wa-section">
-        <div className="wa-section-label">How it will look</div>
+      {/* Closed by default: the message is already on screen above */}
+      <details className="wa-section wa-preview-details">
+        <summary className="wa-section-label">How it will look</summary>
         <div className="wa-preview-card">
           {imagePreview && <img src={imagePreview} alt="" className="wa-preview-image" />}
           <p className="wa-preview-text">{messageText}</p>
         </div>
-      </div>
+      </details>
 
       {/* Actions */}
       <div className="wa-actions">
