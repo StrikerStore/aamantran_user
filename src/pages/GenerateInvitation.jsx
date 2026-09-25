@@ -470,6 +470,22 @@ export default function GenerateInvitation() {
       }));
   }, [templateSchema]);
 
+  // Steps this template's couples get. The template decides (fieldSchema.dashboard,
+  // set in the admin): Photos & Music can be switched off, Guest Options shows
+  // only the items switched on and disappears when none are. Language appears
+  // only for a template offered in two or more languages. A template with no
+  // setting keeps every step, exactly as before.
+  const dashboardSteps = templateSchema?.dashboard && typeof templateSchema.dashboard === 'object'
+    ? templateSchema.dashboard : {};
+  const guestOptionKeys = Array.isArray(dashboardSteps.guestOptions) ? dashboardSteps.guestOptions : null;
+  const showGuestOption = (key) => !guestOptionKeys || guestOptionKeys.includes(key);
+  const sections = useMemo(() => SECTIONS.filter((s) => {
+    if (s.id === 'media') return dashboardSteps.showMedia !== false;
+    if (s.id === 'social') return !guestOptionKeys || guestOptionKeys.length > 0;
+    if (s.id === 'language') return !templateLanguages || templateLanguages.length > 1;
+    return true;
+  }), [dashboardSteps.showMedia, guestOptionKeys, templateLanguages]);
+
   // Roles follow a prefix convention: "person1_father" hangs off "person1". That lets us
   // group parents under the person they belong to without hard-coding weddings —
   // principals first, then each principal's dependents, in that order.
@@ -552,7 +568,7 @@ export default function GenerateInvitation() {
   // returning user picks up where they left off without any server state.
   const derivedUnlockedIdx = useMemo(() => {
     if (!event) return 0;
-    if (event.isPublished) return SECTIONS.length - 1;
+    if (event.isPublished) return sections.length - 1;
 
     // Tabs that refuse to hand over the baton until they are filled in.
     const blocked = {
@@ -562,7 +578,7 @@ export default function GenerateInvitation() {
       functions: !(functions.length > 0 && functions.every(f => f.name && f.date && !f._isNew)),
     };
     let blockingLimit = 0;
-    while (blockingLimit < SECTIONS.length - 1 && !blocked[SECTIONS[blockingLimit].id]) blockingLimit++;
+    while (blockingLimit < sections.length - 1 && !blocked[sections[blockingLimit].id]) blockingLimit++;
 
     // Reveal one tab at a time: stop just past the last tab that holds data,
     // otherwise every optional tab would unlock at once.
@@ -577,28 +593,50 @@ export default function GenerateInvitation() {
       publish: false,
     };
     let lastFilled = -1;
-    SECTIONS.forEach((s, i) => { if (hasContent[s.id]) lastFilled = i; });
+    sections.forEach((s, i) => { if (hasContent[s.id]) lastFilled = i; });
 
     return Math.min(blockingLimit, lastFilled + 1);
-  }, [event, hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole, people, functions,
+  }, [event, sections, hasSchemaPeopleRoles, schemaPeopleRoles, peopleByRole, people, functions,
       venues, media, customFields, instagramUrl, instagramHashtag, socialYoutubeUrl]);
 
-  const progressKey = id ? `aamantran:buildProgress:${id}` : null;
+  // Furthest step reached, stored by id: positions differ between templates now
+  // that steps can be hidden. The old key held a position in the full list.
+  const progressKey = id ? `aamantran:buildProgress:v2:${id}` : null;
+  const legacyProgressKey = id ? `aamantran:buildProgress:${id}` : null;
+
+  /** A step id → its position among this template's steps (a hidden step counts as the visible one before it). */
+  const positionOf = useCallback((sectionId) => {
+    const full = SECTIONS.findIndex((x) => x.id === sectionId);
+    if (full < 0) return 0;
+    let pos = 0;
+    sections.forEach((x, i) => { if (SECTIONS.findIndex((y) => y.id === x.id) <= full) pos = i; });
+    return pos;
+  }, [sections]);
 
   // Raise the frontier only — never lower it, or adding a blank ceremony card
   // would re-lock the tabs behind the user mid-edit.
   useEffect(() => {
     let stored = 0;
-    if (progressKey) {
-      try { stored = Number(localStorage.getItem(progressKey)) || 0; } catch { /* private mode */ }
-    }
-    setUnlockedIdx(prev => Math.max(prev, derivedUnlockedIdx, stored));
-  }, [derivedUnlockedIdx, progressKey]);
+    try {
+      const savedId = progressKey && localStorage.getItem(progressKey);
+      if (savedId) stored = positionOf(savedId);
+      else {
+        const legacy = legacyProgressKey && Number(localStorage.getItem(legacyProgressKey));
+        if (legacy > 0 && SECTIONS[legacy]) stored = positionOf(SECTIONS[legacy].id);
+      }
+    } catch { /* private mode */ }
+    setUnlockedIdx(prev => Math.min(Math.max(prev, derivedUnlockedIdx, stored), sections.length - 1));
+  }, [derivedUnlockedIdx, progressKey, legacyProgressKey, positionOf, sections.length]);
 
   useEffect(() => {
-    if (!progressKey || unlockedIdx <= 0) return;
-    try { localStorage.setItem(progressKey, String(unlockedIdx)); } catch { /* private mode */ }
-  }, [progressKey, unlockedIdx]);
+    if (!progressKey || unlockedIdx <= 0 || !sections[unlockedIdx]) return;
+    try { localStorage.setItem(progressKey, sections[unlockedIdx].id); } catch { /* private mode */ }
+  }, [progressKey, unlockedIdx, sections]);
+
+  // A step hidden for this template can't stay open.
+  useEffect(() => {
+    if (!sections.some((x) => x.id === activeSection)) setActiveSection(sections[positionOf(activeSection)]?.id || 'people');
+  }, [sections, activeSection, positionOf]);
 
   // The scroll listener reads this instead of `tabsExpanded` so it never has to
   // re-subscribe when the user opens the strip.
@@ -675,8 +713,8 @@ export default function GenerateInvitation() {
   }
 
   // ── WIZARD NAVIGATION ───────────────────────────────────
-  const activeIdx = SECTIONS.findIndex(s => s.id === activeSection);
-  const nextSection = SECTIONS[activeIdx + 1];
+  const activeIdx = sections.findIndex(s => s.id === activeSection);
+  const nextSection = sections[activeIdx + 1];
 
   // Names the user is about to confirm — drafts, since nothing is saved yet.
   // `locked` mirrors the freeze rule the rest of the page already uses
@@ -708,14 +746,14 @@ export default function GenerateInvitation() {
     || savingGuestFeatures || savingLang;
 
   function goToSection(sectionId) {
-    const idx = SECTIONS.findIndex(s => s.id === sectionId);
+    const idx = sections.findIndex(s => s.id === sectionId);
     if (idx < 0 || idx > unlockedIdx) return;
     setActiveSection(sectionId);
     setTabsExpanded(false);
   }
 
   function advanceTo(sectionId) {
-    const idx = SECTIONS.findIndex(s => s.id === sectionId);
+    const idx = sections.findIndex(s => s.id === sectionId);
     if (idx < 0) return;
     setUnlockedIdx(prev => Math.max(prev, idx));
     setActiveSection(sectionId);
@@ -1250,8 +1288,8 @@ export default function GenerateInvitation() {
     language:  true,
     publish:   event.isPublished,
   };
-  const totalDone = Object.values(sectionComplete).filter(Boolean).length;
-  const pct = Math.round((totalDone / 8) * 100);
+  const totalDone = sections.filter(sec => sectionComplete[sec.id]).length;
+  const pct = Math.round((totalDone / sections.length) * 100);
   const requiredDone = ['people', 'functions', 'publish'].filter(k => sectionComplete[k]).length;
 
   return (
@@ -1299,7 +1337,7 @@ export default function GenerateInvitation() {
 
         {/* Section tabs */}
         <div className="section-tabs">
-          {SECTIONS.map((s, i) => {
+          {sections.map((s, i) => {
             const locked = i > unlockedIdx;
             return (
               <button
@@ -1462,7 +1500,7 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add the couple and family members.</div>
               </div>
             )}
-          <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+          <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1619,7 +1657,7 @@ export default function GenerateInvitation() {
               </div>
             )}
             <SectionNav
-              sections={SECTIONS}
+              sections={sections}
               activeSection={activeSection}
               onBack={goToSection}
               onNext={handleNext}
@@ -1717,7 +1755,7 @@ export default function GenerateInvitation() {
                 <div className="empty-desc">Add venue(s) for your ceremonies.</div>
               </div>
             )}
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1825,7 +1863,7 @@ export default function GenerateInvitation() {
                 )}
               </>
             )}
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1888,7 +1926,7 @@ export default function GenerateInvitation() {
                 })}
               </>
             )}
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1899,9 +1937,14 @@ export default function GenerateInvitation() {
               <div className="section-title">Links & guest features</div>
             </div>
             <p className="page-subtitle" style={{ marginBottom: 16 }}>
-              Add Instagram or YouTube links for guests. Your template HTML supplies the icons; this screen only sets the URLs.
-              Turn off RSVP or guest notes to hide those features on the live invite — templates should wrap RSVP and wish blocks with <strong>rsvp_enabled</strong> and <strong>guest_notes_enabled</strong> (see the template developer guide).
+              {(showGuestOption('instagram') || showGuestOption('hashtag') || showGuestOption('youtube'))
+                ? 'Add the links you want guests to see on your invitation. '
+                : ''}
+              {(showGuestOption('rsvp') || showGuestOption('wishes'))
+                ? 'Switch off anything you do not want guests to use on your live invitation.'
+                : ''}
             </p>
+            {showGuestOption('instagram') && (
             <div className="form-group">
               <label className="form-label">Instagram URL</label>
               <input
@@ -1912,6 +1955,8 @@ export default function GenerateInvitation() {
                 onChange={(e) => setInstagramUrl(e.target.value)}
               />
             </div>
+            )}
+            {showGuestOption('hashtag') && (
             <div className="form-group">
               <label className="form-label">Instagram Hashtag</label>
               <input
@@ -1924,6 +1969,8 @@ export default function GenerateInvitation() {
                 Shown on the invite as <strong>#{instagramHashtag.trim().replace(/^#+/, '') || 'PriyaWedsRahul'}</strong> — type it without the #.
               </div>
             </div>
+            )}
+            {showGuestOption('youtube') && (
             <div className="form-group">
               <label className="form-label">YouTube URL</label>
               <input
@@ -1934,19 +1981,24 @@ export default function GenerateInvitation() {
                 onChange={(e) => setSocialYoutubeUrl(e.target.value)}
               />
             </div>
+            )}
+            {showGuestOption('rsvp') && (
             <div className="form-group" style={{ marginTop: 20 }}>
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input type="checkbox" checked={rsvpEnabled} onChange={(e) => setRsvpEnabled(e.target.checked)} />
                 Show RSVP form on invitation
               </label>
             </div>
+            )}
+            {showGuestOption('wishes') && (
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input type="checkbox" checked={guestNotesEnabled} onChange={(e) => setGuestNotesEnabled(e.target.checked)} />
                 Show guest notes / wishes on invitation
               </label>
             </div>
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            )}
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
@@ -1967,7 +2019,7 @@ export default function GenerateInvitation() {
                 </label>
               ))}
             </div>
-            <SectionNav sections={SECTIONS} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
+            <SectionNav sections={sections} activeSection={activeSection} onBack={goToSection} onNext={handleNext} nextDisabled={nextDisabled} saving={savingActive} />
           </div>
         )}
 
