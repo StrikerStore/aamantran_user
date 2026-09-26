@@ -19,6 +19,7 @@ import { LinkField } from './invite/LinkField';
 import { QrCode } from './invite/QrCode';
 import { EditOverview } from './invite/EditOverview';
 import { toTimeInput, fromTimeInput } from './invite/time';
+import { partialSelectionChanged } from './invite/partialSelection';
 import './InvitationForm.css';
 
 /**
@@ -949,12 +950,19 @@ export default function GenerateInvitation() {
         setSavingFnId(null);
       }
     }
-    // A second link that already exists follows the ticks straight away.
+    // Push tick changes onto a second link that already exists. Skip when the
+    // set is unchanged: that endpoint deletes and recreates the subset's
+    // ceremonies, and guest RSVPs on those rows are deleted with them.
     if (!errors.length && event.invitePairId && partialEnabled) {
-      const selectedIds = [...partialFnIds].map(k => savedIdFor[k] || k).filter(k => k && !String(k).startsWith('new-'));
-      if (selectedIds.length) {
-        try { await api.events.updatePartial(id, { partialFunctionIds: selectedIds }); }
-        catch { errors.push('the second link'); }
+      const selectedIds = [...partialFnIds].map(k => savedIdFor[k] || k);
+      if (partialSelectionChanged(selectedIds, event.pairedEvent?.pairedFunctionIds)) {
+        const ids = selectedIds.filter(k => k && !String(k).startsWith('new-'));
+        try {
+          await api.events.updatePartial(id, { partialFunctionIds: ids });
+          setEvent(e => e?.pairedEvent
+            ? { ...e, pairedEvent: { ...e.pairedEvent, pairedFunctionIds: ids } }
+            : e);
+        } catch { errors.push('the second link'); }
       }
     }
     setSavingAllFns(false);
@@ -1217,12 +1225,13 @@ export default function GenerateInvitation() {
     }
     setPublishing(true);
     try {
-      // If a paired invite already exists, push current partial selection first.
+      // Republishing must not rebuild the second link when the ticks are the
+      // same — that rebuild deletes guest RSVPs on the selected ceremonies.
       if (event.invitePairId && partialEnabled) {
         const selectedIds = functions
           .filter((f) => !f._isNew && f.id && partialFnIds.has(f.id))
           .map((f) => f.id);
-        if (selectedIds.length > 0) {
+        if (partialSelectionChanged(selectedIds, event.pairedEvent?.pairedFunctionIds)) {
           await api.events.updatePartial(id, { partialFunctionIds: selectedIds });
         }
       }
