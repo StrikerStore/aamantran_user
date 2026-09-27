@@ -9,6 +9,7 @@ import { clearToken, getUserInfo } from '../lib/auth';
 import { api } from '../lib/api';
 import { WEBSITE_URL } from '../lib/config';
 import { eventTitle, eventMeta, liveLabel } from '../lib/event';
+import { eventIdToRemember } from '../lib/activeEvent';
 import { useToast } from './ui/Toast';
 import { Modal } from './ui/Modal';
 import './Layout.css';
@@ -106,6 +107,16 @@ export function Layout() {
     setChosenId(ev.id);
     writeStored(ACTIVE_EVENT_KEY, ev.id);
   }, []);
+
+  // Opening /events/:id (a link, a bookmark, or Back) shows that invitation,
+  // but Home reads the stored id. Remember the one in the address once the
+  // list confirms it, or Home / Take offline / reviews keep the previous one.
+  // Adjusted while rendering so the next page already sees the new choice.
+  const rememberedId = eventIdToRemember(routeEventId, mainEvents.map((ev) => ev.id));
+  if (rememberedId && rememberedId !== chosenId) {
+    setChosenId(rememberedId);
+    writeStored(ACTIVE_EVENT_KEY, rememberedId);
+  }
 
   useEffect(() => {
     api.events.list()
