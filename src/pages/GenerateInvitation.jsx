@@ -19,6 +19,7 @@ import { LinkField } from './invite/LinkField';
 import { QrCode } from './invite/QrCode';
 import { EditOverview } from './invite/EditOverview';
 import { toTimeInput, fromTimeInput } from './invite/time';
+import { createSingleFlight } from '../lib/singleFlight';
 import './InvitationForm.css';
 
 /**
@@ -331,6 +332,9 @@ export default function GenerateInvitation() {
   // Why "Next" can't move on yet — shown at the top of the step
   const [flowHint, setFlowHint] = useState('');
   const flowHintRef = useRef(null);
+  // One in-flight save for this page. Next and the step tabs both save, and a
+  // second click before the request returns would create the ceremony or name twice.
+  const saveGateRef = useRef(null);
   const navigate = useNavigate();
 
   // People
@@ -740,15 +744,22 @@ export default function GenerateInvitation() {
    * goes through this first, so nothing typed is ever silently lost.
    * @returns {Promise<boolean>} false when it could not be saved (stay put)
    */
+  function saveOnce(task) {
+    if (!saveGateRef.current) saveGateRef.current = createSingleFlight();
+    return saveGateRef.current(task);
+  }
+
   async function saveActive() {
-    switch (activeSection) {
-      case 'people':    return savePeopleBySchema();
-      case 'functions': return functions.length ? saveAllFunctions() : true;
-      case 'custom':    return saveCustomFields();
-      case 'social':    return saveGuestFeatures();
-      case 'language':  return saveLanguage();
-      default:          return true; // photos save as they upload; overview/publish hold no drafts
-    }
+    return saveOnce(() => {
+      switch (activeSection) {
+        case 'people':    return savePeopleBySchema();
+        case 'functions': return functions.length ? saveAllFunctions() : true;
+        case 'custom':    return saveCustomFields();
+        case 'social':    return saveGuestFeatures();
+        case 'language':  return saveLanguage();
+        default:          return true; // photos save as they upload; overview/publish hold no drafts
+      }
+    });
   }
 
   async function goToSection(sectionId) {
@@ -796,7 +807,7 @@ export default function GenerateInvitation() {
   }
 
   async function confirmNamesAndAdvance() {
-    if (!(await savePeopleBySchema())) return;
+    if (!(await saveOnce(() => savePeopleBySchema()))) return;
     setSavingPerson(true);
     try {
       await api.events.confirmNames(event.id);
@@ -1473,9 +1484,11 @@ export default function GenerateInvitation() {
                 key={s.id}
                 className={`section-tab ${active ? 'active' : ''} ${done ? 'done' : ''} ${locked ? 'locked' : ''}`}
                 aria-current={active ? 'step' : undefined}
-                aria-disabled={locked || undefined}
+                aria-disabled={locked || savingActive || undefined}
+                disabled={savingActive}
                 title={locked ? lockedReason : undefined}
                 onClick={() => {
+                  if (savingActive) return;
                   if (locked) { toast(lockedReason, 'info'); return; }
                   goToSection(s.id);
                 }}
@@ -2302,8 +2315,13 @@ export default function GenerateInvitation() {
                     type="button"
                     className={`steps-sheet-row${active ? ' is-current' : ''}${locked ? ' is-locked' : ''}`}
                     aria-current={active ? 'step' : undefined}
-                    aria-disabled={locked || undefined}
-                    onClick={() => (locked ? toast(lockedReason, 'info') : goToSection(sec.id))}
+                    aria-disabled={locked || savingActive || undefined}
+                    disabled={savingActive}
+                    onClick={() => {
+                      if (savingActive) return;
+                      if (locked) { toast(lockedReason, 'info'); return; }
+                      goToSection(sec.id);
+                    }}
                   >
                     <span className={`step-num${done ? ' is-done' : ''}`} aria-hidden="true">
                       {sec.id === 'overview' ? <Eye size={13} /> : done ? <Check size={14} /> : locked ? <Lock size={12} /> : num}
