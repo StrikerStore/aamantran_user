@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
@@ -6,6 +6,7 @@ import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { toTimeInput, fromTimeInput } from './invite/time';
+import { timelineLoadResult } from './timelineLoad';
 import { Plus, Pencil, Trash2, MapPin, User, Clock, CalendarHeart } from '../components/ui/icons';
 import './Timeline.css';
 
@@ -22,12 +23,33 @@ export default function Timeline() {
   const [functions, setFunctions]   = useState([]);
   const [activeFn, setActiveFn]     = useState(null);
   const [entries, setEntries]       = useState([]);
+  // Which ceremony `entries` was loaded for. A slower response for the ceremony
+  // you just left must not replace the one on screen — those rows would be
+  // edited and deleted under the wrong ceremony's name.
+  const [entriesFor, setEntriesFor] = useState(null);
+  const [entriesError, setEntriesError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading]       = useState(true);
+  const [loadedEventId, setLoadedEventId] = useState(id);
+  // Route changed: drop the previous invitation's ceremonies before paint, so
+  // its tabs and moments are not clickable under the new address.
+  if (loadedEventId !== id) {
+    setLoadedEventId(id);
+    setLoading(true);
+    setFunctions([]);
+    setActiveFn(null);
+    setEntriesFor(null);
+    setEntriesError(false);
+  }
   const [showModal, setShowModal]   = useState(false);
   const [form, setForm]             = useState(BLANK);
   const [editing, setEditing]       = useState(null);
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState(null);
+  // The ceremony on screen. A save that returns after a switch must not mix
+  // its row into the list now showing.
+  const viewRef = useRef({ id, fn: activeFn });
+  viewRef.current = { id, fn: activeFn };
 
   useEffect(() => {
     api.functions.list(id)
@@ -41,25 +63,49 @@ export default function Timeline() {
   }, [id]);
 
   useEffect(() => {
-    if (!activeFn) return;
+    if (!activeFn) return undefined;
+    let live = true;
     api.timeline.list(id)
-      .then(r => setEntries((r.entries || []).filter(e => e.functionId === activeFn)))
-      .catch(() => {});
-  }, [id, activeFn]);
+      .then((r) => {
+        const next = timelineLoadResult(live, id, activeFn, r.entries);
+        if (!next) return;
+        setEntries(next.entries);
+        setEntriesFor(next.entriesFor);
+        setEntriesError(false);
+      })
+      .catch(() => {
+        const next = timelineLoadResult(live, id, activeFn, []);
+        if (!next) return;
+        setEntries(next.entries);
+        setEntriesFor(next.entriesFor);
+        setEntriesError(true);
+      });
+    return () => { live = false; };
+  }, [id, activeFn, reloadKey]);
 
   function openNew() { setForm({ ...BLANK, functionId: activeFn, sortOrder: entries.length }); setEditing(null); setShowModal(true); }
   function openEdit(e) { setForm({ ...e }); setEditing(e.id); setShowModal(true); }
 
+  function stillViewing(eventId, functionId) {
+    return viewRef.current.id === eventId && viewRef.current.fn === functionId;
+  }
+
   async function save() {
     if (!form.time || !form.title) { toast('Add a time and what happens first.', 'error'); return; }
+    const eventId = id;
+    const functionId = activeFn;
     setSaving(true);
     try {
       if (editing) {
-        const r = await api.timeline.update(id, editing, form);
-        setEntries(prev => prev.map(e => e.id === editing ? r.entry : e));
+        const r = await api.timeline.update(eventId, editing, form);
+        if (stillViewing(eventId, functionId)) {
+          setEntries(prev => prev.map(e => e.id === editing ? r.entry : e));
+        }
       } else {
-        const r = await api.timeline.create(id, { ...form, functionId: activeFn });
-        setEntries(prev => [...prev, r.entry]);
+        const r = await api.timeline.create(eventId, { ...form, functionId });
+        if (stillViewing(eventId, functionId)) {
+          setEntries(prev => [...prev, r.entry]);
+        }
       }
       setShowModal(false);
       toast(editing ? 'Saved.' : 'Added to the timeline.', 'success');
@@ -71,16 +117,27 @@ export default function Timeline() {
   }
 
   async function deleteEntry(eid) {
+    const eventId = id;
+    const functionId = activeFn;
     try {
-      await api.timeline.remove(id, eid);
-      setEntries(prev => prev.filter(e => e.id !== eid));
+      await api.timeline.remove(eventId, eid);
+      if (stillViewing(eventId, functionId)) {
+        setEntries(prev => prev.filter(e => e.id !== eid));
+      }
       setDeleting(null);
     } catch (err) {
       toast(err.message, 'error');
     }
   }
 
-  const sorted = [...entries].sort(byTime);
+  const rowsMatch = Boolean(activeFn) && entriesFor?.eventId === id && entriesFor?.functionId === activeFn;
+  const entriesReady = rowsMatch && !entriesError;
+  function retryEntries() {
+    setEntriesError(false);
+    setEntriesFor(null);
+    setReloadKey((k) => k + 1);
+  }
+  const sorted = entriesReady ? [...entries].sort(byTime) : [];
   const activeName = functions.find(f => f.id === activeFn)?.name || 'this ceremony';
 
   if (loading) return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
@@ -93,7 +150,7 @@ export default function Timeline() {
           subtitle="Plan each ceremony hour by hour, so everyone knows what happens when."
           helpMore="/guide#timeline"
           help="Pick a ceremony, then add each moment — guests arrive, pheras, dinner. They sort themselves by time. Only you see this; guests don’t."
-          actions={activeFn ? <button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add a moment</button> : null}
+          actions={entriesReady ? <button type="button" className="btn btn-primary" onClick={openNew}><Plus size={18} aria-hidden="true" /> Add a moment</button> : null}
         />
 
         {functions.length > 0 && (
@@ -127,7 +184,17 @@ export default function Timeline() {
         </div>
       ) : (
         <div className="timeline-body">
-          {sorted.length === 0 ? (
+          {!rowsMatch ? (
+            <div className="loading-center"><div className="spinner spinner-lg" /></div>
+          ) : entriesError ? (
+            <EmptyState
+              icon={Clock}
+              title={`Couldn’t load the plan for ${activeName}`}
+              action={<button type="button" className="btn btn-secondary" onClick={retryEntries}>Try again</button>}
+            >
+              The moments already saved are still there.
+            </EmptyState>
+          ) : sorted.length === 0 ? (
             <EmptyState
               icon={Clock}
               title={`Nothing planned for ${activeName} yet`}
