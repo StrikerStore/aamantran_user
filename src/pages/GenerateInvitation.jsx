@@ -11,6 +11,7 @@ import { ConfirmModal, Modal } from '../components/ui/Modal';
 import { PageSkeleton } from '../components/ui/Skeleton';
 import { InfoTip } from '../components/ui/InfoTip';
 import { eventTitle, eventMeta, eventTypeWord } from '../lib/event';
+import { subsetCopyToRemove } from '../lib/pairedCeremony';
 import {
   Eye, Check, Lock, ArrowLeft, ArrowRight, ChevronLeft, ChevronDown, Users, CalendarHeart, Image as ImageIcon, FileText,
   Sparkles as SparklesIcon, Link2, Plus, MapPin, Trash2, PencilLine, Copy, Share2, Radio, Music,
@@ -967,7 +968,40 @@ export default function GenerateInvitation() {
 
   async function removeFn(fn) {
     try {
-      if (!fn._isNew) await api.functions.remove(id, fn.id);
+      if (!fn._isNew) {
+        // The second link keeps its own ceremony rows, and guests see those.
+        // Delete only that one copy. Rebuilding the whole second link would
+        // drop replies on the ceremonies that are staying.
+        let pairId = null;
+        let copyId = null;
+        if (event.invitePairId) {
+          try {
+            const fresh = await api.events.get(id);
+            const mainFns = fresh.event?.functions || [];
+            const savedName = mainFns.find((f) => f.id === fn.id)?.name;
+            const siblings = mainFns.filter((f) => f.id !== fn.id).map((f) => f.name);
+            pairId = fresh.event?.pairedEvent?.id || null;
+            copyId = subsetCopyToRemove(fresh.event?.pairedEvent?.functions, savedName, siblings);
+          } catch { /* the main ceremony is still removed below */ }
+        }
+        await api.functions.remove(id, fn.id);
+        if (pairId && copyId) {
+          try {
+            await api.functions.remove(pairId, copyId);
+            setEvent((e) => {
+              const copies = e?.pairedEvent?.functions;
+              if (!copies) return e;
+              return {
+                ...e,
+                pairedEvent: {
+                  ...e.pairedEvent,
+                  functions: copies.filter((f) => f.id !== copyId),
+                },
+              };
+            });
+          } catch { /* main ceremony is already gone */ }
+        }
+      }
 
       // A function is identified by `_cid` until it is saved and by `id`
       // afterwards -- never both at once. The previous filter compared the two
